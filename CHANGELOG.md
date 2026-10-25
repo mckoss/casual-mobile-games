@@ -6,6 +6,21 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.88.0
+- Benji's Town: jobs in any order -- blue recycling bins as well as
+  trash, picked up whichever way round, and the dump whenever. Tap a job
+  in the tray to do it next: the camera shows the helper who'll do it,
+  and its button bounces. Every step is a tap (the dog plays in the park
+  till you send them home), and every helper's button stays in view.
+- Benji's Town: yellow dots on the road show the way a helper's going,
+  from above as from the driver's seat.
+- Benji's Town: driving yourself is a switch (the car button, top right),
+  kept -- not by day.
+- Benji's Town: building, a step at a time ("Get some concrete for the
+  foundation", "Now build the walls!"), and it says what you did: "You
+  built a house! Great job!". It talks one line at a time, never over
+  itself. Picking up recycling sounds like cans and paper.
+
 ## 1.87.0
 - Benji's Town: it says what to do next -- "The garbage needs to be
   picked up!", "Time to deliver the mail!", "Time to take the dog for a

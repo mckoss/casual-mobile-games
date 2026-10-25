@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SIZE, isRoad, route, drivePath, nearestRoad, makeTown, dayPlan, jobAt, nextJob, builtBefore, LOTS, PARTS } from '../games/benji/town.js';
+import { SIZE, isRoad, route, drivePath, nearestRoad, makeTown, dayPlan, jobAt, nextJob, canDo, builtBefore, LOTS, PARTS } from '../games/benji/town.js';
 import { tick, partAt, light, sky, WINDOW, NIGHT, DAY } from '../games/benji/clock.js';
 import { walkways, walkDoor, junctions, crossings, isJunction, isLit, lights, mayWalk, walkSignal, zebra, WALK_TIME } from '../games/benji/streets.js';
 import { Traffic, lanePoint, startDir, streetTiles, footprint, body, bump } from '../games/benji/traffic.js';
@@ -34,7 +34,7 @@ test('the town: every place off the streets, on its own tile, with a door on a s
 function playThrough(town) {
   const done = new Set();
   const at = Object.fromEntries(town.helpers.map((h) => [h.id, h.at]));
-  const loaded = {};
+  const loaded = { mixer: false }; // (the mixer starts empty)
   for (let guard = 0; guard < 200 && done.size < town.jobs.length; guard++) {
     for (const h of town.helpers) {
       if (h.kind === 'mixer' && loaded[h.id] === false) {
@@ -83,11 +83,10 @@ test('deliveries in any order, pulling up on any side of the house', () => {
   assert.ok(town.places.find((p) => p.id === 'h6').doors.length >= 2);
 });
 
-test('the days: bins in the morning, the dog in the evening; tapping first, then driving; the town grows as houses are built', () => {
+test('the days: bins in the morning, the dog in the evening; the town grows as houses are built', () => {
   assert.deepEqual(makeTown(1).phases.map((p) => p.part), ['morning', 'evening']);
+  assert.deepEqual(makeTown(1).phases[0].jobs.map((j) => j.kind), ['bin', 'recycle', 'dump']);
   assert.deepEqual(makeTown(1).phases[1].jobs.map((j) => j.kind), ['walk', 'home']);
-  assert.ok(!makeTown(1).drive && !makeTown(3).drive);
-  assert.ok(makeTown(4).drive);
   assert.deepEqual(Object.keys(dayPlan(1).morning), ['garbage']);
   assert.equal(builtBefore(2), 0);
   assert.equal(builtBefore(3), 1);
@@ -98,11 +97,23 @@ test('the days: bins in the morning, the dog in the evening; tapping first, then
   for (let n = 20; n < 30; n++) assert.ok(makeTown(n).phases.length === 3, `day ${n}`);
   // A day is the same every time.
   assert.deepEqual(makeTown(7), makeTown(7));
-  // Bins first, then the dump; the park, then home.
+  // Any order: the recycling before the trash, the dump whenever (the truck
+  // tips out what it has); but the park before home, and a house from the
+  // ground up.
   const one = makeTown(1);
   const truck = one.helpers.find((h) => h.kind === 'garbage');
-  const dump = one.places.find((p) => p.id === 'dump').door;
-  assert.equal(jobAt(one, truck, dump, new Set()), null, 'not the dump till the bins are in');
+  const [trash, recycling, dump] = one.jobs;
+  assert.ok(canDo(one, truck, recycling, new Set()) && canDo(one, truck, trash, new Set([recycling.i])));
+  assert.ok(canDo(one, truck, dump, new Set()));
+  assert.equal(jobAt(one, truck, one.places.find((p) => p.id === 'dump').door, new Set())?.kind, 'dump');
+  assert.equal(nextJob(one, truck, new Set()).kind, 'bin', 'bins first, unless you choose');
+  const walker = { id: 'dog0' };
+  const evening = { ...one, jobs: one.phases[1].jobs };
+  assert.ok(!canDo(evening, walker, evening.jobs[1], new Set()), 'not home before the park');
+  assert.ok(canDo(evening, walker, evening.jobs[1], new Set([evening.jobs[0].i])));
+  const two = makeTown(2);
+  const builds = { ...two, jobs: two.phases[1].jobs };
+  assert.ok(!canDo(builds, { id: 'mixer' }, builds.jobs[2], new Set([builds.jobs[0].i])), 'not the roof before the walls');
   // The post: letters, and every other one a package.
   assert.deepEqual(makeTown(2).jobs.map((j) => j.kind), ['letter', 'parcel', 'letter']);
 });

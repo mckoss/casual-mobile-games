@@ -120,20 +120,38 @@ pictures and a sound for every touch.
   home again; the **cement mixer** builds a house on an empty lot in three
   trips (slab, walls, roof), going back to the yard to load up in between.
   Houses built stay built: the town grows from day to day.
-- Each helper with a job to do has a big round button over
-  it, in its colour, with a picture of its next job (a bin, a letter, the
-  dog, a brick) and a little green "go". Tap the button (or the helper)
-  and it goes to that job by itself; only then does a bouncing arrow in
-  its colour show where (and, once the mail van's out, the houses waiting
-  for a letter or parcel show it). At the job it stops, and its button
-  comes back for the next. Left a moment with nothing going on, it says
+- Each helper that can be sent on a job has a big round button over it,
+  in its colour, with a picture of its next job (a bin, a letter, the dog,
+  a brick) and a little green "go" -- kept in view at the edge of the
+  screen, pointing the way, when the helper's off it. Tap the button (or
+  the helper) and it goes to that job; only then does a bouncing arrow in
+  its colour show where, with yellow dots along the road (or sidewalk) on
+  the way (and, once the mail van's out, the houses waiting for a letter
+  or parcel show it). Every step is a tap: at the job it stops, and its
+  button comes back for the next -- the dog plays in the park till you
+  send them home, the mixer waits empty till you send it for concrete.
+- Jobs in any order: the bins -- trash (green) and recycling (blue) --
+  whichever you like, and the dump whenever the truck has something on
+  board (ticked off when it's all in); the letters and parcels any way
+  round. Only what can't be: home before the park, the walls before the
+  floor. Tap a job in the tray to do that one next: the camera goes to the
+  helper who'll do it, its button bounces with that job's picture, and
+  it's said; press the button to go. Several helpers can be out at once.
+- Done, it says what you did: "You picked up all the garbage!", "You
+  delivered all the mail!", "You took the dog for a walk!", "You built a
+  house! Great job!". The cement mixer starts empty: "Time to build a
+  house! Get some concrete for the foundation." -- then "Now build the
+  foundation!", "Get more concrete for the walls!", and so on.
+- Everything it says comes one line at a time, each after the last (and
+  one that's waited too long, out of date by then, is left out). Left a moment with nothing going on, it says
   what to do next -- "The garbage needs to be picked up!", "Time to
   deliver the mail!", "Time to take the dog for a walk!" -- and that
   helper's button bounces, with a glowing ring, till it's tapped (a
   couple of seconds after each part of the day begins, then every ten
   seconds or so while nobody's busy, each helper in turn; never while
   one's out at work).
-- From day 4, every other day you're the driver. Tap a helper's button ("Let's go!") and the view
+- With the car button (top right, lit) you're the driver -- your
+  choice, kept. Tap a helper's button ("Let's go!") and the view
   drops into its seat: the same little town all round at street level, in
   perspective, from the cab of the garbage truck, the mail van or the
   cement mixer (a dashboard and a steering wheel that turns as you turn) --

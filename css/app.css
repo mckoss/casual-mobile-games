@@ -466,6 +466,11 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .bo-overlay[hidden], .ll-paused[hidden], .pause-card[hidden] { display: none; }
 .pause-card { z-index: 4; cursor: pointer; }
 .el-screen .icon-btn svg { fill: currentColor; }
+/* Benji's Town: the car button -- lit when you drive them yourself. */
+.bt-screen .bar { gap: 8px; }
+.bt-screen h2 { flex: 1; }
+.bt-drive { font-size: 24px; opacity: .4; filter: grayscale(1); }
+.bt-drive[aria-pressed="true"] { opacity: 1; filter: none; background: rgba(255, 209, 102, .55); }
 .el-screen .el-music.off { opacity: .4; }
 .el-hist { display: block; width: 100%; height: auto; margin: 4px 0 6px; }
 .el-stats { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 6px; }

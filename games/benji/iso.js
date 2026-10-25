@@ -399,10 +399,10 @@ export function tree(x, y, size = 1) {
 }
 
 // A wheelie bin, out for collection.
-export function bin(x, y) {
+export function bin(x, y, recycling = false) {
   const m = new Model(x, y);
-  m.box(-0.06, -0.06, 0, 0.06, 0.06, 0.17, '#2a9d8f');
-  m.box(-0.07, -0.07, 0.17, 0.07, 0.07, 0.2, '#21867a');
+  m.box(-0.06, -0.06, 0, 0.06, 0.06, 0.17, recycling ? '#3a86ff' : '#2a9d8f');
+  m.box(-0.07, -0.07, 0.17, 0.07, 0.07, 0.2, recycling ? '#2667cc' : '#21867a');
   return m;
 }
 

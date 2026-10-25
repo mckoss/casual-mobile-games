@@ -608,12 +608,14 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
     for (const part of ['midday', 'evening', 'night', 'dawn']) assert.ok(parts.includes(part), `${part} came (${parts})`);
     assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:benji:day')), '2');
     assert.match(await page.locator('.bt-screen h2').textContent(), /^Day 2/);
-    // A driving day: tap a helper and you're in the driver's seat. Any
+    // Driving: tap a helper and you're in the driver's seat. Any
     // arrow and you're off (it goes the way to the job by itself, unless you
     // choose); every press is answered -- at the job you stop till the next.
-    await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:day', '4'));
+    // (Driving's yours to choose: the car button, top right -- kept.)
+    await page.locator('.bt-screen [data-act=drive]').click();
+    assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:benji:drive')), 'true');
     await page.reload();
-    await page.waitForFunction(() => window.__benji?.town.drive && window.__benji.part);
+    await page.waitForFunction(() => window.__benji?.drive && window.__benji.part);
     await page.evaluate(() => {
       window.__said = [];
       const p = window.__benji;

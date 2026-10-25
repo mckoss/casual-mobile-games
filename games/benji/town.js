@@ -142,31 +142,30 @@ export function nearestRoad(px, py) {
 // morning, at midday and in the evening (then night falls, and it's the
 // next morning), a few more as the days go by, and houses built stay
 // built. Each part of the day: some jobs, by helper --
-//   garbage: bins out at that many houses -- collect them, then to the dump
+//   garbage: bins out at that many houses -- every other one recycling --
+//            to pick up, in any order, and take to the dump
 //   mail:    that many letters and packages to deliver (every other one a
 //            package)
 //   dog:     a walk to the park and home
 //   build:   a house to build on the next lot (three trips)
-// -- and from day 4, on the days marked drive, you drive them yourself, from
-// the driver's seat (tapping, they go by themselves).
+// (Whether you drive them yourself or watch them go is yours to choose.)
 export const PARTS = ['morning', 'midday', 'evening'];
 const DAYS = [
   { morning: { garbage: 2 }, evening: { dog: 1 } },
   { morning: { mail: 3 }, midday: { build: 1 } },
   { morning: { garbage: 3 }, midday: { mail: 2 }, evening: { dog: 1 } },
-  { morning: { garbage: 2 }, midday: { build: 1 }, evening: { dog: 1 }, drive: true },
+  { morning: { garbage: 2 }, midday: { build: 1 }, evening: { dog: 1 } },
   { morning: { garbage: 3, mail: 2 }, midday: { mail: 2 }, evening: { dog: 1 } },
-  { morning: { mail: 3 }, midday: { build: 1 }, evening: { dog: 1 }, drive: true },
+  { morning: { mail: 3 }, midday: { build: 1 }, evening: { dog: 1 } },
 ];
 export function dayPlan(day) {
   if (day <= DAYS.length) return DAYS[day - 1];
-  // After those, a bit of everything -- driving every other day.
+  // After those, a bit of everything.
   const k = day - DAYS.length;
   return {
     morning: { garbage: 2 + (k % 2), mail: 2 + ((k >> 1) % 2) },
     midday: k % 3 === 0 ? { build: 1 } : { mail: 2 },
     evening: { dog: 1 },
-    drive: k % 2 === 1,
   };
 }
 
@@ -217,8 +216,8 @@ export function makeTown(n) {
     const jobs = [];
     if (p.garbage) {
       helper({ id: 'garbage', kind: 'garbage', at: by('dump').door, home: 'dump' });
-      for (const h of pick(homes, p.garbage)) jobs.push({ helper: 'garbage', kind: 'bin', place: h.id });
-      jobs.push({ helper: 'garbage', kind: 'dump', place: 'dump', last: true });
+      pick(homes, p.garbage).forEach((h, k) => jobs.push({ helper: 'garbage', kind: k % 2 ? 'recycle' : 'bin', place: h.id }));
+      jobs.push({ helper: 'garbage', kind: 'dump', place: 'dump' });
     }
     if (p.mail) {
       helper({ id: 'mail', kind: 'mail', at: by('post').door, home: 'post' });
@@ -237,24 +236,31 @@ export function makeTown(n) {
     jobs.forEach((j, i) => (j.i = i));
     phases.push({ part, jobs });
   }
-  return { n, day: n, plan, drive: !!plan.drive, places, helpers, phases, jobs: phases[0].jobs };
+  return { n, day: n, plan, places, helpers, phases, jobs: phases[0].jobs };
 }
 
-// A helper's next job: the first not done (in order; bins nearest first is
-// the player's choice, so any bin will do -- see jobAt).
-export const nextJob = (town, helper, done) => town.jobs.find((j) => j.helper === helper.id && !done.has(j.i)
-  && !(j.last && town.jobs.some((o) => o.helper === helper.id && !o.last && !done.has(o.i))));
-
-// The job a helper can do at a street tile, if any: one of its own, not
-// done, whose place's door is that tile (a "last" job only once the rest
-// are done; building stages in order).
-export function jobAt(town, helper, tile, done) {
+// Can a helper do this job now (wherever it is)? Its own, not done: any
+// bin, letter or parcel in any order (and the dump whenever the truck has
+// something on board -- see play.js); but home from the park only after the
+// walk, and a house's stages in order.
+export function canDo(town, helper, job, done) {
+  if (job.helper !== helper.id || done.has(job.i)) return false;
   const mine = town.jobs.filter((j) => j.helper === helper.id && !done.has(j.i));
-  const rest = mine.filter((j) => !j.last);
-  for (const j of mine) {
-    if (j.last && rest.length) continue;
-    if (j.kind === 'build' && mine.some((o) => o.kind === 'build' && o.place === j.place && o.stage < j.stage)) continue;
-    if (j.kind === 'home' && mine.some((o) => o.kind === 'walk')) continue;
+  if (job.last && mine.some((o) => !o.last)) return false;
+  if (job.kind === 'build' && mine.some((o) => o.kind === 'build' && o.place === job.place && o.stage < job.stage)) return false;
+  if (job.kind === 'home' && mine.some((o) => o.kind === 'walk')) return false;
+  return true;
+}
+
+// A helper's next job, unless you choose another: the first it can do (bins
+// before the dump, the walk before home, a house from the ground up).
+export const nextJob = (town, helper, done) => town.jobs.find((j) => canDo(town, helper, j, done)) || null;
+
+// The job a helper can do at a street tile, if any: one it can do now,
+// whose place is beside that tile.
+export function jobAt(town, helper, tile, done) {
+  for (const j of town.jobs) {
+    if (!canDo(town, helper, j, done)) continue;
     const { doors } = town.places.find((p) => p.id === j.place);
     if (doors.some((d) => d.x === tile.x && d.y === tile.y)) return j;
   }

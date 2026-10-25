@@ -46,8 +46,8 @@ function tone(type, f0, f1, dur, vol, at = 0, filter = 0) {
   o.stop(t + dur + 0.05);
 }
 
-function thump(vol, dur, cutoff) {
-  const t = ac.currentTime;
+function thump(vol, dur, cutoff, at = 0) {
+  const t = ac.currentTime + at;
   const src = ac.createBufferSource();
   src.buffer = noise;
   const f = ac.createBiquadFilter();
@@ -190,6 +190,22 @@ const SFX = {
   clink: () => {
     tone('sine', 2650, 2650, 0.25, 0.06);
     tone('sine', 3980, 3980, 0.18, 0.035);
+  },
+  // Benji's Town: a recycling bin tipped into the truck -- cans tumbling
+  // in, one after another (a tin's clatter: short, not quite in tune), and
+  // the rustle of paper going in with them.
+  cans: () => {
+    [0, 0.07, 0.13, 0.22, 0.3, 0.41, 0.5].forEach((at, k) => {
+      const f = 1350 + ((k * 437) % 900);
+      tone('triangle', f, f * 0.96, 0.07, 0.05, at);
+      tone('sine', f * 2.37, f * 2.3, 0.05, 0.025, at);
+    });
+    for (const at of [0.02, 0.18, 0.34]) thump(0.07, 0.22, 7000, at);
+  },
+  // ... and a bin of trash bags: a soft, heavy thud or two.
+  bags: () => {
+    thump(0.5, 0.22, 500);
+    thump(0.3, 0.18, 380, 0.16);
   },
   // Elevator: a lift arriving (the classic two-tone chime), and someone
   // stepping out where they wanted to be.
