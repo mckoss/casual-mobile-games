@@ -578,6 +578,8 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
       return p.goButtons().map((b) => ({ id: b.h.id, x: r.left + b.x, y: r.top + b.y }));
     });
     await page.waitForFunction(() => window.__benji.goButtons().length === 1);
+    // (Left a moment, it says what to do -- and that button bounces.)
+    await page.waitForFunction(() => window.__benji.hint?.h.id === 'garbage', null, { timeout: 8000 });
     let pressed = 0;
     for (let k = 0; k < 150 && !(await page.evaluate(() => window.__benji.won)); k++) {
       for (const b of await buttons()) {

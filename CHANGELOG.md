@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.87.0
+- Benji's Town: it says what to do next -- "The garbage needs to be
+  picked up!", "Time to deliver the mail!", "Time to take the dog for a
+  walk!" -- and that helper's button bounces with a glowing ring till
+  it's tapped. A moment after each part of the day begins, then now and
+  then while nobody's busy.
+
 ## 1.86.0
 - Benji's Town: no more levels -- one town that goes on from day to day
   (and is kept). Jobs in the morning, at midday and in the evening; then

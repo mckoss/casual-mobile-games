@@ -436,6 +436,31 @@ export class Play {
     this.calm = 9;
     this.resize();
     this.hooks.say?.({ morning: 'Good morning!', midday: 'Lunch time!', evening: 'Good evening!' }[phase.part]);
+    // (And then, in a moment, what to do first.)
+    this.idle = 0;
+    this.prompt = 2;
+  }
+
+  // What to do next, said out loud -- and that helper's button bouncing,
+  // with a ring round it: a moment after a part of the day begins, and
+  // whenever nobody's busy and there are buttons waiting (now and then,
+  // not on and on), each helper in turn.
+  suggest(dt) {
+    const waiting = this.goButtons();
+    const busy = this.helpers.some((h) => (h.path.length && !h.budging) || h.pause > 0 || h.deliver);
+    if (this.fp || this.won || !waiting.length || busy) {
+      this.idle = 0;
+      return;
+    }
+    this.idle = (this.idle || 0) + dt;
+    if (this.idle < (this.prompt ?? 6)) return;
+    const k = (waiting.findIndex((b) => b.h === this.hint?.h) + 1) % waiting.length;
+    const h = waiting[k].h;
+    this.hint = { h, t: this.t };
+    this.idle = 0;
+    this.prompt = 10;
+    const kind = h.kind === 'mixer' && !h.loaded ? 'load' : nextJob(this.town, h, this.done).kind;
+    this.hooks.say?.({ bin: 'The garbage needs to be picked up!', dump: 'Time to take the garbage to the dump!', letter: 'Time to deliver the mail!', parcel: 'Time to deliver the mail!', walk: 'Time to take the dog for a walk!', home: 'Time to take the dog home!', build: 'Time to build a house!', load: 'Time to fill up the cement mixer!' }[kind]);
   }
 
   // Night falls: everyone home to bed.
@@ -639,6 +664,9 @@ export class Play {
   // driver.
   start(h) {
     h.hop = 1;
+    if (this.hint?.h === h) this.hint = null;
+    this.idle = 0;
+    this.prompt = 6;
     if (this.town.drive) this.enter(h);
     else {
       this.send(h);
@@ -981,6 +1009,7 @@ export class Play {
     this.t += dt;
     this.traffic.t = this.t;
     this.passTime(dt);
+    this.suggest(dt);
     if (this.fp) this.fpSteer(dt);
     const move = (m) => {
       if (m.pause > 0) {
@@ -1346,8 +1375,18 @@ export class Play {
   drawGo() {
     const { g } = this;
     for (const b of this.goButtons()) {
-      const r = b.r * (1 + Math.sin(this.t * 5) * 0.06);
+      // (The one just suggested: bouncing, with a glowing ring.)
+      const hinted = this.hint?.h === b.h;
+      const hop = hinted ? Math.abs(Math.sin(this.t * 6)) * Math.max(0.35, 1 - (this.t - this.hint.t) / 3) : 0;
+      b.y -= hop * 12;
+      const r = b.r * (1 + Math.sin(this.t * 5) * 0.06) * (hinted ? 1.15 : 1);
       const c = COLORS[b.h.kind];
+      if (hinted) {
+        g.fillStyle = `rgba(255,209,102,${0.45 + 0.3 * Math.sin(this.t * 8)})`;
+        g.beginPath();
+        g.arc(b.x, b.y, r + 9, 0, Math.PI * 2);
+        g.fill();
+      }
       g.fillStyle = 'rgba(0,0,0,0.18)';
       g.beginPath();
       g.arc(b.x, b.y + 3, r, 0, Math.PI * 2);

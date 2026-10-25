@@ -126,7 +126,13 @@ pictures and a sound for every touch.
   and it goes to that job by itself; only then does a bouncing arrow in
   its colour show where (and, once the mail van's out, the houses waiting
   for a letter or parcel show it). At the job it stops, and its button
-  comes back for the next.
+  comes back for the next. Left a moment with nothing going on, it says
+  what to do next -- "The garbage needs to be picked up!", "Time to
+  deliver the mail!", "Time to take the dog for a walk!" -- and that
+  helper's button bounces, with a glowing ring, till it's tapped (a
+  couple of seconds after each part of the day begins, then every ten
+  seconds or so while nobody's busy, each helper in turn; never while
+  one's out at work).
 - From day 4, every other day you're the driver. Tap a helper's button ("Let's go!") and the view
   drops into its seat: the same little town all round at street level, in
   perspective, from the cab of the garbage truck, the mail van or the

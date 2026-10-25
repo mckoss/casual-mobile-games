@@ -26,10 +26,17 @@ export const LINES = [
   'Lunch time!',
   'Good evening!',
   'Goodnight!',
+  'The garbage needs to be picked up!',
+  'Time to take the garbage to the dump!',
+  'Time to deliver the mail!',
+  'Time to take the dog for a walk!',
+  'Time to take the dog home!',
+  'Time to build a house!',
+  'Time to fill up the cement mixer!',
 ];
 
 // The lines recorded so far. (Rewritten by tools/benji-voice.py.)
-export const RECORDED = ['Tap a truck!', 'Tap a truck and drive it!', 'Let’s go!', 'Left!', 'Right!', 'Straight on!', 'Turn around!', 'Which way?', 'Wait for green!', 'Wait! Someone’s crossing.', 'Wait for the car!', 'Red light. Stop!', 'Green light. Go!', 'Wait for the walking man!', 'Walk!', 'Here’s your letter!', 'A package for you!', 'Yay! Great job!', 'Good morning!', 'Lunch time!', 'Good evening!', 'Goodnight!'];
+export const RECORDED = ['Tap a truck!', 'Tap a truck and drive it!', 'Let’s go!', 'Left!', 'Right!', 'Straight on!', 'Turn around!', 'Which way?', 'Wait for green!', 'Wait! Someone’s crossing.', 'Wait for the car!', 'Red light. Stop!', 'Green light. Go!', 'Wait for the walking man!', 'Walk!', 'Here’s your letter!', 'A package for you!', 'Yay! Great job!', 'Good morning!', 'Lunch time!', 'Good evening!', 'Goodnight!', 'The garbage needs to be picked up!', 'Time to take the garbage to the dump!', 'Time to deliver the mail!', 'Time to take the dog for a walk!', 'Time to take the dog home!', 'Time to build a house!', 'Time to fill up the cement mixer!'];
 
 // A line's file name: 'Red light. Stop!' -> red-light-stop.
 export const slug = (text) => text.toLowerCase().replace(/’/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
