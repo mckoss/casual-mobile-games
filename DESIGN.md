@@ -40,8 +40,11 @@ README says what the games are; this says how they're meant to play.
 For a three-year-old (Benji, who loves cars): no reading, no losing, big
 pictures and a sound for every touch.
 
-- A little town on a 9 x 9 grid: three streets each way, and between them
-  houses, the post office, the dump, the builders' yard, the park, a shop,
+- A little town on a 13 x 13 grid: three streets each way, three tiles
+  apart (room to queue between the corners), each running on two tiles
+  past its last corner to a turning circle at the edge of town -- round an
+  island with a little tree, keeping it on your left, instead of a U-turn.
+  Between them houses, the post office, the dump, the builders' yard, the park, a shop,
   a café and empty lots (the post office's sign a red postbox 📮, so it
   isn't mistaken for a house waiting for a letter ✉️). Cars and people
   potter about; tap one and it honks or hops. A job at a place is done
@@ -71,12 +74,21 @@ pictures and a sound for every touch.
   street's show their backs. Cars stop at the line on red,
   and people wait at the curb for the little walking man -- the red hand
   blinks when it's about to change, and nobody starts out then. At the
-  other intersections cars go through one at a time. Everywhere, a car
-  waits for anyone on a crosswalk it's about to drive over, and people
-  don't step out while a car is going over theirs. Cars keep to the
-  right-hand lane and queue behind each other; a truck parked at a door
-  stops clear of the crosswalk, and after a moment a held-up car squeezes
-  by, so nothing ever gridlocks. When a helper is held up at a red light,
+  other intersections cars go through one at a time; at the lights, only
+  cars coming the same way, or from opposite ways both going straight on,
+  go through together (no turning across anyone, and a truck turning
+  swings wide). Everywhere, a car waits for anyone on a crosswalk it's
+  about to drive over, and people don't step out while a car is going
+  over theirs. Cars keep to the right-hand lane and queue behind each
+  other; no car ever drives into another (each is a box the size it's
+  drawn), and none goes into an intersection without room to get out of
+  it, or past a car waiting there ahead of it. Cars never turn round in
+  the street: going somewhere behind them, they go round the block, and
+  only down the end of a street to a door there. A truck parked at a door
+  stops clear of the crosswalk; held up behind one, a car pulls up behind
+  it if that's where it was going, or waits -- and a helper with nothing
+  to do that's in the way drives off home, to the end of its street, so
+  nothing ever gridlocks. When a helper is held up at a red light,
   the town says so: "Red light. Stop!" ... "Green light. Go!" (or "Wait
   for the walking man!" ... "Walk!").
 - Helpers with jobs, shown in a tray of pictures that tick off: the
@@ -90,9 +102,14 @@ pictures and a sound for every touch.
   home again; the **cement mixer** builds a house on an empty lot in three
   trips (slab, walls, roof), going back to the yard to load up in between.
   Houses built stay built: the town grows from level to level.
-- Levels 1-5: tap a helper and it goes to its next job by itself (a
-  bouncing arrow in its colour shows where).
-- From level 6 you're the driver. Tap a helper ("Let's go!") and the view
+- Levels 1-5: each helper with a job to do has a big round button over
+  it, in its colour, with a picture of its next job (a bin, a letter, the
+  dog, a brick) and a little green "go". Tap the button (or the helper)
+  and it goes to that job by itself; only then does a bouncing arrow in
+  its colour show where (and, once the mail van's out, the houses waiting
+  for a letter or parcel show it). At the job it stops, and its button
+  comes back for the next.
+- From level 6 you're the driver. Tap a helper's button ("Let's go!") and the view
   drops into its seat: the same little town all round at street level, in
   perspective, from the cab of the garbage truck, the mail van or the
   cement mixer (a dashboard and a steering wheel that turns as you turn) --
@@ -112,8 +129,8 @@ pictures and a sound for every touch.
   with, after a job), ▲ takes you on to the corner.
   Walking the dog, you keep going (round the bends, the way to the job)
   and ◀ ▲ ▶ choose where the way next divides, a smaller arrow on the
-  sidewalk there. At a dead end (the edge of town) you
-  turn round by yourself, and it's said ("Turn around!") -- no reverse
+  sidewalk there. At the end of a street (the edge of town) you go
+  round the turning circle by yourself, and it's said ("Turn around!") -- no reverse
   gear to get stuck in; the arrows fade till there's a corner ahead. At
   each job you stop: the arrows fade while it's done, then ▲ glows for
   the next. A finger dragged across the windshield looks round

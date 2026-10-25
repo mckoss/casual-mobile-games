@@ -6,6 +6,20 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.85.0
+- Benji's Town: a big round button over each helper with a job to do,
+  showing a picture of its next job -- tap it to start. The arrow to where
+  it's going (and the letters and parcels the houses are waiting for)
+  shows only once it's on its way.
+- Benji's Town: a bigger town -- the streets three tiles apart, with room
+  to queue between the corners, and a turning circle at the end of every
+  street, round an island with a tree, instead of U-turns.
+- Benji's Town: cars and trucks never drive into each other: they queue
+  bumper to bumper, don't go into an intersection without room to get
+  out, never turn across each other at the lights, and go round the block
+  rather than turning round in the street. A helper with nothing to do
+  that's in the way drives off home.
+
 ## 1.84.2
 - Water Lab: a calmer map -- no arrowheads on the pour lines (each line's
   direction already says which beaker poured into which; the compass

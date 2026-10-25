@@ -4,11 +4,11 @@
 // Every street has a sidewalk down each side, on the verge just off the
 // road. People walk only on the sidewalks, round the corners of each block,
 // and cross the street only on the crosswalks: one on each arm of every
-// intersection (bar most dead ends off the edge of town), just back from it. Some intersections have traffic lights,
+// intersection, just back from it. Some intersections have traffic lights,
 // east-west and north-south taking turns; cars stop at red, and people wait
 // for the walk signal (and don't start out when it's about to change). At
 // the others, cars take turns and give way to anyone on the crosswalk.
-import { SIZE, isRoad } from './town.js';
+import { SIZE, ROADS, isRoad } from './town.js';
 
 export const PAD = 0.09; // the sidewalk's middle, out from the road's edge
 export const CROSS = 0.25; // the crosswalk's middle, back from the intersection
@@ -23,7 +23,7 @@ export function junctions() {
   return list;
 }
 // The intersections with traffic lights: corner to corner across town.
-const LIT = ['1,1', '4,4', '7,7'];
+const LIT = ROADS.map((r) => `${r},${r}`);
 export const isLit = (x, y) => LIT.includes(`${x},${y}`);
 
 // Does the street run north-south here (or east-west)?
@@ -36,13 +36,19 @@ export function armOf(j, t) {
   return t.x < j.x ? 'w' : 'e';
 }
 
-// Is a street tile at the edge of town (a dead end)?
+// Is a street tile at the edge of town (a dead end, with its turning circle)?
 export const atEdge = (x, y) => (runsNS(x, y) ? y === 0 || y === SIZE - 1 : x === 0 || x === SIZE - 1);
-// Is there a crosswalk across this street tile, by its intersection? Not
-// on the dead ends (a parked truck needs all the room), but for one on each
-// corner block, its way out.
-const WAY_OUT = ['1,0', '8,1', '1,8', '7,8'];
-export const hasCrossing = (x, y) => !atEdge(x, y) || WAY_OUT.includes(`${x},${y}`);
+// Is there a crosswalk across this street tile, by its intersection? (Every
+// arm of every intersection has one.)
+export const hasCrossing = (x, y) => !atEdge(x, y);
+
+// The turning circle at the end of a street (tile t, the street going out
+// to the edge of town that way, d): its middle, the island's radius and the
+// paving's. Cars go round it keeping the island on their left.
+export const CIRCLE = { at: 0.45, ring: 0.38, island: 0.2, paved: 0.55 };
+export function circleAt(t, d) {
+  return { x: t.x + 0.5 + d.x * (CIRCLE.at - 0.5), y: t.y + 0.5 + d.y * (CIRCLE.at - 0.5) };
+}
 
 // The crosswalks: { ix, iy (the intersection), arm, walk (the way people
 // walk over it: 'ew' across a north-south street) }.

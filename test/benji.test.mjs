@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SIZE, isRoad, route, nearestRoad, makeTown, levelPlan, jobAt, nextJob, builtBefore, LOTS } from '../games/benji/town.js';
+import { SIZE, isRoad, route, drivePath, nearestRoad, makeTown, levelPlan, jobAt, nextJob, builtBefore, LOTS } from '../games/benji/town.js';
 import { walkways, walkDoor, junctions, crossings, isJunction, isLit, lights, mayWalk, walkSignal, zebra, WALK_TIME } from '../games/benji/streets.js';
-import { Traffic, lanePoint, startDir, streetTiles, footprint } from '../games/benji/traffic.js';
+import { Traffic, lanePoint, startDir, streetTiles, footprint, body, bump } from '../games/benji/traffic.js';
 
 test('the town: every place off the streets, on its own tile, with a door on a street, all joined up', () => {
   const town = makeTown(1);
@@ -25,7 +25,7 @@ test('the town: every place off the streets, on its own tile, with a door on a s
     assert.deepEqual(r[r.length - 1], p.door);
     for (let k = 1; k < r.length; k++) assert.equal(Math.abs(r[k].x - r[k - 1].x) + Math.abs(r[k].y - r[k - 1].y), 1, 'a step at a time');
   }
-  assert.deepEqual(nearestRoad(0.4, 1.6), { x: 0, y: 1 });
+  assert.deepEqual(nearestRoad(0.4, 2.6), { x: 0, y: 2 });
 });
 
 // Plays a level the way tapping does: each helper in turn to its next job
@@ -123,7 +123,7 @@ test('the sidewalks: off the streets except at the crosswalks, all joined up, on
     }
   });
   assert.equal(count / 2, crossings().length);
-  assert.equal(crossings().length, junctions().length * 4 - 12 + 4, 'a crosswalk on every arm of every intersection (bar most dead ends)');
+  assert.equal(crossings().length, junctions().length * 4, 'a crosswalk on every arm of every intersection');
   const town = makeTown(10);
   const spots = town.places.map((p) => walkDoor(w, p));
   for (const p of town.places) {
@@ -156,19 +156,23 @@ test('the lights: the two ways take turns, with all red between; walk with the t
   }
 });
 
-// Runs the town's traffic for a while -- cars and people going all over --
+// Runs the town's traffic for a while -- cars and people going all over,
+// and some (like the helpers) parking for a long while now and then --
 // checking the rules every step.
-function traffic(seconds, cars = 6, people = 8, seed = 1) {
+function traffic(seconds, cars = 6, people = 8, seed = 1, parkers = 0) {
   let s = seed;
   const rand = () => ((s = (s * 1103515245 + 12345) >>> 0) / 2 ** 32);
   const w = walkways();
-  const tr = new Traffic(w);
   const streets = streetTiles(SIZE);
   const anyStreet = () => streets[Math.floor(rand() * streets.length)];
-  for (let k = 0; k < cars; k++) {
-    const tile = anyStreet();
+  const tr = new Traffic(w);
+  const taken = new Set();
+  for (let k = 0; k < cars + parkers; k++) {
+    let tile = anyStreet();
+    while (taken.has(`${tile.x},${tile.y}`)) tile = anyStreet();
+    for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) taken.add(`${tile.x + dx},${tile.y + dy}`);
     const dir = startDir(tile);
-    tr.cars.push({ tile, dir, ...lanePoint(tile, dir), path: [], trips: 0, patience: 2 });
+    tr.cars.push({ tile, dir, ...lanePoint(tile, dir), path: [], trips: 0, patience: 2, len: k % 2 ? 0.29 : 0.38, parker: k >= cars, rest: 0 });
   }
   for (let k = 0; k < people; k++) {
     const node = Math.floor(rand() * w.nodes.length);
@@ -179,8 +183,13 @@ function traffic(seconds, cars = 6, people = 8, seed = 1) {
   for (let t = 0; t < seconds; t += dt) {
     tr.t = t;
     for (const c of tr.cars) {
+      if (c.rest > 0) {
+        c.rest -= dt;
+        continue;
+      }
       if (!c.path.length) {
-        c.path = route(c.tile, anyStreet()).slice(1);
+        if (c.parker && c.trips % 2) c.rest = 8 + rand() * 12;
+        c.path = drivePath(c.tile, c.dir, anyStreet()).slice(1);
         c.trips++;
       }
       const before = c.pass;
@@ -214,6 +223,13 @@ function traffic(seconds, cars = 6, people = 8, seed = 1) {
       }
       if (p.crossing) assert.ok(!tr.carsOn(p.crossing) || was, 'no car on the crosswalk as they start');
     }
+    // No car ever in another.
+    for (let i = 0; i < tr.cars.length; i++) {
+      for (let j = i + 1; j < tr.cars.length; j++) {
+        const [a, b] = [tr.cars[i], tr.cars[j]];
+        assert.ok(!bump(body(a), body(b)), `cars at ${a.x.toFixed(2)},${a.y.toFixed(2)} and ${b.x.toFixed(2)},${b.y.toFixed(2)} overlap at ${t.toFixed(2)}`);
+      }
+    }
     // Nobody on a crosswalk while a car is going over it.
     for (const p of tr.people) {
       if (!p.crossing) continue;
@@ -230,11 +246,43 @@ function traffic(seconds, cars = 6, people = 8, seed = 1) {
 
 test('the traffic: cars stop at red and go on green (or take turns), people cross on the walk signal, never both on a crosswalk -- and everyone gets where they are going', () => {
   for (const seed of [1, 2, 3]) {
-    const { tr, seen } = traffic(240, 6, 10, seed);
+    const { tr, seen } = traffic(240, 6, 10, seed, 2);
     assert.ok(seen.entries > 50 && seen.crossings > 30 && seen.zebra > 10 && seen.waits > 0, JSON.stringify(seen));
-    for (const c of tr.cars) assert.ok(c.trips >= 5, `every car keeps going (${c.trips} trips)`);
+    for (const c of tr.cars) assert.ok(c.trips >= (c.parker ? 3 : 5), `every car keeps going (${c.trips} trips)`);
     for (const p of tr.people) assert.ok(p.trips >= 3, `everyone keeps walking (${p.trips} trips)`);
   }
+});
+
+test('the end of a street: round the turning circle (the island on the left), and back the other way; no car goes down one unless it is going there', async () => {
+  const { circleAt, CIRCLE, atEdge } = await import('../games/benji/streets.js');
+  const tr = new Traffic(walkways());
+  for (const [from, out] of [[{ x: 2, y: 3 }, { x: 0, y: -1 }], [{ x: 9, y: 10 }, { x: 1, y: 0 }]]) {
+    const dir = out;
+    const car = { tile: from, dir, ...lanePoint(from, dir), path: [], len: 0.38 };
+    tr.cars = [car];
+    const edge = { x: out.x ? 12 : from.x, y: out.y ? 0 : from.y };
+    assert.ok(atEdge(edge.x, edge.y));
+    car.path = drivePath(from, dir, edge).slice(1);
+    let left = 0;
+    for (let k = 0; k < 600 && car.path.length; k++) {
+      const was = car.head;
+      tr.drive(car, 1.8, 1 / 30);
+      if (car.round) left += Math.atan2(Math.sin(car.head - was), Math.cos(car.head - was));
+      // (Always on the street, or on the circle.)
+      const o = circleAt(edge, out);
+      assert.ok(isRoad(Math.floor(car.x), Math.floor(car.y)) || Math.hypot(car.x - o.x, car.y - o.y) < CIRCLE.paved, `${car.x},${car.y}`);
+      assert.ok(Math.hypot(car.x - o.x, car.y - o.y) > CIRCLE.island + 0.14, `clear of the island ${car.x.toFixed(2)},${car.y.toFixed(2)} ${k}`);
+    }
+    assert.equal(car.path.length, 0);
+    assert.deepEqual(car.tile, edge);
+    assert.deepEqual(car.dir, { x: -out.x, y: -out.y }, 'facing back into town');
+    assert.ok(Math.abs(Math.cos(car.head) + out.x) < 0.2 && Math.abs(Math.sin(car.head) + out.y) < 0.2, 'and lined up');
+    assert.ok(left < -2.5, `round to the left (${left})`);
+  }
+  // (Cars out for a drive never go down the end of a street; nor through one.)
+  for (const t of streetTiles(SIZE)) assert.ok(!atEdge(t.x, t.y) && t.x > 1 && t.y > 1 && t.x < SIZE - 2 && t.y < SIZE - 2);
+  const way = drivePath({ x: 3, y: 2 }, { x: 1, y: 0 }, { x: 3, y: 6 });
+  assert.ok(way.every((t) => t.y >= 2 && t.x >= 2), 'round the block, not round the circle');
 });
 
 test('the voice: every line it says is listed (to be recorded), and every recording it claims is there', async () => {
@@ -279,12 +327,12 @@ test('driving yourself: following the turn shown, from where each helper starts,
       assert.ok(steps < 80, `${h.kind} from ${h.at.x},${h.at.y} to ${p.id}`);
     }
   }
-  // Nothing ahead but a dead end: round, and back.
+  // Nothing ahead but the end of the street: round the circle, and back.
   const on = ahead;
-  assert.deepEqual(on({ x: 0, y: 1 }, { x: -1, y: 0 }), [{ x: 1, y: 1 }, { x: 2, y: 1 }]);
+  assert.deepEqual(on({ x: 0, y: 2 }, { x: -1, y: 0 }), [{ x: 1, y: 2 }, { x: 2, y: 2 }, { x: 3, y: 2 }]);
   // At an intersection, out the way you're turning.
-  assert.deepEqual(on({ x: 2, y: 1 }, { x: -1, y: 0 }, 'left'), [{ x: 1, y: 1 }, { x: 1, y: 2 }]);
-  assert.deepEqual(on({ x: 2, y: 1 }, { x: -1, y: 0 }, 'right'), [{ x: 1, y: 1 }, { x: 1, y: 0 }]);
+  assert.deepEqual(on({ x: 3, y: 2 }, { x: -1, y: 0 }, 'left'), [{ x: 2, y: 2 }, { x: 2, y: 3 }]);
+  assert.deepEqual(on({ x: 3, y: 2 }, { x: -1, y: 0 }, 'right'), [{ x: 2, y: 2 }, { x: 2, y: 1 }]);
 });
 
 test('walking the dog yourself: following the turn shown gets you to the park and home, and only crosses at crosswalks', async () => {

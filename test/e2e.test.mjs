@@ -560,12 +560,6 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     await page.locator('[data-game=benji]').click();
     await page.locator('.lvl[data-n="1"]').click();
     await page.waitForFunction(() => window.__benji);
-    // Where each helper is on screen (the camera glides about, so asked
-    // afresh each time).
-    const spots = () => page.evaluate(() => {
-      const p = window.__benji;
-      return p.helpers.map((h) => ({ id: h.id, busy: h.path.length > 0 || h.pause > 0, ...p.screenOf(h.x, h.y, 0.25) }));
-    });
     // The turn buttons turn the town a quarter at a time.
     const turn = await page.evaluate(() => {
       const p = window.__benji;
@@ -574,11 +568,25 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     });
     await page.mouse.click(turn.x, turn.y);
     await page.waitForFunction(() => window.__benji.rot === 1 && !window.__benji.spin);
-    // Level 1: tap the garbage truck, again and again, till the jobs are done.
+    // Level 1: a button over the garbage truck for its next job (and no
+    // arrow to where till it's started); tap it, again and again, till the
+    // jobs are done.
+    const buttons = () => page.evaluate(() => {
+      const p = window.__benji;
+      const r = p.canvas.getBoundingClientRect();
+      return p.goButtons().map((b) => ({ id: b.h.id, x: r.left + b.x, y: r.top + b.y }));
+    });
+    await page.waitForFunction(() => window.__benji.goButtons().length === 1);
+    let pressed = 0;
     for (let k = 0; k < 150 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
-      for (const h of await spots()) if (!h.busy) await page.mouse.click(h.x, h.y);
+      for (const b of await buttons()) {
+        await page.mouse.click(b.x, b.y);
+        pressed++;
+        assert.ok(await page.evaluate(() => window.__benji.helpers[0].path.length > 0 || window.__benji.helpers[0].pause > 0), 'off it goes');
+      }
       await page.waitForTimeout(400);
     }
+    assert.ok(pressed >= 3, `a press for each job (${pressed})`);
     await page.locator('.dialog:not([hidden])').waitFor({ timeout: 20000 });
     assert.equal(await page.locator('.dialog .stars i.on').count(), 3, 'three stars, always');
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:benji:progress')));

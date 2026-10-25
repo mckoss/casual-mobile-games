@@ -1,37 +1,51 @@
 // Benji's Town: the town and its jobs. (No DOM: tested in Node.)
 //
-// The town is a 9 x 9 grid of tiles: three streets each way, and between
-// them blocks of places -- houses, the post office, the dump, the builders'
+// The town is a 13 x 13 grid of tiles: three streets each way, three tiles
+// apart (room to queue between the corners), each running on two tiles past
+// its last corner to a turning circle at the edge of town; and between them
+// blocks of places -- houses, the post office, the dump, the builders'
 // yard, the park and lots to build on. Every place has a door on a street.
 // Helpers (the garbage truck, the postal worker's van, a dog walker, the cement mixer)
 // drive or walk along the streets to do the level's jobs.
 
-export const SIZE = 9;
-const ROADS = [1, 4, 7]; // the rows and columns that are streets
+export const SIZE = 13;
+export const ROADS = [2, 6, 10]; // the rows and columns that are streets
 
 export const isRoad = (x, y) => x >= 0 && y >= 0 && x < SIZE && y < SIZE && (ROADS.includes(x) || ROADS.includes(y));
 
+// The end of a street past its last corner, out to the turning circle at
+// the edge of town (only for going to a door there): which one ('n2' -- the
+// north end of the street at x = 2 -- and so on), or null.
+export function stubOf(x, y) {
+  const [lo, hi] = [ROADS[0], ROADS[ROADS.length - 1]];
+  if (ROADS.includes(x) && (y < lo || y > hi)) return `${y < lo ? 'n' : 's'}${x}`;
+  if (ROADS.includes(y) && (x < lo || x > hi)) return `${x < lo ? 'w' : 'e'}${y}`;
+  return null;
+}
+
 // The places, by tile, each with its door: the street tile next to it.
 const PLACES = [
-  { id: 'post', kind: 'post', x: 2, y: 0 },
-  { id: 'dump', kind: 'dump', x: 8, y: 8 },
-  { id: 'yard', kind: 'yard', x: 0, y: 8 },
-  { id: 'park', kind: 'park', x: 5, y: 5, w: 2, h: 2 },
-  { id: 'h1', kind: 'home', x: 0, y: 0, color: '#ff6b6b' },
-  { id: 'h2', kind: 'home', x: 5, y: 0, color: '#ffd166' },
-  { id: 'h3', kind: 'home', x: 8, y: 2, color: '#4cc9f0' },
-  { id: 'h4', kind: 'home', x: 2, y: 3, color: '#b388ff' },
-  { id: 'h5', kind: 'home', x: 3, y: 2, color: '#06d6a0' },
-  { id: 'h6', kind: 'home', x: 0, y: 5, color: '#f78c6b' },
-  { id: 'h7', kind: 'home', x: 3, y: 8, color: '#ff8fab' },
-  { id: 'h8', kind: 'home', x: 8, y: 5, color: '#ffd166' },
-  { id: 'shop', kind: 'shop', x: 6, y: 2 },
-  { id: 'cafe', kind: 'cafe', x: 2, y: 6 },
+  { id: 'post', kind: 'post', x: 3, y: 1 },
+  { id: 'dump', kind: 'dump', x: 11, y: 11 },
+  { id: 'yard', kind: 'yard', x: 1, y: 11 },
+  { id: 'park', kind: 'park', x: 7, y: 7, w: 2, h: 2 },
+  { id: 'h1', kind: 'home', x: 1, y: 1, color: '#ff6b6b' },
+  { id: 'h2', kind: 'home', x: 7, y: 1, color: '#ffd166' },
+  { id: 'h3', kind: 'home', x: 11, y: 3, color: '#4cc9f0' },
+  { id: 'h4', kind: 'home', x: 3, y: 5, color: '#b388ff' },
+  { id: 'h5', kind: 'home', x: 5, y: 3, color: '#06d6a0' },
+  { id: 'h6', kind: 'home', x: 1, y: 7, color: '#f78c6b' },
+  { id: 'h7', kind: 'home', x: 5, y: 11, color: '#ff8fab' },
+  { id: 'h8', kind: 'home', x: 11, y: 7, color: '#ffd166' },
+  { id: 'h9', kind: 'home', x: 9, y: 9, color: '#a0c4ff' },
+  { id: 'h10', kind: 'home', x: 3, y: 3, color: '#ffadad' },
+  { id: 'shop', kind: 'shop', x: 9, y: 3 },
+  { id: 'cafe', kind: 'cafe', x: 3, y: 9 },
   // Lots to build on: each becomes a house, in turn, as the town grows.
-  { id: 'lot1', kind: 'lot', x: 3, y: 5, color: '#90be6d' },
-  { id: 'lot2', kind: 'lot', x: 5, y: 8, color: '#f9c74f' },
-  { id: 'lot3', kind: 'lot', x: 8, y: 0, color: '#577590' },
-  { id: 'lot4', kind: 'lot', x: 6, y: 3, color: '#f3722c' },
+  { id: 'lot1', kind: 'lot', x: 5, y: 7, color: '#90be6d' },
+  { id: 'lot2', kind: 'lot', x: 7, y: 11, color: '#f9c74f' },
+  { id: 'lot3', kind: 'lot', x: 11, y: 1, color: '#577590' },
+  { id: 'lot4', kind: 'lot', x: 9, y: 5, color: '#f3722c' },
 ];
 export const LOTS = PLACES.filter((p) => p.kind === 'lot').map((p) => p.id);
 
@@ -53,8 +67,9 @@ function doorsOf(p) {
 }
 
 // The shortest way along the streets from one street tile to another: the
-// tiles in order (both ends included).
-export function route(from, to) {
+// tiles in order (both ends included) -- not through any tile in avoid (keys
+// "x,y"). No way there: just [to].
+export function route(from, to, avoid = null) {
   const key = (t) => t.y * SIZE + t.x;
   const prev = new Map([[key(from), null]]);
   const queue = [from];
@@ -63,7 +78,7 @@ export function route(from, to) {
     if (t.x === to.x && t.y === to.y) break;
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const n = { x: t.x + dx, y: t.y + dy };
-      if (!isRoad(n.x, n.y) || prev.has(key(n))) continue;
+      if (!isRoad(n.x, n.y) || prev.has(key(n)) || avoid?.has(`${n.x},${n.y}`)) continue;
       prev.set(key(n), t);
       queue.push(n);
     }
@@ -71,6 +86,40 @@ export function route(from, to) {
   const path = [];
   for (let t = to; t; t = prev.get(key(t))) path.unshift(t);
   return path;
+}
+
+// The shortest way for a car in street tile from, facing dir, to drive to
+// another: on along the street, turning only at intersections (and round
+// at a dead end) -- no turning round in the middle of the street. The
+// tiles in order (both ends included). (Round the turning circle at the end
+// of a street; but not down the end of a street unless it's going there.)
+export function drivePath(from, dir, to) {
+  const junction = (x, y) => isRoad(x + 1, y) && isRoad(x - 1, y) && isRoad(x, y + 1) && isRoad(x, y - 1);
+  const key = (t, d) => `${t.x},${t.y},${d.x},${d.y}`;
+  const start = { t: from, d: dir, prev: null };
+  const seen = new Set([key(from, dir)]);
+  const queue = [start];
+  while (queue.length) {
+    const s = queue.shift();
+    if (s.t.x === to.x && s.t.y === to.y) {
+      const path = [];
+      for (let q = s; q; q = q.prev) path.unshift(q.t);
+      return path;
+    }
+    const ways = [];
+    const { x, y } = s.d;
+    if (junction(s.t.x, s.t.y)) ways.push(s.d, { x: y, y: -x }, { x: -y, y: x });
+    else ways.push(isRoad(s.t.x + x, s.t.y + y) ? s.d : { x: -x, y: -y });
+    for (const d of ways) {
+      const t = { x: s.t.x + d.x, y: s.t.y + d.y };
+      if (!isRoad(t.x, t.y) || seen.has(key(t, d))) continue;
+      const stub = stubOf(t.x, t.y);
+      if (stub && stub !== stubOf(s.t.x, s.t.y) && stub !== stubOf(to.x, to.y)) continue;
+      seen.add(key(t, d));
+      queue.push({ t, d, prev: s });
+    }
+  }
+  return route(from, to);
 }
 
 // The street tile nearest a point (in tiles).

@@ -9,8 +9,8 @@
 // a time with the buttons at the bottom. The camera follows the action:
 // close in on a helper while it's off on a job, back out to see everyone
 // when it's done. Drag the ground to look about.
-import { SIZE, isRoad, route, nearestRoad, jobAt, nextJob } from './town.js';
-import { walkways, walkDoor, nearestWalk, junctions, crossings, isJunction, isLit, lights, walkSignal, armOf } from './streets.js';
+import { SIZE, isRoad, drivePath, jobAt, nextJob } from './town.js';
+import { walkways, walkDoor, junctions, crossings, isJunction, isLit, lights, walkSignal, armOf, atEdge, circleAt, CIRCLE } from './streets.js';
 import { Traffic, lanePoint, startDir, streetTiles } from './traffic.js';
 import { ahead, driveTurn, onFrom, walkAhead, walkTurn } from './steer.js';
 import * as D from './draw.js';
@@ -52,7 +52,7 @@ export class Play {
     const parked = (tile, dir = startDir(tile)) => ({ tile, dir, ...lanePoint(tile, dir) });
     this.helpers = town.helpers.map((h) => ({
       ...h, ...(h.kind === 'walker' ? onFoot(this.spot.get(h.home)) : parked(h.at)), tile: h.at,
-      path: [], face: 1, pause: 0, hop: 0, loaded: true, load: 0, patience: 1.2,
+      path: [], face: 1, pause: 0, hop: 0, loaded: true, load: 0, patience: 1.2, len: 0.38,
     }));
     // Life in the town: cars and people out and about.
     const r = (() => {
@@ -63,15 +63,27 @@ export class Play {
     this.streets = streetTiles(SIZE);
     const anyStreet = () => this.streets[Math.floor(r() * this.streets.length)];
     const anyWhere = () => Math.floor(r() * this.walk.nodes.length);
+    // (The cars start parked clear of each other, and of the helpers.)
+    const taken = new Set();
+    const clear = (t) => {
+      for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) taken.add(`${t.x + dx},${t.y + dy}`);
+      return t;
+    };
+    for (const h of this.helpers) if (h.kind !== 'walker') clear(h.tile);
+    const freeStreet = () => {
+      let t = anyStreet();
+      for (let k = 0; k < 50 && taken.has(`${t.x},${t.y}`); k++) t = anyStreet();
+      return clear(t);
+    };
     this.ambient = [
-      { kind: 'car', color: '#ef476f' }, { kind: 'car', color: '#118ab2' }, { kind: 'car', color: '#8338ec' },
-      { kind: 'person', color: PEOPLE[0] }, { kind: 'person', color: PEOPLE[1] }, { kind: 'person', color: PEOPLE[2] }, { kind: 'person', color: PEOPLE[3] },
+      { kind: 'car', color: '#ef476f' }, { kind: 'car', color: '#118ab2' }, { kind: 'car', color: '#8338ec' }, { kind: 'car', color: '#06d6a0' },
+      { kind: 'person', color: PEOPLE[0] }, { kind: 'person', color: PEOPLE[1] }, { kind: 'person', color: PEOPLE[2] }, { kind: 'person', color: PEOPLE[3] }, { kind: 'person', color: PEOPLE[1] },
     ].map((a, k) => ({
-      ...a, id: `a${k}`, ...(a.kind === 'car' ? parked(anyStreet()) : onFoot(anyWhere())), path: [], face: 1, pause: r() * 2, hop: 0,
+      ...a, id: `a${k}`, ...(a.kind === 'car' ? { ...parked(freeStreet()), len: 0.29 } : onFoot(anyWhere())), path: [], face: 1, pause: r() * 2, hop: 0,
     }));
     this.anyStreet = anyStreet;
     this.anyWhere = anyWhere;
-    this.traffic = new Traffic(this.walk);
+    this.traffic = new Traffic(this.walk, (o) => this.budge(o));
     const movers = [...this.helpers, ...this.ambient];
     this.traffic.cars = movers.filter((m) => m.kind !== 'walker' && m.kind !== 'person');
     this.traffic.people = movers.filter((m) => m.kind === 'walker' || m.kind === 'person');
@@ -181,7 +193,7 @@ export class Play {
     if (h.kind === 'garbage') {
       const bins = left.filter((j) => j.kind === 'bin');
       if (bins.length) {
-        const dist = (j) => route(h.tile, this.near(h, this.place(j.place))).length;
+        const dist = (j) => this.way(h, this.near(h, this.place(j.place))).length;
         return this.place(bins.reduce((a, b) => (dist(b) < dist(a) ? b : a)).place);
       }
     }
@@ -197,8 +209,25 @@ export class Play {
   // The nearest street tile beside a place (any of them will do).
   near(h, p) {
     if (h.kind === 'walker' || p.doors.length < 2) return p.door;
-    const dist = (d) => route(h.tile, d).length;
+    const dist = (d) => this.way(h, d).length;
     return p.doors.reduce((a, b) => (dist(b) < dist(a) ? b : a));
+  }
+
+  // The way a helper would drive to a street tile, from where it is and the
+  // way it's facing.
+  way(h, to) {
+    return drivePath(h.tile, h.dir, to);
+  }
+
+  // A helper with nothing to do, parked in the way of other cars: off home
+  // (to the end of its street, out of everyone's way). (Not yours, nor one
+  // busy with a job: they'll be going on in a moment.)
+  budge(o) {
+    if (!this.helpers.includes(o) || this.fp?.h === o || o.path.length || o.pause > 0 || o.deliver) return;
+    const home = this.place(o.home).door;
+    if (o.tile.x === home.x && o.tile.y === home.y) return;
+    o.path = this.way(o, home).slice(1);
+    o.budging = true;
   }
 
   // Tap mode: off it goes to its next job.
@@ -214,7 +243,8 @@ export class Play {
       if (!h.path.length) this.reached(h, h.node);
       return;
     }
-    h.path = route(h.tile, this.near(h, p)).slice(1);
+    h.budging = false;
+    h.path = this.way(h, this.near(h, p)).slice(1);
     if (!h.path.length) this.arrive(h, h.tile);
   }
 
@@ -226,7 +256,7 @@ export class Play {
 
   // At a street tile: a job to do here?
   arrive(h, tile) {
-    h.tile = tile;
+    if (h.kind === 'walker') h.tile = tile;
     if (h.kind === 'mixer' && !h.loaded) {
       if (this.place('yard').doors.some((d) => d.x === tile.x && d.y === tile.y)) {
         h.loaded = true;
@@ -389,6 +419,12 @@ export class Play {
         return;
       }
       if (sy > this.viewH) return;
+      // A helper's button, over it: off it goes on its next job.
+      const go = this.goButtons().find((b) => Math.hypot(b.x - sx, b.y - sy) < b.r + 10);
+      if (go) {
+        this.start(go.h);
+        return;
+      }
       // The nearest helper (or passer-by) within reach of the finger.
       const reach = Math.max(30, this.view.k * 0.55);
       const near = (list) => list.map((h) => {
@@ -397,16 +433,11 @@ export class Play {
       }).filter((o) => o.d < reach).sort((a, c) => a.d - c.d)[0]?.h;
       const h = near(this.helpers);
       if (h) {
-        h.hop = 1;
-        // Tap one to send it off (the early levels) -- or to be its driver.
-        if (this.town.drive) {
-          if (this.targetPlace(h) && !this.won && h.pause <= 0) this.enter(h);
-          else this.hooks.sfx?.('tap');
-        } else if (!h.path.length && h.pause <= 0) {
-          this.send(h);
-          this.focus = h;
-          this.manual = 0;
-        } else this.hooks.sfx?.('tap');
+        if (this.ready(h)) this.start(h);
+        else {
+          h.hop = 1;
+          this.hooks.sfx?.('tap');
+        }
         return;
       }
       const a = near(this.ambient);
@@ -507,6 +538,47 @@ export class Play {
     return true;
   }
 
+  // Is a helper waiting to be started on its next job (its button showing)?
+  ready(h) {
+    return !this.won && !this.fp && !h.path.length && h.pause <= 0 && !h.deliver && !!this.targetPlace(h);
+  }
+
+  // Has a helper started on its job (so where it's going shows)?
+  started(h) {
+    return this.fp?.h === h || (h.path.length > 0 && !h.budging) || h.pause > 0 || !!h.deliver;
+  }
+
+  // Off on its next job: by itself (the early levels) -- or you're its
+  // driver.
+  start(h) {
+    h.hop = 1;
+    if (this.town.drive) this.enter(h);
+    else {
+      this.send(h);
+      this.focus = h;
+      this.manual = 0;
+    }
+  }
+
+  // The buttons over the helpers waiting to start, where they are on the
+  // screen: { h, x, y, r, icon }.
+  goButtons() {
+    if (this.fp) return [];
+    const { view } = this;
+    const r = clamp(view.k * 0.3, 20, 30);
+    return this.helpers.filter((h) => this.ready(h)).map((h) => {
+      const at = view.at(h.x, h.y, h.kind === 'walker' ? 0.55 : 0.7);
+      return at && { h, x: at[0], y: at[1] - r - 10, r, icon: this.nextIcon(h) };
+    }).filter(Boolean);
+  }
+
+  // The picture of a helper's next job (on its button).
+  nextIcon(h) {
+    if (h.kind === 'mixer' && !h.loaded) return '🪣';
+    const j = nextJob(this.town, h, this.done);
+    return j.kind === 'build' && j.stage === 3 ? '🏠' : ICONS[j.kind];
+  }
+
   // Says something (but not the same thing again straight away).
   tell(line) {
     if (line === this.told && this.t - this.toldT < 1.5) return;
@@ -518,6 +590,7 @@ export class Play {
   // Into the driver's seat of a helper (or the dog walker's shoes).
   enter(h) {
     h.path = [];
+    h.budging = false;
     this.fp = { h, go: false, v: 0, intent: null, hint: null, head: h.head, look: 0, lookT: 0, drag: null, away: 0, out: null, wheel: 0, done: 0, wait: null, held: null, waited: 0, last: h.kind === 'walker' ? h.node : h.tile };
     this.focus = h;
     this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : 'honk');
@@ -564,9 +637,9 @@ export class Play {
       f.go = false;
       this.tell('Which way?');
     }
-    // Turning round (at a dead end): say so.
+    // Turning round (the circle at the end of the street): say so.
     const n = h.path[0];
-    const round = h.kind !== 'walker' && !!n && n.x - h.tile.x === -h.dir.x && n.y - h.tile.y === -h.dir.y;
+    const round = h.kind !== 'walker' && !!n && atEdge(n.x, n.y) && (n.x !== h.tile.x || n.y !== h.tile.y);
     if (round && !f.round && f.v > 0.1) this.tell('Turn around!');
     f.round = round && f.v > 0.1;
     // Looked round: back to looking ahead, a moment after letting go.
@@ -838,7 +911,9 @@ export class Play {
         if (node !== null && helper) this.reached(m, node);
       } else {
         const tile = this.traffic.drive(m, speed, dt);
-        if (tile && helper) this.arrive(m, tile);
+        // (Jobs as it gets to them -- not on its way home out of the way.)
+        if (tile && helper && !m.budging) this.arrive(m, tile);
+        if (!m.path.length) m.budging = false;
       }
     };
     for (const h of this.helpers) {
@@ -875,7 +950,7 @@ export class Play {
     }
     for (const a of this.ambient) {
       if (!a.path.length && a.pause <= 0) {
-        if (a.kind === 'car') a.path = route(a.tile, this.anyStreet()).slice(1);
+        if (a.kind === 'car') a.path = drivePath(a.tile, a.dir, this.anyStreet()).slice(1);
         else a.path = this.walk.route(a.node, this.anyWhere()).slice(1);
         a.pause = 0.5 + this.rand() * 2;
       }
@@ -884,8 +959,10 @@ export class Play {
     }
     // (Where you are now: the way on, and what the buttons would do.)
     if (this.fp) this.plan(this.fp);
-    // Everyone turns smoothly to face the way they're going.
+    // Everyone on foot turns smoothly to face the way they're going. (Cars
+    // and trucks: the traffic turns them, as they go.)
     for (const m of [...this.helpers, ...this.ambient]) {
+      if (this.traffic.cars.includes(m)) continue;
       const dx = m.x - m.px;
       const dy = m.y - m.py;
       if (dx * dx + dy * dy > 1e-8) {
@@ -954,7 +1031,8 @@ export class Play {
       }
       o.draw(alpha);
     }
-    this.overlays(view, this.helpers.filter((h) => !h.path.length && h.pause <= 0));
+    this.overlays(view, this.helpers.filter((h) => h.path.length > 0 && !h.budging));
+    this.drawGo();
     g.restore();
     this.drawTray(false);
   }
@@ -1096,15 +1174,63 @@ export class Play {
     g.restore();
   }
 
-  // Arrows over where the helpers (those given) are going next, and the
-  // letters and parcels houses are waiting for; little pictures popping up
-  // where a job was done.
+  // The buttons over the helpers waiting to start: a round button in the
+  // helper's colour, with its next job's picture, pulsing gently, and a
+  // little green "go" in the corner.
+  drawGo() {
+    const { g } = this;
+    for (const b of this.goButtons()) {
+      const r = b.r * (1 + Math.sin(this.t * 5) * 0.06);
+      const c = COLORS[b.h.kind];
+      g.fillStyle = 'rgba(0,0,0,0.18)';
+      g.beginPath();
+      g.arc(b.x, b.y + 3, r, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = c;
+      g.beginPath();
+      g.moveTo(b.x - r * 0.35, b.y + r * 0.8);
+      g.lineTo(b.x, b.y + r + 9);
+      g.lineTo(b.x + r * 0.35, b.y + r * 0.8);
+      g.fill();
+      g.beginPath();
+      g.arc(b.x, b.y, r, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.arc(b.x, b.y, r * 0.78, 0, Math.PI * 2);
+      g.fill();
+      g.font = `${Math.round(r * 0.95)}px system-ui, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(b.icon, b.x, b.y + 1);
+      const [gx, gy, gr] = [b.x + r * 0.72, b.y - r * 0.72, r * 0.42];
+      g.fillStyle = '#2ecc71';
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(gx, gy, gr, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#ffffff';
+      g.beginPath();
+      g.moveTo(gx - gr * 0.3, gy - gr * 0.45);
+      g.lineTo(gx + gr * 0.5, gy);
+      g.lineTo(gx - gr * 0.3, gy + gr * 0.45);
+      g.closePath();
+      g.fill();
+    }
+  }
+
+  // Arrows over where the helpers (those given) are going, and -- once the
+  // mail van's started -- the letters and parcels houses are waiting for;
+  // little pictures popping up where a job was done.
   overlays(view, pointing) {
     const { g } = this;
     const bob = Math.sin(this.t * 5) * 0.06;
     const size = (x, y, z) => Math.min(150, view.scale(x, y, z));
     const waiting = new Map();
-    for (const j of this.town.jobs) if (!this.done.has(j.i) && (j.kind === 'letter' || j.kind === 'parcel')) waiting.set(j.place, ICONS[j.kind]);
+    const mail = this.helpers.find((h) => h.kind === 'mail');
+    for (const j of this.town.jobs) if (mail && this.started(mail) && !this.done.has(j.i) && (j.kind === 'letter' || j.kind === 'parcel')) waiting.set(j.place, ICONS[j.kind]);
     for (const p of this.town.places) {
       if (!waiting.has(p.id)) continue;
       const [x, y, z] = [p.x + (p.w || 1) / 2, p.y + (p.h || 1) / 2, 0.75];
@@ -1189,6 +1315,12 @@ export class Play {
     return sx > -k * 1.3 && sx < this.W + k * 1.3 && sy > -k * 0.7 && sy < this.viewH + k * 1.3;
   }
 
+  // Which way the street at the edge of town (x, y) goes out of it.
+  outOf(x, y) {
+    if (isRoad(x, y - 1) || isRoad(x, y + 1)) return { x: 0, y: y === 0 ? -1 : 1 };
+    return { x: x === 0 ? -1 : 1, y: 0 };
+  }
+
   // The ground: the places' yards, the sidewalks and streets, the middle
   // lines, crosswalks and stop lines.
   drawGround(view) {
@@ -1205,9 +1337,17 @@ export class Play {
     for (const [x, y] of roads) R(x - W, y - W, x + 1 + W, y + 1 + W, '#b5bac2');
     for (const [x, y] of roads) R(x - W + 0.02, y - W + 0.02, x + 1 + W - 0.02, y + 1 + W - 0.02, '#e1e4e9');
     for (const [x, y] of roads) R(x - 0.003, y - 0.003, x + 1.003, y + 1.003, '#5d6470');
+    // The turning circles at the ends of the streets, round an island.
+    for (const [x, y] of roads) {
+      if (!atEdge(x, y)) continue;
+      const o = circleAt({ x, y }, this.outOf(x, y));
+      I.disc(g, view, o.x, o.y, CIRCLE.paved, CIRCLE.paved, '#5d6470', 0.001);
+      I.disc(g, view, o.x, o.y, CIRCLE.island + 0.03, CIRCLE.island + 0.03, '#e1e4e9', 0.004);
+      I.disc(g, view, o.x, o.y, CIRCLE.island, CIRCLE.island, '#6cc04a', 0.006);
+    }
     const white = '#f8f9fa';
     for (const [x, y] of roads) {
-      if (isJunction(x, y)) continue;
+      if (isJunction(x, y) || atEdge(x, y)) continue;
       const ns = isRoad(x, y - 1) || isRoad(x, y + 1);
       const a = (ns ? isJunction(x, y - 1) : isJunction(x - 1, y)) ? 0.44 : 0;
       const b = (ns ? isJunction(x, y + 1) : isJunction(x + 1, y)) ? 0.56 : 1;
@@ -1295,9 +1435,13 @@ export class Play {
         model(I.bin(cx + (p.door.x - p.x) * 0.4, cy + (p.door.y - p.y) * 0.4));
       }
     }
-    // Trees where there's nothing else.
+    // Trees where there's nothing else -- and a little one on each island.
     for (let x = 0; x < SIZE; x++) {
       for (let y = 0; y < SIZE; y++) {
+        if (isRoad(x, y) && atEdge(x, y)) {
+          const o = circleAt({ x, y }, this.outOf(x, y));
+          model(I.tree(o.x, o.y, 0.55), 0.45);
+        }
         if (isRoad(x, y) || taken.has(y * SIZE + x)) continue;
         model(I.tree(x + 0.32, y + 0.36, 1), 0.75);
         model(I.tree(x + 0.7, y + 0.68, 0.8), 0.6);
