@@ -549,7 +549,7 @@ test('breakout: locks orientation where possible, pauses on rotation where not',
   }
 });
 
-test('benji’s town: tap the helpers and they do their jobs; later, drive them from the driver\'s seat; a big yay at the end', { skip: !chromium, timeout: 120000 }, async () => {
+test('benji’s town: tap the helpers and they do their jobs, morning to evening; night falls and it\'s the next day; later, drive them from the driver\'s seat', { skip: !chromium, timeout: 180000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
   try {
@@ -557,9 +557,10 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     await page.goto(`http://localhost:${server.address().port}/`);
+    // Straight into the town (no levels): day 1, at dawn.
     await page.locator('[data-game=benji]').click();
-    await page.locator('.lvl[data-n="1"]').click();
     await page.waitForFunction(() => window.__benji);
+    assert.match(await page.locator('.bt-screen h2').textContent(), /^Day 1/);
     // The turn buttons turn the town a quarter at a time.
     const turn = await page.evaluate(() => {
       const p = window.__benji;
@@ -568,9 +569,9 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     });
     await page.mouse.click(turn.x, turn.y);
     await page.waitForFunction(() => window.__benji.rot === 1 && !window.__benji.spin);
-    // Level 1: a button over the garbage truck for its next job (and no
-    // arrow to where till it's started); tap it, again and again, till the
-    // jobs are done.
+    // The morning: a button over the garbage truck for its next job (and
+    // no arrow to where till it's started); tap it, again and again, till
+    // the morning's jobs are done.
     const buttons = () => page.evaluate(() => {
       const p = window.__benji;
       const r = p.canvas.getBoundingClientRect();
@@ -578,7 +579,7 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     });
     await page.waitForFunction(() => window.__benji.goButtons().length === 1);
     let pressed = 0;
-    for (let k = 0; k < 150 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
+    for (let k = 0; k < 150 && !(await page.evaluate(() => window.__benji.won)); k++) {
       for (const b of await buttons()) {
         await page.mouse.click(b.x, b.y);
         pressed++;
@@ -587,17 +588,30 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
       await page.waitForTimeout(400);
     }
     assert.ok(pressed >= 3, `a press for each job (${pressed})`);
-    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 20000 });
-    assert.equal(await page.locator('.dialog .stars i.on').count(), 3, 'three stars, always');
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:benji:progress')));
-    assert.equal(saved.unlocked, 2);
-    // A driving level: tap a helper and you're in the driver's seat. Any
+    assert.equal(await page.evaluate(() => window.__benji.part.part), 'morning');
+    // On through the day (faster, for the test): the dog in the evening,
+    // then night falls -- everyone home -- and it's the next morning, kept.
+    await page.evaluate(() => {
+      window.__benji.speed = 6;
+      window.__parts = [];
+      const p = window.__benji;
+      const on = p.hooks.onPart;
+      p.hooks.onPart = (w) => (window.__parts.push(w), on?.(w));
+    });
+    for (let k = 0; k < 300 && (await page.evaluate(() => window.__benji.town.day)) === 1; k++) {
+      for (const b of await buttons()) await page.mouse.click(b.x, b.y);
+      await page.waitForTimeout(250);
+    }
+    const parts = await page.evaluate(() => window.__parts);
+    for (const part of ['midday', 'evening', 'night', 'dawn']) assert.ok(parts.includes(part), `${part} came (${parts})`);
+    assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:benji:day')), '2');
+    assert.match(await page.locator('.bt-screen h2').textContent(), /^Day 2/);
+    // A driving day: tap a helper and you're in the driver's seat. Any
     // arrow and you're off (it goes the way to the job by itself, unless you
     // choose); every press is answered -- at the job you stop till the next.
-    await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:progress', JSON.stringify({ unlocked: 6, stars: {} })));
-    await page.goto(`http://localhost:${server.address().port}/#/benji/6`);
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:day', '4'));
     await page.reload();
-    await page.waitForFunction(() => window.__benji?.town.drive);
+    await page.waitForFunction(() => window.__benji?.town.drive && window.__benji.part);
     await page.evaluate(() => {
       window.__said = [];
       const p = window.__benji;
@@ -613,7 +627,7 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     let seated = false;
     let turned = false;
     let faded = false;
-    for (let k = 0; k < 400 && !(await page.locator('.dialog:not([hidden])').count()); k++) {
+    for (let k = 0; k < 400 && !(await page.evaluate(() => window.__benji.won)); k++) {
       const st = await page.evaluate(() => {
         const p = window.__benji;
         const h = p.fp?.h || p.helpers.find((m) => p.targetPlace(m));
@@ -669,7 +683,7 @@ test('benji’s town: tap the helpers and they do their jobs; later, drive them 
     assert.ok(turned, 'a turn chosen, shown and said');
     assert.ok(faded, 'a press during a job does nothing');
     assert.ok(seated, 'drove it from the driver\'s seat');
-    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 20000 });
+    assert.ok(await page.evaluate(() => window.__benji.won), 'the morning\'s jobs done');
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

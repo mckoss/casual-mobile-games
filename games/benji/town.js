@@ -136,54 +136,60 @@ export function nearestRoad(px, py) {
   return best;
 }
 
-// ------------------------------------------------------------------ levels
+// -------------------------------------------------------------------- days
 
-// Each level: some jobs, and whether you tap the helpers (they go by
-// themselves) or drive them yourself, from the driver's seat.
+// The town goes on from day to day -- no levels: each day has jobs in the
+// morning, at midday and in the evening (then night falls, and it's the
+// next morning), a few more as the days go by, and houses built stay
+// built. Each part of the day: some jobs, by helper --
 //   garbage: bins out at that many houses -- collect them, then to the dump
 //   mail:    that many letters and packages to deliver (every other one a
 //            package)
-//   dog:     that many dog walks to the park and home
-//   build:   that many houses to build (three trips each)
-const LEVELS = [
-  { garbage: 2 },
-  { mail: 3 },
-  { dog: 1, garbage: 2 },
-  { build: 1 },
-  { garbage: 3, mail: 2, dog: 1 },
-  { garbage: 2, drive: true },
-  { mail: 3, drive: true },
-  { dog: 1, build: 1, drive: true },
-  { garbage: 3, mail: 3, drive: true },
-  { garbage: 2, mail: 2, dog: 1, build: 1, drive: true },
+//   dog:     a walk to the park and home
+//   build:   a house to build on the next lot (three trips)
+// -- and from day 4, on the days marked drive, you drive them yourself, from
+// the driver's seat (tapping, they go by themselves).
+export const PARTS = ['morning', 'midday', 'evening'];
+const DAYS = [
+  { morning: { garbage: 2 }, evening: { dog: 1 } },
+  { morning: { mail: 3 }, midday: { build: 1 } },
+  { morning: { garbage: 3 }, midday: { mail: 2 }, evening: { dog: 1 } },
+  { morning: { garbage: 2 }, midday: { build: 1 }, evening: { dog: 1 }, drive: true },
+  { morning: { garbage: 3, mail: 2 }, midday: { mail: 2 }, evening: { dog: 1 } },
+  { morning: { mail: 3 }, midday: { build: 1 }, evening: { dog: 1 }, drive: true },
 ];
-export const levelCount = () => Infinity;
-export function levelPlan(n) {
-  if (n <= LEVELS.length) return LEVELS[n - 1];
-  // After those, a bit of everything, driving -- and on odd levels tapping.
-  const k = n - LEVELS.length;
-  return { garbage: 2 + (k % 2), mail: 2 + ((k >> 1) % 2), dog: 1, build: k % 3 === 0 ? 1 : 0, drive: k % 2 === 0 };
+export function dayPlan(day) {
+  if (day <= DAYS.length) return DAYS[day - 1];
+  // After those, a bit of everything -- driving every other day.
+  const k = day - DAYS.length;
+  return {
+    morning: { garbage: 2 + (k % 2), mail: 2 + ((k >> 1) % 2) },
+    midday: k % 3 === 0 ? { build: 1 } : { mail: 2 },
+    evening: { dog: 1 },
+    drive: k % 2 === 1,
+  };
 }
 
-// Houses built before level n (the town grows as you build).
+// Houses built before day n (the town grows as you build).
 export function builtBefore(n) {
   let b = 0;
-  for (let k = 1; k < n; k++) b += levelPlan(k).build || 0;
+  for (let k = 1; k < n; k++) for (const part of PARTS) b += dayPlan(k)[part]?.build || 0;
   return Math.min(LOTS.length, b);
 }
 
-// A little pseudo-random sequence, the same every time for a level.
+// A little pseudo-random sequence, the same every time for a day.
 function rng(seed) {
   let s = seed >>> 0 || 1;
   return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32);
 }
 
-// The town for level n: its places (lots already built are homes), the
-// helpers and the jobs.
+// The town on day n: its places (lots already built are homes), the
+// helpers out that day, and the parts of the day with jobs: [{ part, jobs }]
+// (jobs: the first part's, to begin with).
 export function makeTown(n) {
-  const plan = levelPlan(n);
+  const plan = dayPlan(n);
   const r = rng(n * 7919 + 17);
-  const built = builtBefore(n);
+  let built = builtBefore(n);
   const places = PLACES.map((p) => {
     const doors = doorsOf(p);
     const q = { ...p, door: doors[0], doors };
@@ -201,34 +207,37 @@ export function makeTown(n) {
     return a.slice(0, k);
   };
   const helpers = [];
-  const jobs = [];
-  if (plan.garbage) {
-    helpers.push({ id: 'garbage', kind: 'garbage', at: by('dump').door, home: 'dump' });
-    for (const h of pick(homes, plan.garbage)) jobs.push({ helper: 'garbage', kind: 'bin', place: h.id });
-    jobs.push({ helper: 'garbage', kind: 'dump', place: 'dump', last: true });
-  }
-  if (plan.mail) {
-    helpers.push({ id: 'mail', kind: 'mail', at: by('post').door, home: 'post' });
-    pick(homes, plan.mail).forEach((h, k) => jobs.push({ helper: 'mail', kind: k % 2 ? 'parcel' : 'letter', place: h.id }));
-  }
-  if (plan.dog) {
-    for (let k = 0; k < plan.dog; k++) {
-      const h = pick(homes, 1)[0];
-      const id = `dog${k}`;
-      helpers.push({ id, kind: 'walker', at: h.door, home: h.id, color: h.color });
-      jobs.push({ helper: id, kind: 'walk', place: 'park' }, { helper: id, kind: 'home', place: h.id, last: true });
+  const helper = (h) => helpers.some((o) => o.id === h.id) || helpers.push(h);
+  const walker = pick(homes, 1)[0];
+  const phases = [];
+  for (const part of PARTS) {
+    if (!plan[part]) continue;
+    // (Every house built: letters to take instead.)
+    const p = plan[part].build && !LOTS[built] ? { mail: 2 } : plan[part];
+    const jobs = [];
+    if (p.garbage) {
+      helper({ id: 'garbage', kind: 'garbage', at: by('dump').door, home: 'dump' });
+      for (const h of pick(homes, p.garbage)) jobs.push({ helper: 'garbage', kind: 'bin', place: h.id });
+      jobs.push({ helper: 'garbage', kind: 'dump', place: 'dump', last: true });
     }
-  }
-  if (plan.build) {
-    helpers.push({ id: 'mixer', kind: 'mixer', at: by('yard').door, home: 'yard' });
-    for (let k = 0; k < plan.build; k++) {
-      const lot = LOTS[built + k];
-      if (!lot) break;
-      for (let s = 1; s <= 3; s++) jobs.push({ helper: 'mixer', kind: 'build', place: lot, stage: s });
+    if (p.mail) {
+      helper({ id: 'mail', kind: 'mail', at: by('post').door, home: 'post' });
+      pick(homes, p.mail).forEach((h, k) => jobs.push({ helper: 'mail', kind: k % 2 ? 'parcel' : 'letter', place: h.id }));
     }
+    if (p.dog) {
+      helper({ id: 'dog0', kind: 'walker', at: walker.door, home: walker.id, color: walker.color });
+      jobs.push({ helper: 'dog0', kind: 'walk', place: 'park' }, { helper: 'dog0', kind: 'home', place: walker.id, last: true });
+    }
+    if (p.build && LOTS[built]) {
+      helper({ id: 'mixer', kind: 'mixer', at: by('yard').door, home: 'yard' });
+      for (let s = 1; s <= 3; s++) jobs.push({ helper: 'mixer', kind: 'build', place: LOTS[built], stage: s });
+      built++;
+    }
+    if (!jobs.length) continue;
+    jobs.forEach((j, i) => (j.i = i));
+    phases.push({ part, jobs });
   }
-  jobs.forEach((j, i) => (j.i = i));
-  return { n, plan, drive: !!plan.drive, places, helpers, jobs };
+  return { n, day: n, plan, drive: !!plan.drive, places, helpers, phases, jobs: phases[0].jobs };
 }
 
 // A helper's next job: the first not done (in order; bins nearest first is

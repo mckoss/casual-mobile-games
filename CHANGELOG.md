@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.86.0
+- Benji's Town: no more levels -- one town that goes on from day to day
+  (and is kept). Jobs in the morning, at midday and in the evening; then
+  night falls, with the moon and stars, lights in the windows,
+  streetlamps and headlights, everyone goes home, and it's the next
+  morning. The sky changes with the time of day, the clock waits for the
+  jobs (nobody's ever late), and the town grows as the days go by.
+
 ## 1.85.0
 - Benji's Town: a big round button over each helper with a job to do,
   showing a picture of its next job -- tap it to start. The arrow to where

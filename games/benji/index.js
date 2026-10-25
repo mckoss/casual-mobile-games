@@ -1,13 +1,10 @@
-// Benji's Town: the levels, the town, and a big "Yay!" at the end of each.
+// Benji's Town: the town, going on from day to day (no levels).
 import { makeTown } from './town.js';
 import { Play } from './play.js';
 import { RECORDED, clipFor } from './voice.js';
-import { ICON, loadProgress, renderLevelSelect, showDialog } from '../../js/lib/campaign.js';
-
-const CHEERS = ['Yay!', 'Well done!', 'Hooray!', 'Super!', 'Brilliant!'];
+import { ICON, showDialog } from '../../js/lib/campaign.js';
 
 export function mount(root, ctx, sub) {
-  const progress = loadProgress(ctx);
   let play = null;
   let onResize = null;
 
@@ -51,74 +48,66 @@ export function mount(root, ctx, sub) {
     onResize = null;
   }
 
-  function showLevels() {
-    teardown();
-    renderLevelSelect(root, ctx, {
-      id: 'benji',
-      title: 'Benji’s Town',
-      intro: 'Tap the garbage truck, the mail van, the dog walker and the cement mixer, and off they go to work!',
-      outro: 'From level 6, tap a helper and you’re the driver: ◀ ▲ ▶ take you through the next corner, a block at a time, and drag across the window to look around.',
-      progress,
-    });
-  }
+  // The day the town's on: kept from one visit to the next. (From the
+  // levels it used to have: two levels a day.)
+  const old = ctx.load('progress', null);
+  let day = ctx.load('day', old?.unlocked > 1 ? Math.ceil((old.unlocked - 1) / 2) : 1);
+  const PART = { dawn: '🌅', morning: '🌤️', midday: '☀️', evening: '🌇', night: '🌙' };
 
-  function showPlay(n) {
+  function showTown() {
     teardown();
-    const town = makeTown(n);
     root.innerHTML = `
       <div class="screen play-screen bt-screen">
         <header class="bar">
-          <button class="icon-btn" data-act="levels" aria-label="Levels">${ICON.back}</button>
-          <h2>Level ${n}${town.drive ? ' 🚗' : ''}</h2>
-          <button class="icon-btn" data-act="restart" aria-label="Start again">${ICON.restart}</button>
+          <button class="icon-btn" data-act="home" aria-label="Back">${ICON.back}</button>
+          <h2>Day ${day} <span class="bt-part">🌅</span></h2>
+          <button class="icon-btn" data-act="restart" aria-label="A new town">${ICON.restart}</button>
         </header>
         <div class="stage"><canvas class="board"></canvas></div>
         <div class="dialog" hidden></div>
       </div>`;
-    ctx.track('level_start', { level: n });
-    const start = () => {
-      if (play) play.destroy();
-      play = new Play(root.querySelector('canvas'), town, {
-        sfx: ctx.sfx,
-        haptic: ctx.haptic,
-        say,
-        onWin: () => won(n),
-      });
-      // Handle for the end-to-end tests (test/e2e.test.mjs).
-      window.__benji = play;
-    };
-    start();
-    say(town.drive ? 'Tap a truck and drive it!' : 'Tap a truck!');
+    ctx.track('level_start', { level: day });
+    const title = root.querySelector('h2');
+    play = new Play(root.querySelector('canvas'), makeTown(day), {
+      sfx: ctx.sfx,
+      haptic: ctx.haptic,
+      say,
+      // A part of the day begins (or night falls): the picture in the title.
+      onPart: (part) => {
+        title.innerHTML = `Day ${day} <span class="bt-part">${PART[part]}</span>`;
+      },
+      // A new morning: the next day, kept.
+      onDay: (n) => {
+        ctx.track('level_complete', { level: day, stars: 3 });
+        day = n;
+        ctx.save('day', day);
+      },
+    });
+    // Handle for the end-to-end tests (test/e2e.test.mjs).
+    window.__benji = play;
     onResize = () => play?.resize();
     window.addEventListener('resize', onResize);
-    root.querySelector('[data-act=levels]').onclick = () => ctx.back('#/benji');
+    root.querySelector('[data-act=home]').onclick = () => ctx.back('#/');
+    // (For a grown-up: start again, with a new little town.)
     root.querySelector('[data-act=restart]').onclick = () => {
       ctx.sfx('tap');
-      root.querySelector('.dialog').hidden = true;
-      start();
+      showDialog(root.querySelector('.dialog'), ctx, {
+        title: 'A new town?',
+        text: 'Back to day 1, with no houses built yet.',
+        buttons: [
+          { label: '✕', act: 'keep', run: () => (root.querySelector('.dialog').hidden = true) },
+          { label: '↻', act: 'new', primary: true, run: () => {
+            day = 1;
+            ctx.save('day', day);
+            showTown();
+          } },
+        ],
+      });
     };
   }
 
-  // Every finished level is three stars: there's no wrong way to play.
-  function won(n) {
-    if (!play) return;
-    progress.complete(n, 3);
-    ctx.track('level_complete', { level: n, stars: 3 });
-    showDialog(root.querySelector('.dialog'), ctx, {
-      title: CHEERS[n % CHEERS.length],
-      stars: 3,
-      text: 'All the jobs are done!',
-      buttons: [
-        { label: '↻', act: 'replay', run: () => showPlay(n) },
-        { label: '▶', act: 'next', primary: true, run: () => ctx.navigate(`#/benji/${n + 1}`, { replace: true }) },
-      ],
-    });
-  }
-
-  function route(s) {
-    const n = parseInt(s, 10);
-    if (n >= 1 && n <= progress.data.unlocked) showPlay(n);
-    else showLevels();
+  function route() {
+    showTown();
   }
 
   route(sub);

@@ -40,6 +40,24 @@ README says what the games are; this says how they're meant to play.
 For a three-year-old (Benji, who loves cars): no reading, no losing, big
 pictures and a sound for every touch.
 
+- No levels: one little town that goes on from day to day, and is kept
+  (it opens on the day you'd got to). Each day there are jobs in the
+  morning (the bins, the post), at midday (building, parcels) and in the
+  evening (the dog's walk), a few more as the days go by; when the
+  evening's are done, night falls -- the sky deep blue, the moon and the
+  stars out, lights on in the windows, the streetlamps on the corners and
+  the cars' headlights glowing -- the helpers all go home, "Goodnight!",
+  and it's the next morning ("Good morning!"). The sky goes round with the
+  clock: gold at sunrise and sunset, the sun going over. The title shows
+  the day and the time of day (🌅 🌤️ ☀️ 🌇 🌙).
+- Nobody's ever late: the clock goes at an easy pace while there are jobs
+  to do (a part of the day takes about a minute), and waits at the end of
+  that part till they're done; with nothing to do it goes on quickly to
+  the next (the whole night in about ten seconds). (`clock.js`.)
+- The town grows as it goes: houses built stay built, and the jobs come
+  to them too. (The button top right starts a new town, for a grown-up --
+  it asks first.)
+
 - A little town on a 13 x 13 grid: three streets each way, three tiles
   apart (room to queue between the corners), each running on two tiles
   past its last corner to a turning circle at the edge of town -- round an
@@ -60,8 +78,8 @@ pictures and a sound for every touch.
 - The camera follows the action: tap a helper and it glides in close and
   follows it on its job (the postal worker at the door, the dog in the
   park); a moment after it's done, it eases back out to show all the
-  helpers and where they're going next. It starts on the whole town, and
-  ends there with the confetti. Dragging the ground looks round the town
+  helpers. It starts on the whole town, and goes back to it with the
+  confetti, and for the night. Dragging the ground looks round the town
   for a few seconds.
 - Road safety, shown not told. Every street has a sidewalk down each side,
   and people (the dog walker too) keep to them, crossing only at the zebra
@@ -101,15 +119,15 @@ pictures and a sound for every touch.
   back to hop in again (about seven seconds); the **dog walker** takes the dog to the park to play, and
   home again; the **cement mixer** builds a house on an empty lot in three
   trips (slab, walls, roof), going back to the yard to load up in between.
-  Houses built stay built: the town grows from level to level.
-- Levels 1-5: each helper with a job to do has a big round button over
+  Houses built stay built: the town grows from day to day.
+- Each helper with a job to do has a big round button over
   it, in its colour, with a picture of its next job (a bin, a letter, the
   dog, a brick) and a little green "go". Tap the button (or the helper)
   and it goes to that job by itself; only then does a bouncing arrow in
   its colour show where (and, once the mail van's out, the houses waiting
   for a letter or parcel show it). At the job it stops, and its button
   comes back for the next.
-- From level 6 you're the driver. Tap a helper's button ("Let's go!") and the view
+- From day 4, every other day you're the driver. Tap a helper's button ("Let's go!") and the view
   drops into its seat: the same little town all round at street level, in
   perspective, from the cab of the garbage truck, the mail van or the
   cement mixer (a dashboard and a steering wheel that turns as you turn) --
@@ -148,13 +166,14 @@ pictures and a sound for every touch.
   -- and floats back in after.
   When the helper's jobs are done (or with the map button, top left)
   you're back over the town. Helpers start facing into town.
-- Every finished level is three stars, a shower of confetti and "Yay!
-  Great job!" said out loud (with the sound on).
+- Every part of the day done is a shower of confetti and "Yay! Great
+  job!" said out loud (with the sound on). No stars, no score.
 - Everything it says is in a child's voice: short clips recorded once (by
   `tools/benji-voice.py`, from the list in `voice.js`) and precached, so
   they play offline. A line without a clip -- or one that won't play -- is
   spoken by the phone's own voice instead.
-- `town.js` (the town, routes along the streets, levels and jobs),
+- `town.js` (the town, routes along the streets, the days and their jobs),
+  `clock.js` (the time of day, and the light and the sky with it),
   `streets.js` (the sidewalks and crosswalks, and the lights' timing) and
   `traffic.js` (lanes, stopping, queueing, waiting to cross) are all tested
   in Node -- a few minutes of busy traffic, checking every step that cars

@@ -5,7 +5,7 @@ export const GAMES = [
   {
     id: 'benji',
     title: 'Benji’s Town',
-    blurb: 'For little ones: tap the garbage truck, the postal worker’s van, the dog walker and the cement mixer to send them off to work around town -- then be the driver yourself.',
+    blurb: 'For little ones: tap the garbage truck, the postal worker’s van, the dog walker and the cement mixer to send them off to work around town, from morning to night, day after day -- then be the driver yourself.',
     color: '#ffb703',
     load: () => import('../games/benji/index.js'),
     art: () => import('../games/benji/art.js'),

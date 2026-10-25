@@ -9,7 +9,8 @@
 // a time with the buttons at the bottom. The camera follows the action:
 // close in on a helper while it's off on a job, back out to see everyone
 // when it's done. Drag the ground to look about.
-import { SIZE, isRoad, drivePath, jobAt, nextJob } from './town.js';
+import { SIZE, isRoad, drivePath, jobAt, nextJob, makeTown } from './town.js';
+import { tick, partAt, light, sky, sunAt, WINDOW, NIGHT } from './clock.js';
 import { walkways, walkDoor, junctions, crossings, isJunction, isLit, lights, walkSignal, armOf, atEdge, circleAt, CIRCLE } from './streets.js';
 import { Traffic, lanePoint, startDir, streetTiles } from './traffic.js';
 import { ahead, driveTurn, onFrom, walkAhead, walkTurn } from './steer.js';
@@ -36,6 +37,12 @@ export class Play {
     this.hooks = hooks;
     this.done = new Set();
     this.t = 0;
+    // The time of day: from dawn, and on to the day's first jobs.
+    this.clock = 0;
+    this.part = null; // the part of the day with its jobs under way: { part, jobs }
+    this.next = 0; // ... and the next one to come (in town.phases)
+    this.night = false;
+    town.jobs = [];
     this.fx = [];
     this.confetti = [];
     this.won = false;
@@ -50,10 +57,15 @@ export class Play {
     this.crossings = crossings();
     const onFoot = (node) => ({ node, ...this.walk.nodes[node] });
     const parked = (tile, dir = startDir(tile)) => ({ tile, dir, ...lanePoint(tile, dir) });
-    this.helpers = town.helpers.map((h) => ({
-      ...h, ...(h.kind === 'walker' ? onFoot(this.spot.get(h.home)) : parked(h.at)), tile: h.at,
-      path: [], face: 1, pause: 0, hop: 0, loaded: true, load: 0, patience: 1.2, len: 0.38,
-    }));
+    this.newHelper = (h) => {
+      const m = {
+        ...h, ...(h.kind === 'walker' ? onFoot(this.spot.get(h.home)) : parked(h.at)), tile: h.at,
+        path: [], face: 1, pause: 0, hop: 0, loaded: true, load: 0, patience: 1.2, len: 0.38,
+      };
+      m.head = m.dir ? Math.atan2(m.dir.y, m.dir.x) : 0;
+      return m;
+    };
+    this.helpers = town.helpers.map(this.newHelper);
     // Life in the town: cars and people out and about.
     const r = (() => {
       let s = town.n * 31 + 7;
@@ -83,6 +95,7 @@ export class Play {
     }));
     this.anyStreet = anyStreet;
     this.anyWhere = anyWhere;
+    this.stars = Array.from({ length: 70 }, () => [r(), r() * 0.6, 0.5 + r()]);
     this.traffic = new Traffic(this.walk, (o) => this.budge(o));
     const movers = [...this.helpers, ...this.ambient];
     this.traffic.cars = movers.filter((m) => m.kind !== 'walker' && m.kind !== 'person');
@@ -117,7 +130,8 @@ export class Play {
     const loop = (now) => {
       const dt = Math.max(0, Math.min(0.05, (now - this.last) / 1000)); // (the first frame's can be a hair before)
       this.last = now;
-      this.update(dt);
+      // (Faster, for the end-to-end tests: more steps a frame.)
+      for (let k = 0; k < (this.speed || 1); k++) this.update(dt);
       this.draw();
       this.raf = requestAnimationFrame(loop);
     };
@@ -222,8 +236,8 @@ export class Play {
   // A helper with nothing to do, parked in the way of other cars: off home
   // (to the end of its street, out of everyone's way). (Not yours, nor one
   // busy with a job: they'll be going on in a moment.)
-  budge(o) {
-    if (!this.helpers.includes(o) || this.fp?.h === o || o.path.length || o.pause > 0 || o.deliver) return;
+  budge(o, bedtime = false) {
+    if (!this.helpers.includes(o) || this.fp?.h === o || o.path.length || (o.pause > 0 && !bedtime) || o.deliver) return;
     const home = this.place(o.home).door;
     if (o.tile.x === home.x && o.tile.y === home.y) return;
     o.path = this.way(o, home).slice(1);
@@ -381,6 +395,8 @@ export class Play {
     if (this.done.size === this.town.jobs.length) this.win();
   }
 
+  // All the jobs for this part of the day done: hooray! (And on with the
+  // day.)
   win() {
     if (this.won) return;
     this.won = true;
@@ -392,7 +408,78 @@ export class Play {
         c: ['#ef476f', '#ffd166', '#06d6a0', '#118ab2', '#ff9f1c'][k % 5], a: this.rand() * 6,
       });
     }
-    setTimeout(() => this.hooks.onWin?.(), 2600);
+  }
+
+  // ------------------------------------------------------- the day goes by
+
+  // The clock on, and what comes with it: the next part of the day and its
+  // jobs, nightfall (everyone home), and the next morning.
+  passTime(dt) {
+    this.clock = tick(this.clock, dt, this.part?.part, !this.part || this.won);
+    const next = this.town.phases[this.next];
+    if (next && !this.night && (!this.part || this.won) && this.clock >= WINDOW[next.part][0]) this.begin(next);
+    if (!next && !this.night && (!this.part || this.won) && this.clock >= NIGHT) this.nightfall();
+    if (this.clock >= 1) this.morning();
+    // (The picture of the time of day, in the title.)
+    const part = this.night ? 'night' : partAt(this.clock);
+    if (part !== this.shown) this.hooks.onPart?.((this.shown = part));
+  }
+
+  // A part of the day begins: its jobs, in the tray and over the helpers.
+  begin(phase) {
+    this.part = phase;
+    this.next++;
+    this.town.jobs = phase.jobs;
+    this.done = new Set();
+    this.won = false;
+    this.confetti = [];
+    this.calm = 9;
+    this.resize();
+    this.hooks.say?.({ morning: 'Good morning!', midday: 'Lunch time!', evening: 'Good evening!' }[phase.part]);
+  }
+
+  // Night falls: everyone home to bed.
+  nightfall() {
+    this.night = true;
+    this.part = null;
+    this.town.jobs = [];
+    this.done = new Set();
+    if (this.fp) this.leave();
+    this.hooks.say?.('Goodnight!');
+    for (const h of this.helpers) {
+      if (h.kind === 'walker') h.path = this.walk.route(h.node, this.spot.get(h.home)).slice(1);
+      else this.budge(h, true);
+    }
+  }
+
+  // The next morning: the next day, its helpers (the ones out that day) and
+  // its jobs.
+  morning() {
+    const town = makeTown(this.town.day + 1);
+    const was = new Map(this.helpers.map((h) => [h.id, h]));
+    this.town = town;
+    town.jobs = [];
+    this.spot = new Map(town.places.map((p) => [p.id, walkDoor(this.walk, p)]));
+    this.atSpot = new Map();
+    for (const p of town.places) this.atSpot.set(this.spot.get(p.id), [...(this.atSpot.get(this.spot.get(p.id)) || []), p]);
+    // (The same truck as yesterday, wherever it got to; the dog walker from
+    // today's house.)
+    this.helpers = town.helpers.map((h) => {
+      const o = was.get(h.id);
+      return o && o.home === h.home ? Object.assign(o, { color: h.color, loaded: true, load: 0 }) : this.newHelper(h);
+    });
+    const movers = [...this.helpers, ...this.ambient];
+    this.traffic.cars = movers.filter((m) => m.kind !== 'walker' && m.kind !== 'person');
+    this.traffic.people = movers.filter((m) => m.kind === 'walker' || m.kind === 'person');
+    this.focus = null;
+    this.clock = 0;
+    this.next = 0;
+    this.part = null;
+    this.night = false;
+    this.won = false;
+    this.done = new Set();
+    this.resize();
+    this.hooks.onDay?.(town.day);
   }
 
   pop(icon, tile, k = 1) {
@@ -893,6 +980,7 @@ export class Play {
   update(dt) {
     this.t += dt;
     this.traffic.t = this.t;
+    this.passTime(dt);
     if (this.fp) this.fpSteer(dt);
     const move = (m) => {
       if (m.pause > 0) {
@@ -1000,13 +1088,89 @@ export class Play {
     }
   }
 
+  // The sky, the colour of the time of day: the sun going over (or the
+  // moon), and at night the stars.
   sky(h) {
     const { g } = this;
-    const sky = g.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, '#a9dcff');
-    sky.addColorStop(1, '#e4f6ff');
-    g.fillStyle = sky;
+    const [top, bottom] = sky(this.clock);
+    const grad = g.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, top);
+    grad.addColorStop(1, bottom);
+    g.fillStyle = grad;
     g.fillRect(0, 0, this.W, h);
+    const dark = 1 - light(this.clock).bright;
+    if (dark > 0.3) {
+      g.fillStyle = '#ffffff';
+      for (const [x, y, s] of this.stars) {
+        g.globalAlpha = Math.min(1, (dark - 0.3) * 2) * (0.6 + 0.4 * Math.sin(this.t * 2 + x * 40));
+        g.fillRect(x * this.W, y * h, s * 1.6, s * 1.6);
+      }
+      g.globalAlpha = 1;
+    }
+    const { sun, u } = sunAt(this.clock);
+    const x = this.W * (0.08 + 0.84 * u);
+    const y = h * (0.3 - 0.22 * Math.sin(Math.PI * u));
+    const r = Math.min(26, h * 0.05);
+    g.fillStyle = sun ? 'rgba(255,220,120,0.35)' : 'rgba(255,255,255,0.15)';
+    g.beginPath();
+    g.arc(x, y, r * 1.7, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = sun ? '#ffd23f' : '#f4f1de';
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+    if (!sun) {
+      // (A crescent: a bite out of it, the colour of the sky.)
+      g.fillStyle = top;
+      g.beginPath();
+      g.arc(x + r * 0.45, y - r * 0.2, r * 0.85, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+
+  // Dusk and night over the town (in the view h high): darker and bluer,
+  // a glow of gold at sunset -- and the lights coming on: the houses'
+  // windows, the streetlamps on the corners, the cars' headlights.
+  dusk(view, h) {
+    const { g } = this;
+    const { bright, warm } = light(this.clock);
+    const dark = 1 - bright;
+    if (warm > 0.05) {
+      g.fillStyle = `rgba(255,140,60,${0.12 * warm})`;
+      g.fillRect(0, 0, this.W, h);
+    }
+    if (dark < 0.05) return;
+    g.fillStyle = `rgba(14,20,64,${0.62 * dark})`;
+    g.fillRect(0, 0, this.W, h);
+    const on = Math.min(1, Math.max(0, (dark - 0.35) * 2.5));
+    if (!on) return;
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    const glow = (x, y, z, size, rgb, a) => {
+      if (!this.seen(view, x, y)) return;
+      const at = view.at(x, y, z);
+      if (!at) return;
+      const r = Math.min(260, view.scale(x, y, z) * size);
+      const grad = g.createRadialGradient(at[0], at[1], 0, at[0], at[1], r);
+      grad.addColorStop(0, `rgba(${rgb},${a * on})`);
+      grad.addColorStop(1, `rgba(${rgb},0)`);
+      g.fillStyle = grad;
+      g.beginPath();
+      g.arc(at[0], at[1], r, 0, Math.PI * 2);
+      g.fill();
+    };
+    for (const p of this.town.places) {
+      if (p.kind === 'home' || p.kind === 'post' || p.kind === 'shop' || p.kind === 'cafe' || (p.kind === 'lot' && this.stage[p.id] === 3)) {
+        glow(p.x + 0.5, p.y + 0.5, 0.3, 0.45, '255,210,120', 0.55);
+      }
+    }
+    for (const { x, y } of this.junctions) glow(x + 0.5, y + 0.5, 0.02, 0.9, '255,230,170', 0.35);
+    for (const c of this.traffic.cars) {
+      if (this.fp?.h === c && !(this.fp.away > 0.25)) continue;
+      const [fx, fy] = [Math.cos(c.head), Math.sin(c.head)];
+      glow(c.x + fx * ((c.len || 0.38) + 0.25), c.y + fy * ((c.len || 0.38) + 0.25), 0.02, 0.35, '255,245,200', 0.6);
+    }
+    g.restore();
   }
 
   // The town from above.
@@ -1031,6 +1195,7 @@ export class Play {
       }
       o.draw(alpha);
     }
+    this.dusk(view, this.viewH);
     this.overlays(view, this.helpers.filter((h) => h.path.length > 0 && !h.budging));
     this.drawGo();
     g.restore();
@@ -1084,6 +1249,7 @@ export class Play {
     // when it's the way you chose).
     if (f.corner && !d) this.roadArrow(eye, f.corner);
     for (const o of this.things(eye).sort((a, b) => a.d - b.d)) o.draw(1);
+    this.dusk(eye, this.seatH);
     this.overlays(eye, d ? [] : [h]);
     // In the cab: the dashboard and the wheel, turning as you turn (going
     // as the camera floats out).
@@ -1539,6 +1705,13 @@ export class Play {
       g.fillStyle = 'rgba(0,0,0,0.08)';
       g.fillRect(0, top, this.W, 2);
       y0 = top + (this.trayH - rows * (box + gap) + gap) / 2;
+    }
+    // (No jobs just now: the time of day, big.)
+    if (!jobs.length && !seat) {
+      g.font = `${Math.round(BOX * 0.9)}px system-ui, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText({ dawn: '🌅', morning: '🌤️', midday: '☀️', evening: '🌇', night: '🌙' }[partAt(this.clock)], this.W / 2, this.viewH + this.trayH / 2);
     }
     const x0 = seat ? 70 + (this.W - 70 - cols * (box + gap)) / 2 : (this.W - cols * (box + gap) + gap) / 2;
     jobs.forEach((j, n) => {

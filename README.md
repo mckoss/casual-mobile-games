@@ -96,7 +96,7 @@ games/morse/                Morse Rain: code.js (the code, lessons, timing; runs
 games/water/                Water Lab: model.js (pours, BFS solver, levels), shapes.js (glassware), space.js (the solution-space map), play.js
 games/elevator/             Elevator Operator: engine.js (buildings, lifts, arrivals, levels, dispatcher; runs in Node), play.js (towers), sprites.js (8-bit people), cat.js (an easter egg), city.js (the city round about), pace.js (fast through the lulls)
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
-games/benji/                Benji's Town: town.js (the town, routes, levels, jobs), streets.js (sidewalks, crosswalks, lights), traffic.js (lanes, stopping, crossing), steer.js (driving yourself: the way ahead, which way to turn) -- all run in Node; iso.js (the 3D: from above, and from the driver's seat), draw.js, play.js
+games/benji/                Benji's Town: town.js (the town, routes, the days and their jobs), clock.js (the time of day, the sky), streets.js (sidewalks, crosswalks, lights), traffic.js (lanes, stopping, crossing), steer.js (driving yourself: the way ahead, which way to turn) -- all run in Node; iso.js (the 3D: from above, and from the driver's seat), draw.js, play.js
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback
 js/lib/campaign.js          shared level select, progress and dialogs
