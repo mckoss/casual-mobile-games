@@ -549,7 +549,7 @@ test('breakout: locks orientation where possible, pauses on rotation where not',
   }
 });
 
-test('benji’s town: tap the helpers and they do their jobs, morning to evening; night falls and it\'s the next day; later, drive them from the driver\'s seat', { skip: !chromium, timeout: 180000 }, async () => {
+test('benji’s town: tap the helpers and they do their jobs, morning to evening; night falls and it\'s the next day; a treat on the way; later, drive them from the driver\'s seat', { skip: !chromium, timeout: 240000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
   try {
@@ -608,6 +608,25 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
     for (const part of ['midday', 'evening', 'night', 'dawn']) assert.ok(parts.includes(part), `${part} came (${parts})`);
     assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:benji:day')), '2');
     assert.match(await page.locator('.bt-screen h2').textContent(), /^Day 2/);
+    // A treat on the way: a helper out on a trip, and the café's sign
+    // tapped -- off it goes for an ice cream, in and out, "Yum!", and on.
+    await page.evaluate(() => { window.__benji.speed = 1; window.__said = []; const p = window.__benji; const say = p.hooks.say; p.hooks.say = (w) => (window.__said.push(w), say?.(w)); });
+    await page.waitForFunction(() => {
+      const p = window.__benji;
+      const h = p.helpers.find((m) => m.kind !== 'walker' && (p.ready(m) || m.path.length > 2));
+      if (h && p.ready(h)) p.start(h);
+      return h && h.path.length > 2 && h.pause <= 0;
+    }, null, { timeout: 30000, polling: 250 });
+    await page.evaluate(() => {
+      const p = window.__benji;
+      const cafe = p.town.places.find((q) => q.kind === 'cafe');
+      const [x, y, z] = p.signOf(cafe);
+      const [sx, sy] = p.view.at(x, y, z);
+      if (sx > 0 && sx < p.W && sy > 0 && sy < p.viewH && p.signAt(p.view, sx, sy) !== cafe) throw new Error('the sign, under the finger');
+      p.treat(cafe);
+    });
+    assert.ok(await page.evaluate(() => window.__benji.helpers.some((h) => h.treat?.place === 'cafe')), 'off for an ice cream');
+    await page.waitForFunction(() => window.__said.includes('Yum! Ice cream!'), null, { timeout: 45000 });
     // Driving: tap a helper and you're in the driver's seat. Any
     // arrow and you're off (it goes the way to the job by itself, unless you
     // choose); every press is answered -- at the job you stop till the next.

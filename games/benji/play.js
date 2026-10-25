@@ -217,6 +217,7 @@ export class Play {
 
   // Where a helper should go next.
   targetPlace(h) {
+    if (h.treat) return this.place(h.treat.place);
     const j = this.nextOf(h);
     if (!j) return null;
     if (h.kind === 'mixer' && !h.loaded) return this.place('yard');
@@ -273,6 +274,10 @@ export class Play {
 
   // The dog walker at a spot on the sidewalk: outside a place with a job?
   reached(h, node) {
+    if (h.treat) {
+      if (node === this.spot.get(h.treat.place)) this.visit(h);
+      return;
+    }
     const p = (this.atSpot.get(node) || []).find((q) => jobAt(this.town, h, q.door, this.done));
     if (p) this.arrive(h, p.door);
   }
@@ -280,6 +285,11 @@ export class Play {
   // At a street tile: a job to do here?
   arrive(h, tile) {
     if (h.kind === 'walker') h.tile = tile;
+    // (Off for a treat: nothing else till then.)
+    if (h.treat) {
+      if (h.kind !== 'walker' && this.place(h.treat.place).doors.some((d) => d.x === tile.x && d.y === tile.y)) this.visit(h);
+      return;
+    }
     if (h.kind === 'mixer' && !h.loaded) {
       if (this.place('yard').doors.some((d) => d.x === tile.x && d.y === tile.y)) {
         h.loaded = true;
@@ -374,7 +384,7 @@ export class Play {
   // side door, round to the back, take the letter or parcel out, carry it
   // up to the door, hand it over, walk back and hop in. Each step: { do,
   // a, b (where, from and to), head, t (when it starts), dur }.
-  delivery(h, kind, at, door) {
+  delivery(h, kind, at, door, snack = false) {
     const fx = Math.cos(h.head);
     const fy = Math.sin(h.head);
     // (Which side of the van the house is.)
@@ -384,7 +394,15 @@ export class Play {
     const rear = { x: h.x - fx * 0.52 + sx * 0.08, y: h.y - fy * 0.52 + sy * 0.08 };
     const face = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
     const walk = (a, b) => ({ do: 'walk', a, b, head: face(a, b), dur: Math.max(0.5, Math.hypot(b.x - a.x, b.y - a.y) / 0.55) });
-    const steps = [
+    // (Walking the dog, it's you: from where you are, and the dog waits.)
+    const start = h.kind === 'walker' ? { x: h.x, y: h.y } : side;
+    const steps = snack ? [
+      ...(h.kind === 'walker' ? [] : [{ do: 'out', a: side, b: side, head: face(side, door), dur: 0.6 }]),
+      walk(start, door),
+      { do: 'inside', a: door, b: door, head: face(start, door), dur: 1.6 },
+      { ...walk(door, start), carry: true },
+      ...(h.kind === 'walker' ? [] : [{ do: 'in', a: side, b: side, head: face(door, side), dur: 0.4, carry: true }]),
+    ] : [
       { do: 'out', a: side, b: side, head: face(side, rear), dur: 0.6 },
       walk(side, rear),
       { do: 'take', a: rear, b: rear, head: face(rear, h), dur: 1.1 },
@@ -406,7 +424,57 @@ export class Play {
     const cam = { x: rear.x - fx * 0.75 - sx * 0.3, y: rear.y - fy * 0.75 - sy * 0.3, z: 0.75 };
     cam.h = face(cam, mid);
     cam.pitch = -Math.atan2(cam.z - 0.2, Math.hypot(mid.x - cam.x, mid.y - cam.y)) + 0.2;
-    return { t: 0, kind, at, steps, total: t, cam };
+    return { t: 0, kind, at, steps, total: t, cam, snack };
+  }
+
+  // A treat on the way: the shop's apple, or an ice cream from the café.
+  // (Tapping the sign: off goes the helper you're driving -- or the one
+  // you're watching, or the nearest one out on a trip, or else the
+  // nearest -- and the arrow and dots show the way there at once.)
+  treat(p) {
+    const free = (h) => !h.deliver && h.pause <= 0 && !h.treat;
+    let h = this.fp ? this.fp.h : null;
+    if (!h) {
+      const dist = (m) => Math.hypot(m.x - p.x - 0.5, m.y - p.y - 0.5);
+      const out = this.helpers.filter((m) => free(m) && m.path.length && !m.budging);
+      h = (this.focus && out.includes(this.focus) && this.focus) || out.sort((a, b) => dist(a) - dist(b))[0] || this.helpers.filter(free).sort((a, b) => dist(a) - dist(b))[0];
+    }
+    if (!h || !free(h)) {
+      this.hooks.sfx?.('tap');
+      return;
+    }
+    h.hop = 1;
+    this.hooks.sfx?.('pop');
+    // (Where it was going, to go on there after.)
+    h.treat = { place: p.id, resume: h.path.length && !h.budging ? h.path[h.path.length - 1] : null };
+    h.budging = false;
+    if (this.fp?.h === h) return; // (you drive it there)
+    this.focus = h;
+    this.manual = 0;
+    if (h.kind === 'walker') h.path = this.walk.route(h.node, this.spot.get(p.id)).slice(1);
+    else h.path = this.way(h, this.near(h, p)).slice(1);
+    if (!h.path.length) this.visit(h);
+  }
+
+  // There: out of the cab (or, the dog walker, leaving the dog by the
+  // door), into the shop, and out with the treat -- yum!
+  visit(h) {
+    const p = this.place(h.treat.place);
+    h.path = [];
+    this.stopHere(h);
+    const at = { x: p.x, y: p.y };
+    const door = { x: Math.max(p.x + 0.2, Math.min(p.x + 0.8, h.x)), y: Math.max(p.y + 0.2, Math.min(p.y + 0.86, h.y)) };
+    h.deliver = this.delivery(h, p.kind === 'cafe' ? 'cone' : 'apple', at, door, true);
+    h.pause = h.deliver.total;
+  }
+
+  // Out of the shop with it: said, and on with the trip.
+  treated(h) {
+    const d = h.deliver;
+    this.pop(d.kind === 'cone' ? '🍦' : '🍎', d.at);
+    this.hooks.sfx?.('ding');
+    this.hooks.say?.(d.kind === 'cone' ? 'Yum! Ice cream!' : 'A delicious apple!');
+    this.hooks.haptic?.(20);
   }
 
   // The postal worker at the door: here's your letter (or package)!
@@ -573,6 +641,12 @@ export class Play {
         this.start(go.h);
         return;
       }
+      // The shop's apple, the café's ice cream: a treat!
+      const shop = this.signAt(this.view, sx, sy);
+      if (shop) {
+        this.treat(shop);
+        return;
+      }
       // The nearest helper (or passer-by) within reach of the finger.
       const reach = Math.max(30, this.view.k * 0.55);
       const near = (list) => list.map((h) => {
@@ -633,7 +707,12 @@ export class Play {
       if (!drag || e.pointerId !== drag.id) return;
       f.drag = null;
       f.lookT = 0;
-      if (!drag.moved) this.hooks.sfx?.(f.h.kind === 'walker' ? 'pop' : 'honk');
+      if (drag.moved) return;
+      // (A tap on the shop's sign, or the café's: a treat. Anywhere else, a
+      // honk.)
+      const shop = this.signAt(this.eye, sx, sy);
+      if (shop) this.treat(shop);
+      else this.hooks.sfx?.(f.h.kind === 'walker' ? 'pop' : 'honk');
       return;
     }
     e.preventDefault();
@@ -703,6 +782,25 @@ export class Play {
     h.hop = 1;
     this.hooks.sfx?.('tap');
     this.tellJob(h);
+  }
+
+  // Where a building's sign is (the shop's apple, the café's cone): [x, y,
+  // z] in the town.
+  signOf(p) {
+    const h = Math.atan2(p.door.y - p.y, p.door.x - p.x);
+    return [p.x + 0.5 + Math.cos(h) * 0.39, p.y + 0.5 + Math.sin(h) * 0.39, 0.47];
+  }
+
+  // The shop or café whose sign is under the finger at (sx, sy), if any.
+  signAt(view, sx, sy) {
+    for (const p of this.town.places) {
+      if (p.kind !== 'shop' && p.kind !== 'cafe') continue;
+      const [x, y, z] = this.signOf(p);
+      if (view instanceof I.Eye && !view.sees(x, y)) continue;
+      const at = view.at(x, y, z);
+      if (at && Math.hypot(at[0] - sx, at[1] - sy) < Math.max(26, Math.min(90, view.scale(x, y, z) * 0.3))) return p;
+    }
+    return null;
   }
 
   // Is a helper waiting to be started on its next job (its button showing)?
@@ -1006,8 +1104,10 @@ export class Play {
       z: st.do === 'out' ? (1 - u) * 0.12 : st.do === 'in' ? u * 0.12 : 0,
       step: st.do,
       u,
+      // (In the shop: out of sight.)
+      hidden: st.do === 'inside',
       // (The van's back doors: open while it's taken out.)
-      open: st.do === 'take' || (st.do === 'walk' && st.carry && u < 0.35) || (st.do === 'walk' && !st.carry && st.b === d.steps[2].a && u > 0.7),
+      open: !d.snack && (st.do === 'take' || (st.do === 'walk' && st.carry && u < 0.35) || (st.do === 'walk' && !st.carry && st.b === d.steps[2].a && u > 0.7)),
     };
   }
 
@@ -1124,14 +1224,30 @@ export class Play {
           const st = d.steps.find((q) => q.do === step);
           return st.t + st.dur * u;
         };
-        // (Out of the back of the van; then at the door, over it goes.)
-        if (was < at('take', 0.5) && d.t >= at('take', 0.5)) {
-          const p = this.postie(d);
-          this.pop('✨', { x: p.x - 0.5, y: p.y - 0.5 }, 0.4);
-          this.hooks.sfx?.('pop');
+        if (d.snack) {
+          // (Out of the shop, with it.)
+          if (was < at('inside', 1) && d.t >= at('inside', 1)) this.treated(h);
+        } else {
+          // (Out of the back of the van; then at the door, over it goes.)
+          if (was < at('take', 0.5) && d.t >= at('take', 0.5)) {
+            const p = this.postie(d);
+            this.pop('✨', { x: p.x - 0.5, y: p.y - 0.5 }, 0.4);
+            this.hooks.sfx?.('pop');
+          }
+          if (was < at('give', 0.5) && d.t >= at('give', 0.5)) this.handOver(h);
         }
-        if (was < at('give', 0.5) && d.t >= at('give', 0.5)) this.handOver(h);
-        if (d.t >= d.total) h.deliver = null;
+        if (d.t >= d.total) {
+          h.deliver = null;
+          // (A treat had: on with the trip it was on.)
+          if (d.snack) {
+            const back = h.treat.resume;
+            h.treat = null;
+            if (back !== null && this.fp?.h !== h) {
+              if (h.kind === 'walker') h.path = this.walk.route(h.node, back).slice(1);
+              else h.path = this.way(h, back).slice(1);
+            }
+          }
+        }
       }
       // A helper held up at a red light: say so (now and then), and say go.
       // (Yours, from the driver's seat: fpSteer says, every time.)
@@ -1727,7 +1843,7 @@ export class Play {
         add(cx, cy, (a) => {
           I.paint(g, view, m.parts, a);
           g.globalAlpha = a;
-          sign(cx + Math.cos(h) * 0.39, cy + Math.sin(h) * 0.39, 0.47, SIGNS[p.kind]);
+          sign(...this.signOf(p), SIGNS[p.kind]);
           g.globalAlpha = 1;
         }, 0.95);
       } else if (p.kind === 'lot') {
@@ -1812,7 +1928,7 @@ export class Play {
       const me = this.fp?.h === m;
       if (m.kind === 'person' || m.kind === 'walker') {
         const dog = m.kind === 'walker';
-        if (me) model(I.dog(m.x, m.y, m.head, t, going), 0, 0);
+        if (me || (dog && m.deliver)) model(I.dog(m.x, m.y, m.head, t, going), 0, 0);
         else model(I.person(m.x, m.y, m.head, t, dog ? COLORS.walker : m.color, { walking: going || m.playing > 0, dog, z: lift }), 0, 0.45);
       } else if (!me || this.fp.away > 0.25) {
         const v = I.vehicle(m.kind, m.x, m.y, m.head, t, m.color, lift, !!m.deliver && this.postie(m.deliver).open);
@@ -1822,10 +1938,12 @@ export class Play {
         });
       }
       // The postal worker out of the van, round the back for the letter or
-      // parcel, up to the door with it, and back without it.
+      // parcel, up to the door with it, and back without it -- or anyone out
+      // for a treat, into the shop and out with it.
       if (m.deliver) {
         const p = this.postie(m.deliver);
-        model(I.person(p.x, p.y, p.head, t, '#1d4e89', { walking: p.walking, postie: true, carry: p.carry, z: p.z }));
+        const postie = m.kind === 'mail';
+        if (!p.hidden) model(I.person(p.x, p.y, p.head, t, postie ? '#1d4e89' : COLORS[m.kind], { walking: p.walking, postie, carry: p.carry, z: p.z }));
       }
     }
     return list;

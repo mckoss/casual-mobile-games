@@ -478,6 +478,12 @@ export function person(x, y, h, t, color, opts = {}) {
   }
   if (opts.carry === 'letter') m.box(0.05, -0.055, 0.22, 0.065, 0.055, 0.3, '#ffffff');
   if (opts.carry === 'parcel') m.box(0.05, -0.07, 0.19, 0.17, 0.07, 0.31, '#c68642');
+  // (A treat: an ice cream cone, or an apple.)
+  if (opts.carry === 'cone') {
+    m.box(0.06, -0.018, 0.2, 0.096, 0.018, 0.28, '#d4a373');
+    m.ball(0.078, 0, 0.3, 0.032, '#ffafcc');
+  }
+  if (opts.carry === 'apple') m.ball(0.08, 0, 0.27, 0.035, '#e63946');
   if (opts.dog) addDog(m, t, opts.walking);
   return m;
 }

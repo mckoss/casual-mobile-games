@@ -137,6 +137,13 @@ pictures and a sound for every touch.
   floor. Tap a job in the tray to do that one next: the camera goes to the
   helper who'll do it, its button bounces with that job's picture, and
   it's said; press the button to go. Several helpers can be out at once.
+- A treat on the way, any time: tap the shop's sign (the apple) or the
+  café's (the ice cream cone) and the helper you're driving -- or watching,
+  or the nearest one out on a trip -- goes there (the arrow and dots show
+  the way at once; driving, you take it there). At the door the driver
+  hops out (the dog walker leaves the dog waiting), goes in, and comes
+  out with an apple or an ice cream -- "A delicious apple!", "Yum! Ice
+  cream!" -- hops back in, and goes on with the trip.
 - Done, it says what you did: "You picked up all the garbage!", "You
   delivered all the mail!", "You took the dog for a walk!", "You built a
   house! Great job!". The cement mixer starts empty: "Time to build a

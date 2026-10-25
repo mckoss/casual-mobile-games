@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.89.0
+- Benji's Town: a treat on the way -- tap the shop's apple or the café's
+  ice cream cone, and the helper you're driving (or watching) goes in for
+  one: out of the cab, into the shop, and out with an apple ("A delicious
+  apple!") or an ice cream ("Yum! Ice cream!"), then on with the trip.
+
 ## 1.88.0
 - Benji's Town: jobs in any order -- blue recycling bins as well as
   trash, picked up whichever way round, and the dump whenever. Tap a job
