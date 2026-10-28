@@ -34,6 +34,9 @@ the whole arcade.
 - **Trial Bike** -- ride a trials bike over hills, logs, ledges and gaps;
   beat the computer rider's time without a crash. Contributed by
   [Garnett Callis](https://github.com/garnett-ui).
+- **Crystal Cave** -- fire crystals up into the roof of a cave: three of a
+  colour shatter, and whatever they held up drops into your cart. Clear
+  the roof in the computer miner's number of shots.
 - **Jigsaw** -- turn your own photos into jigsaw puzzles, or a pattern: a
   colour wheel, stained glass, a map and more, new every time.
 
@@ -102,6 +105,7 @@ games/water/                Water Lab: model.js (pours, BFS solver, levels), sha
 games/tangram/              Tangram: model.js (the pieces, coverage and snapping; runs in Node), solver.js (makes a silhouette from the pieces), figures.js (generated), play.js
 games/elevator/             Elevator Operator: engine.js (buildings, lifts, arrivals, levels, dispatcher; runs in Node), play.js (towers), sprites.js (8-bit people), cat.js (an easter egg), city.js (the city round about), pace.js (fast through the lulls)
 games/trial-bike/           Trial Bike: engine.js (bike physics, courses, the computer rider; runs in Node), play.js (view), worker.js
+games/crystal-cave/         Crystal Cave: engine.js (the roof, the shot, the kinds, the computer miner; runs in Node), play.js (view, chambers), worker.js
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
 games/benji/                Benji's Town: town.js (the town, routes, the days and their jobs), clock.js (the time of day, the sky), streets.js (sidewalks, crosswalks, lights), traffic.js (lanes, stopping, crossing), steer.js (driving yourself: the way ahead, which way to turn) -- all run in Node; iso.js (the 3D: from above, and from the driver's seat), draw.js, play.js
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)

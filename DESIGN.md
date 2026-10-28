@@ -841,6 +841,77 @@ keyboard.
   hard landing, the checkpoint chime at each flag, a fanfare and the
   flares' whoosh and crackle for a flip, and one other, from the hilltop.
 
+## Crystal Cave
+
+A bubble shooter in a cave, in the line of *Puzzle Bobble*: a honeycomb
+roof of coloured crystals hangs from the top, and you fire crystals up into
+it from a catapult at the bottom. Drag anywhere to aim -- a dotted guide
+shows the shot as far as its first bounce off a wall, and where it will
+land if that's sooner -- and let go to fire; tap the loaded crystal to swap
+it for the next. Arrows, space and down on a keyboard. Upright.
+
+- **The rules.** A shot bounces off the side walls, stops at the first
+  crystal it touches (or the roof) and snaps into the nearest empty cell.
+  Three or more of a colour touching shatter, and whatever is no longer
+  joined to the roof drops into the mole's cart. Every few shots the roof
+  creeps down a row; a crystal crossing the line at the bottom is a
+  cave-in, and you go again from the start. The crystal you're handed is
+  always a colour still on the roof (one waiting when its colour goes is
+  drawn again). Clear the roof to win.
+- **Levels from a seed**, and every one proved. Level *n* is a roof built
+  from its seed in one of six shapes from level 3 (a slab, a V, stalactites,
+  wings, pillars, an arch), its colours leaning on their neighbours' so there
+  are pairs and small clumps to go for -- never more than four of a colour
+  touching, so no roof falls at a touch -- and a seeded sequence of crystals
+  to fire, so the same shots always meet the same crystals. The roof grows
+  deeper (four rows to seven) and takes on more colours (three to five), grey
+  **stone** that never matches and only drops when cut loose comes in from
+  level 6, and the creep comes sooner (every ten shots, down to every five).
+  Every tenth level the roof is a picture, hanging by its own top: a heart,
+  a star, a smiley, a diamond, the mole himself.
+- **The computer miner** plays every roof as it is generated: it tries an
+  aim every two degrees across the arc, scores each shot by what it shatters
+  and drops (and against adding to a low row), looks one shot ahead for its
+  three best, and takes the best. A roof it can't clear, or clears in fewer
+  shots than the level deserves (six, rising to eighteen by level 30) or
+  more than twice that, is re-rolled from the same seed (up to sixteen
+  tries; if none lands in that band, the nearest that clears is taken); its
+  shot count is **par**, and its run is kept, so **SHOW ME** after a cave-in
+  plays it back. (A roof none of sixteen tries can clear -- none of levels
+  1-50 is -- would ship with a guessed par, no SHOW ME, and a word on screen.)
+- **Stars** against par: three for clearing the roof in par or fewer shots,
+  two within half as many again, one for clearing it. The level tile shows
+  your fewest shots.
+- **The cart pays.** Every eight crystals dropped -- dropped, not
+  shattered: a shatter clears the roof, a drop fills the cart, so the shot
+  that cuts a clump loose does both -- the cart is full and the crystal
+  put up NEXT is a power-up (a drop big enough for two pays the second on
+  the shot after), in turn: **BLAST** shatters itself and everything around
+  it, **PRISM** matches any colour and joins every group around it that
+  reaches three, **DRILL** stops at nothing and bores out everything on its
+  way, off the walls and all, up to the roof. Each level's first payout is
+  one further round, so all three come up. A power-up can be swapped like
+  any crystal. The computer miner earns and uses them the same way, so par
+  is fair. Each kind is a package: an entry in the engine's table (the
+  engine traces the shot and the kind says what happens where it lands) and
+  one in the view's table of looks -- a new kind is a new entry in each,
+  not an edit to either.
+- **Chambers.** The cave changes every five levels: a lamplit mine, an ice
+  grotto, a lava vault, a mushroom hollow, a cenote under a shaft of
+  daylight -- each its own palette, its own dressing on the walls and floor,
+  and its own drift in the air. The middle of the screen stays quiet in all
+  of them, so the shot and its guide read. Every tenth level from 15 the
+  **lights are out**: the roof shows only in the mole's headlamp, a beam
+  that follows your aim. (Par is the same; the computer miner needs no
+  light.)
+- A bat hangs from a ledge on the right wall, and yawns when you clear the
+  roof. The mole jumps for joy when the cart pays and when the roof is
+  cleared, and a cleared roof showers gems.
+- Sound is the catapult's twang, a glassy shatter that grows with the group,
+  a dull tick for a crystal that lands whole, the clink of each one into the
+  cart, a rumble for the cave-in, a chime when the cart pays, and the shared
+  fanfare for a roof cleared.
+
 ## Jigsaw
 
 Turn your own photos into jigsaw puzzles. **Choose photo** opens the photo

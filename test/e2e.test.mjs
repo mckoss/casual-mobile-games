@@ -1959,3 +1959,107 @@ test('trial bike: gas and lean with two thumbs, a crash and the tap that goes ag
     server.close();
   }
 });
+
+test('crystal cave: aim with a drag and fire, a roof cleared scored against par, and a cave-in', { skip: !chromium, timeout: 120000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('[data-game=crystal-cave] .card-title').click();
+    // The level list first.
+    await page.locator('.lvl[data-n="1"]').waitFor();
+    assert.equal(await page.locator('.lvl').first().getAttribute('data-n'), '1');
+    await page.locator('.lvl[data-n="1"]').click();
+    // (The roof is cleared by the computer miner in a worker first.)
+    await page.waitForFunction(() => window.__crystalCave, null, { timeout: 30000 });
+    const level = await page.evaluate(() => ({ n: window.__crystalCave.level.n, par: window.__crystalCave.level.par, checked: window.__crystalCave.level.checked }));
+    assert.equal(level.n, 1);
+    assert.ok(level.checked && level.par > 0, `level 1 was cleared by the computer miner (par ${level.par})`);
+
+    // The first touch only puts the tip away; then a thumb drags to the left
+    // to aim, and lets go to fire. Real touch, through the browser's input.
+    await page.touchscreen.tap(195, 500);
+    assert.ok(await page.locator('.tip[hidden]').count(), 'the tip is put away');
+    assert.equal(await page.evaluate(() => window.__crystalCave.game.shots), 0, 'the first touch fired nothing');
+    assert.equal(await page.evaluate(() => window.__crystalCave.aim), 0);
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 195, y: 500, id: 1 }] });
+    for (let i = 1; i <= 5; i++) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 195 - i * 15, y: 500, id: 1 }] });
+    }
+    const aim = await page.evaluate(() => window.__crystalCave.aim);
+    assert.ok(aim < 0, `aimed to the left (${aim})`);
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    assert.equal(await page.evaluate(() => window.__crystalCave.game.shots), 1, 'letting go fired');
+
+    // A roof that falls to one shot: two of a colour, and a third fired
+    // straight up beside them. All three shatter, and the roof is clear --
+    // in two shots, under par: three stars.
+    await page.waitForFunction(() => window.__crystalCave.ready, null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const p = window.__crystalCave;
+      const row = (s) => [...s].map((ch) => (ch === '.' ? null : { kind: 'gem', colour: Number(ch) }));
+      p.game.cells = [row('..00....')];
+      p.shown = p.game.cells;
+      p.game.loaded = { kind: 'gem', colour: 0 };
+      p.game.next = { kind: 'gem', colour: 0 };
+      p.game.cart = 10;
+      p.fire(0);
+    });
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 10000 });
+    assert.equal(await page.evaluate(() => window.__crystalCave.outcome), 'cleared');
+    assert.equal(await page.locator('.dialog h3').textContent(), 'Roof cleared!');
+    assert.match(await page.locator('.dialog').innerText(), new RegExp(`2 shots.*${level.par - 2} under par`, 's'));
+    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:crystal-cave:progress')));
+    assert.ok(saved.unlocked >= 2);
+    assert.equal(saved.stars['1'], 3);
+    assert.equal(saved.shots['1'], 2);
+
+    // On to level 2.
+    await page.locator('[data-act=next]').click();
+    await page.waitForFunction(() => window.__crystalCave?.level.n === 2, null, { timeout: 30000 });
+    assert.match(page.url(), /#\/crystal-cave\/2$/);
+
+    // A cave-in: the roof crept all but down to the line, and a crystal that
+    // matches nothing sticks under it and crosses it.
+    await page.evaluate(() => {
+      const p = window.__crystalCave;
+      const row = (s) => [...s].map((ch) => (ch === '.' ? null : { kind: 'gem', colour: Number(ch) }));
+      p.game.cells = [row('...0....')];
+      p.shown = p.game.cells;
+      p.game.loaded = { kind: 'gem', colour: 1 };
+      p.game.next = { kind: 'gem', colour: 1 };
+      p.game.shift = 11;
+      p.shift = 11;
+      p.fire(0);
+    });
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 10000 });
+    assert.equal(await page.locator('.dialog h3').textContent(), 'Cave-in!');
+    assert.equal(await page.evaluate(() => window.__crystalCave.outcome), 'cavein');
+    assert.ok(await page.locator('.dialog [data-act=showme]').count(), 'offered a demo');
+    await page.locator('.dialog [data-act=retry]').click();
+    assert.ok(await page.locator('.dialog[hidden]').count());
+    assert.equal(await page.evaluate(() => window.__crystalCave.game.shots), 0, 'a fresh go');
+
+    // SHOW ME: the computer miner clears the roof (fast-forwarded here) in
+    // par, and that doesn't count toward progress.
+    await page.evaluate(() => {
+      const p = window.__crystalCave;
+      p.timeScale = 8;
+      p.showMe();
+    });
+    await page.locator('.dialog:not([hidden])').waitFor({ timeout: 60000 });
+    assert.equal(await page.locator('.dialog h3').textContent(), 'That’s how it’s done');
+    const par2 = await page.evaluate(() => window.__crystalCave.level.par);
+    assert.match(await page.locator('.dialog').innerText(), new RegExp(`cleared the roof in ${par2} shots`));
+    const after = await page.evaluate(() => JSON.parse(localStorage.getItem('pocket-arcade:crystal-cave:progress')));
+    assert.deepEqual(after, saved);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

@@ -316,6 +316,33 @@ const SFX = {
     tone('sawtooth', 150, 112, 0.7, 0.1, 0, 700);
     tone('sawtooth', 300, 220, 0.7, 0.04, 0.03, 1100);
   },
+  // Crystal Cave: the catapult let go (a low pluck with a snap on top),
+  // crystals shattering (a bright, glassy burst -- n of them, grander the
+  // more there are, up to ten), one landing whole (a dull tick), the roof
+  // caving in (a low, rolling rumble), and the cart full, a power-up paid
+  // for (a rising two-note chime with a sparkle).
+  twang: () => {
+    tone('triangle', 220, 160, 0.12, 0.12);
+    tone('sine', 1400, 1100, 0.04, 0.03);
+  },
+  shatter: (n = 3) => {
+    const m = Math.min(10, Math.max(1, n)) / 10;
+    knock(0.3 + 0.2 * m, 0.08, 4000, 1.2);
+    [1500, 2200, 1850, 2900].forEach((f, k) => {
+      const hz = f * (1 + 0.25 * m);
+      tone(k % 2 ? 'triangle' : 'sine', hz, hz * 0.92, 0.09, 0.05 + 0.04 * m, k * 0.04);
+    });
+  },
+  stick: () => knock(0.15, 0.04, 900, 2),
+  rumble: () => {
+    [0, 0.22, 0.48].forEach((at, k) => thump(0.5 - k * 0.1, 0.4, 600 - k * 150, at));
+    tone('sawtooth', 60, 40, 0.8, 0.08, 0, 300);
+  },
+  cartfull: () => {
+    tone('triangle', 784, 784, 0.18, 0.12);
+    tone('triangle', 1175, 1175, 0.18, 0.12, 0.12);
+    tone('sine', 2400, 2400, 0.2, 0.03, 0.14);
+  },
 };
 
 // Continuous sounds that play while a control is held (engine rumble,

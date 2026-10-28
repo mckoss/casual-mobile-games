@@ -460,7 +460,7 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .bo-balls { flex: 1; display: flex; gap: 5px; align-items: center; }
 .bo-balls i { width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px rgba(255, 255, 255, .7); }
 .bo-screen .icon-btn svg { fill: currentColor; }
-.bo-overlay, .ll-paused, .tb-paused, .pause-card {
+.bo-overlay, .ll-paused, .tb-paused, .cc-paused, .pause-card {
   position: absolute;
   inset: 0;
   display: grid;
@@ -468,7 +468,7 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   background: rgba(10, 12, 38, .55);
   z-index: 2;
 }
-.bo-overlay[hidden], .ll-paused[hidden], .tb-paused[hidden], .pause-card[hidden] { display: none; }
+.bo-overlay[hidden], .ll-paused[hidden], .tb-paused[hidden], .cc-paused[hidden], .pause-card[hidden] { display: none; }
 .pause-card { z-index: 4; cursor: pointer; }
 .el-screen .icon-btn svg { fill: currentColor; }
 /* Benji's Town: the car button -- lit when you drive them yourself. */
@@ -486,7 +486,7 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .el-screen .bar h2 { white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .ll-paused { z-index: 4; cursor: pointer; }
 .ll-screen .icon-btn svg { fill: currentColor; }
-.bo-overlay div, .ll-paused div, .tb-paused div, .pause-card div {
+.bo-overlay div, .ll-paused div, .tb-paused div, .cc-paused div, .pause-card div {
   background: #fff;
   color: var(--card-ink);
   border-radius: 18px;
@@ -498,8 +498,8 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   max-width: 80%;
   box-shadow: 0 8px 0 rgba(0, 0, 0, .25);
 }
-.bo-overlay b, .ll-paused b, .tb-paused b, .pause-card b { font-size: 20px; }
-.bo-overlay span, .ll-paused span, .tb-paused span, .pause-card span { color: #565a7e; }
+.bo-overlay b, .ll-paused b, .tb-paused b, .cc-paused b, .pause-card b { font-size: 20px; }
+.bo-overlay span, .ll-paused span, .tb-paused span, .cc-paused span, .pause-card span { color: #565a7e; }
 
 /* Lunar Lander */
 .ll-screen { background: #000004; }
@@ -919,6 +919,13 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
   .tb-screen .bar h2 { font-size: 17px; }
   .tb-ghost { padding: 6px 8px; font-size: 10px; letter-spacing: 0; margin-right: 0; }
 }
+
+/* Crystal Cave */
+.cc-screen { background: #2c1f44; }
+.cc-screen .bar { background: #2c1f44; }
+.cc-screen .stage.building { color: #cbbbe8; }
+.cc-screen .icon-btn svg { fill: currentColor; }
+.cc-paused { z-index: 4; cursor: pointer; }
 
 /* About box */
 .hub-foot .about-link {

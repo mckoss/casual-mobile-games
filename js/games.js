@@ -102,6 +102,14 @@ export const GAMES = [
     art: () => import('../games/trial-bike/art.js'),
   },
   {
+    id: 'crystal-cave',
+    title: 'Crystal Cave',
+    blurb: 'Fire crystals up into the roof of a cave: three of a colour shatter, and whatever they held up drops into your cart. Clear the roof before it creeps down to you.',
+    color: '#b06bff',
+    load: () => import('../games/crystal-cave/index.js'),
+    art: () => import('../games/crystal-cave/art.js'),
+  },
+  {
     id: 'jigsaw',
     title: 'Jigsaw',
     blurb: 'Turn your own photos into jigsaw puzzles. About 100 pieces, or as many as you like.',
