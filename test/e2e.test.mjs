@@ -648,8 +648,9 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
     assert.equal(await page.evaluate(() => window.__benji.part.part), 'morning');
     // On through the day (faster, for the test): the dog in the evening,
     // then night falls -- everyone home -- and it's the next morning, kept.
+    // (Fast enough that a slow machine gets there in the rounds allowed.)
     await page.evaluate(() => {
-      window.__benji.speed = 6;
+      window.__benji.speed = 12;
       window.__parts = [];
       const p = window.__benji;
       const on = p.hooks.onPart;
