@@ -1251,6 +1251,8 @@ test('about box: the version history, newest first', { skip: !chromium, timeout:
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.goto(`http://localhost:${server.address().port}/`);
     await page.locator('[data-act=about]').click();
+    // (Drawn once it's open: wait for it.)
+    await page.locator('.about-ver h5').first().waitFor();
     const heads = await page.locator('.about-ver h5').allTextContents();
     assert.match(heads[0], new RegExp(`^v${version.replace(/\./g, '\\.')}`));
     assert.match(heads[0], /you have this/);

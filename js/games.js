@@ -104,6 +104,7 @@ export const GAMES = [
   {
     id: 'crystal-cave',
     title: 'Crystal Cave',
+    credit: { name: 'Garnett Callis', url: 'https://github.com/garnett-ui' },
     blurb: 'Fire crystals up into the roof of a cave: three of a colour shatter, and whatever they held up drops into your cart. Clear the roof before it creeps down to you.',
     color: '#b06bff',
     load: () => import('../games/crystal-cave/index.js'),

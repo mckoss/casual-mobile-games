@@ -6,6 +6,19 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.97.0
+- New game: **Crystal Cave**, contributed by Garnett Callis. A bubble
+  shooter in a cave: drag anywhere to aim (a dotted line shows the way to
+  the first bounce) and let go to fire a crystal up into the roof. Three
+  of a colour touching shatter, and whatever they were holding up drops
+  into the mole's cart; fill the cart for a power-up -- BLAST, PRISM or
+  DRILL. The roof creeps down every few shots: clear it before a crystal
+  reaches the line. Every level is played through by a computer miner
+  first, and its number of shots is par; after a cave-in, SHOW ME plays
+  its run. New chambers every five levels -- a mine, an ice grotto, a lava
+  vault, a mushroom hollow, a cenote -- a picture for a roof every tenth
+  level, and sometimes the lights go out.
+
 ## 1.96.2
 - The Suggest a game card now says "Tell me here".
 

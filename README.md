@@ -36,7 +36,8 @@ the whole arcade.
   [Garnett Callis](https://github.com/garnett-ui).
 - **Crystal Cave** -- fire crystals up into the roof of a cave: three of a
   colour shatter, and whatever they held up drops into your cart. Clear
-  the roof in the computer miner's number of shots.
+  the roof in the computer miner's number of shots. Contributed by
+  [Garnett Callis](https://github.com/garnett-ui).
 - **Jigsaw** -- turn your own photos into jigsaw puzzles, or a pattern: a
   colour wheel, stained glass, a map and more, new every time.
 
