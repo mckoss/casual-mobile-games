@@ -394,6 +394,25 @@ const SFX = {
     });
   },
   stick: () => knock(0.15, 0.04, 900, 2),
+  // The Chopping Game's celebration, the surprise free: like a pane of glass
+  // breaking (a bright crash) and its pieces tinkling down for a second and
+  // a half, thick and fast at first, then fewer and quieter -- each a click
+  // and its own few partials, as a little piece of glass rings.
+  glassfall: () => {
+    tick(0.17, 0.28, 2800);
+    knock(0.15, 0.22, 2200, 0.7);
+    knock(0.12, 0.12, 5200, 1.2, 0.01);
+    for (let k = 0; k < 30; k++) {
+      const u = Math.random() ** 1.6;
+      const at = 0.03 + u * 1.6;
+      const f = 2400 + Math.random() * 4600;
+      const vol = 0.05 * (1 - u * 0.75) * (0.6 + Math.random() * 0.4);
+      knock(vol * 2.5, 0.004, Math.min(9000, f * 1.4), 1.5, at);
+      ping(f, 0.05 + Math.random() * 0.07, vol, at);
+      ping(f * 2.76, 0.035, vol * 0.45, at);
+      if (Math.random() < 0.4) ping(f * 5.4, 0.02, vol * 0.25, at);
+    }
+  },
   // The Chopping Game: the axe into the ice (see iceChop), and a chunk
   // chopped through -- a heavier chop, the crack running right through it
   // (a falling crunch), and its pieces landing on more ice, tinkling.

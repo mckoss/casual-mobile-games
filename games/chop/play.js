@@ -22,6 +22,7 @@ export class Play {
     this.shards = [];
     this.sparks = [];
     this.swings = [];
+    this.glass = []; // (the celebration: bits of ice, glittering down)
     this.flakes = Array.from({ length: 40 }, (_, i) => ({ x: (i * 0.618) % 1, y: (i * 0.37) % 1, s: 0.5 + ((i * 0.29) % 1), v: 0.02 + ((i * 0.13) % 1) * 0.04 }));
     this.freedAt = null;
     this.resize();
@@ -77,12 +78,16 @@ export class Play {
     const c = this.lv.chunks[r.i];
     if (r.broke) {
       this.shatter(r.i, x, y);
-      this.hooks.sfx?.('icebreak');
       this.hooks.haptic?.(25);
       if (free(this.lv)) {
+        // The last of it: the whole block goes, like glass breaking, and
+        // glittering bits of it shower down.
         this.freedAt = this.t;
-        this.hooks.sfx?.('win');
+        this.celebrate();
+        this.hooks.sfx?.('glassfall');
         this.hooks.onFree?.(this.lv.surprise);
+      } else {
+        this.hooks.sfx?.('icebreak');
       }
     } else {
       // Cracks, out from the chop.
@@ -131,6 +136,31 @@ export class Play {
     });
   }
 
+  // The celebration: bits of ice like broken glass -- a burst of them out of
+  // the block, then a shower from the top of the screen -- tumbling as they
+  // fall, and glinting as they turn to the light. (In page coordinates.)
+  celebrate() {
+    const bit = (x, y, vx, vy, delay) => {
+      const r = 4 + Math.random() * 6;
+      const n = 3 + Math.floor(Math.random() * 3);
+      const pts = Array.from({ length: n }, (_, k) => {
+        const a = (k / n) * Math.PI * 2 + (Math.random() - 0.5) * 1.2;
+        const d = r * (0.6 + Math.random() * 0.6);
+        return [Math.cos(a) * d, Math.sin(a) * d];
+      });
+      this.glass.push({ x, y, vx, vy, pts, a: Math.random() * 6, spin: (Math.random() - 0.5) * 9, flip: Math.random() * 6, flipV: 4 + Math.random() * 8, t: -delay, tint: Math.random() });
+    };
+    const [cx, cy] = [this.ox + (W * this.s) / 2, this.oy + (H * this.s) / 2];
+    for (let k = 0; k < 70; k++) {
+      const a = Math.random() * Math.PI * 2;
+      const v = 120 + Math.random() * 320;
+      bit(cx + (Math.random() - 0.5) * W * this.s, cy + (Math.random() - 0.5) * H * this.s, Math.cos(a) * v, Math.sin(a) * v - 220, 0);
+    }
+    for (let k = 0; k < 110; k++) {
+      bit(Math.random() * this.W, -20 - Math.random() * 60, (Math.random() - 0.5) * 40, 60 + Math.random() * 120, Math.random() * 1.8);
+    }
+  }
+
   bind() {
     const c = this.canvas;
     const at = (e) => {
@@ -163,6 +193,17 @@ export class Play {
       p.y += p.vy * dt;
     }
     this.sparks = this.sparks.filter((p) => p.t < 0.6);
+    for (const p of this.glass) {
+      p.t += dt;
+      if (p.t < 0) continue;
+      p.vy += 520 * dt;
+      p.vx *= 1 - 0.6 * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.a += p.spin * dt;
+      p.flip += p.flipV * dt;
+    }
+    this.glass = this.glass.filter((p) => p.t < 3.5 && p.y < this.H + 30);
     for (const w of this.swings) w.t += dt;
     this.swings = this.swings.filter((w) => w.t < 0.3);
     for (const f of this.flakes) {
@@ -289,7 +330,7 @@ export class Play {
       emoji(g, '⛏️', 0, 0);
       g.restore();
     }
-    // Free: its name, and a shower of sparkles.
+    // Free: its name, and the bits of ice showering down.
     if (this.freedAt !== null) {
       const u = this.t - this.freedAt;
       g.globalAlpha = Math.min(1, u * 2);
@@ -297,12 +338,40 @@ export class Play {
       g.font = '900 34px system-ui, sans-serif';
       g.fillText(`${this.lv.surprise.name}!`, cw / 2, this.oy + H * this.s + 4);
       g.globalAlpha = 1;
-      for (let k = 0; k < 14; k++) {
-        const a = (k / 14) * Math.PI * 2 + u * 0.8;
-        const d = size * (0.85 + 0.15 * Math.sin(u * 3 + k));
-        g.font = '22px system-ui, sans-serif';
-        emoji(g, '✨', sx + Math.cos(a) * d, sy - lift + Math.sin(a) * d);
+    }
+    for (const p of this.glass) {
+      if (p.t < 0) continue;
+      // (Tumbling: squashed as it turns edge on, and bright as it faces
+      // the light.)
+      const turn = Math.cos(p.flip);
+      const shine = Math.max(0, turn) ** 6;
+      g.save();
+      g.translate(p.x, p.y);
+      g.rotate(p.a);
+      g.scale(1, 0.25 + 0.75 * Math.abs(turn));
+      g.globalAlpha = Math.min(1, 3.5 - p.t);
+      g.beginPath();
+      p.pts.forEach(([x, y], k) => (k ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.closePath();
+      g.fillStyle = `rgba(${200 + 40 * p.tint + 15 * shine}, ${235 + 20 * shine}, 255, ${0.45 + 0.5 * shine})`;
+      g.fill();
+      g.strokeStyle = 'rgba(255,255,255,0.95)';
+      g.lineWidth = 1.2;
+      g.stroke();
+      g.restore();
+      if (shine > 0.6) {
+        // A glint off it.
+        g.globalAlpha = (shine - 0.6) * 2.5;
+        g.strokeStyle = '#fff';
+        g.lineWidth = 1.5;
+        g.beginPath();
+        g.moveTo(p.x - 6, p.y);
+        g.lineTo(p.x + 6, p.y);
+        g.moveTo(p.x, p.y - 6);
+        g.lineTo(p.x, p.y + 6);
+        g.stroke();
       }
+      g.globalAlpha = 1;
     }
   }
 

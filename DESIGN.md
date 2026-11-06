@@ -311,8 +311,11 @@ through -- and every tap on the ice chops it: the chunk there cracks or, if
 that was its last chop, shatters and its pieces tumble away. One chop a
 tap: holding a finger down (or sliding it) doesn't keep chopping -- the
 chopping is the fun. With the last chunk gone the
-surprise is free: it jumps for joy in a ring of sparkles, its name appears
-and (with the sound on) is said out loud, and only then does the big green
+surprise is free: the last of the block goes like a pane of glass breaking,
+bits of ice burst out and then shower down the screen, tumbling and glinting
+as they catch the light (no confetti: it's ice), the surprise jumps for joy,
+its name appears, and (with the sound on) there's a cheer -- Benji's Town's
+"yay" -- over the tinkling, then its name said out loud, and only then does the big green
 button for the next block appear (no button before it does something).
 
 - **The block** (`model.js`, runs in Node) is cut into chunks like cracked
@@ -334,6 +337,9 @@ button for the next block appear (no button before it does something).
   stiff and brittle), and the ice crazing just after (splinters). A chunk
   chopped through is a heavier chop, a crunch as the crack runs through,
   and its pieces tinkling down. Pitch and timing vary a little each time.
+  The celebration (`glassfall`) is glass breaking: a bright crash, then
+  thirty pieces tinkling down over a second and a half, thick and fast at
+  first and then fewer and quieter, each a click and its own partials.
 
 ## Car Jam
 

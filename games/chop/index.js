@@ -6,6 +6,9 @@ import { level } from './model.js';
 import { Play } from './play.js';
 import { ICON } from '../../js/lib/campaign.js';
 
+// The cheer: Benji's Town's "yay" (from the letter tracer).
+const YAY = new URL('../benji/sounds/yay.mp3', import.meta.url).href;
+
 const NEXT = '<svg viewBox="0 0 24 24"><path d="M8 4l9 8-9 8z" fill="currentColor"/></svg>';
 
 export function mount(root, ctx) {
@@ -14,6 +17,9 @@ export function mount(root, ctx) {
   let n = ctx.load('level', 1);
   // The surprises found so far (their emoji), shown along the top.
   let found = ctx.load('found', []);
+  ctx.loadClip?.(YAY); // (ahead, so the cheer isn't late)
+  let timers = [];
+  const later = (ms, fn) => timers.push(setTimeout(fn, ms));
 
   // The surprise's name, said out loud (with the sound on).
   const say = (text) => {
@@ -30,6 +36,8 @@ export function mount(root, ctx) {
   };
 
   function teardown() {
+    timers.forEach(clearTimeout);
+    timers = [];
     if (play) play.destroy();
     play = null;
     if (onResize) window.removeEventListener('resize', onResize);
@@ -61,7 +69,18 @@ export function mount(root, ctx) {
         ctx.save('level', n);
         ctx.save('found', found);
         root.querySelector('.pill').textContent = String(found.length);
-        setTimeout(() => say(`${s.name}!`), 350);
+        // A cheer over the ice tinkling down -- yay! -- and then what it is.
+        const name = () => say(`${s.name}!`);
+        if (!ctx.getSetting('sound') || !ctx.loadClip) later(350, name);
+        else {
+          const me = play;
+          ctx.loadClip(YAY).then((clip) => {
+            if (play !== me) return; // (on to the next block already)
+            if (!clip) return later(350, name);
+            later(300, () => ctx.playClip(YAY, 1));
+            later(300 + clip.duration * 1000 + 150, name);
+          });
+        }
         // (The button only once it does something -- and not so soon that a
         // tap still chopping presses it.)
         setTimeout(() => {

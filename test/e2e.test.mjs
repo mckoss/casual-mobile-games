@@ -2218,6 +2218,7 @@ test('the chopping game: tap the ice away, chunk by chunk, to free the surprise 
       for (const [x, y] of await where()) await page.mouse.click(box.x + x, box.y + y);
     }
     assert.equal(await page.evaluate(() => window.__chop.freedAt !== null), true, 'the surprise is free');
+    assert.ok(await page.evaluate(() => window.__chop.glass.length > 50), 'bits of ice showering down');
     await next.waitFor({ state: 'visible', timeout: 5000 });
     assert.equal(await page.locator('.ch-screen .pill').textContent(), '1');
     assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:chop:level')), '2');
@@ -2236,18 +2237,19 @@ test('the chopping game: tap the ice away, chunk by chunk, to free the surprise 
     await page.mouse.up();
     const after = await page.evaluate(() => window.__chop.lv.chunks.reduce((a, c) => a + c.hp, 0));
     assert.equal(before - after, 1, 'held: one chop');
-    // Its sounds -- the axe into the ice, a chunk breaking off -- play, and
+    // Its sounds -- the axe into the ice, a chunk breaking off, the glass
+    // breaking and tinkling down at the end -- play, and
     // about as loud as the rest (the hammer's hits, a win), no louder.
     const loud = await page.evaluate(async () => {
       const m = await import('/js/lib/audio.js');
       const out = {};
-      for (const name of ['chop', 'icebreak', 'hammer']) {
-        const d = (await m.renderSfx(name, undefined, 1)).getChannelData(0);
+      for (const name of ['chop', 'icebreak', 'glassfall', 'hammer']) {
+        const d = (await m.renderSfx(name, undefined, 2)).getChannelData(0);
         out[name] = d.reduce((a, x) => Math.max(a, Math.abs(x)), 0);
       }
       return out;
     });
-    for (const name of ['chop', 'icebreak']) assert.ok(loud[name] > 0.05 && loud[name] <= loud.hammer, `${name}: ${JSON.stringify(loud)}`);
+    for (const name of ['chop', 'icebreak', 'glassfall']) assert.ok(loud[name] > 0.05 && loud[name] <= loud.hammer, `${name}: ${JSON.stringify(loud)}`);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

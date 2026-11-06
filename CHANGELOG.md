@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.103.0
+- The Chopping Game: a new celebration when the surprise is free -- the
+  last of the ice breaks like glass and comes showering down in glittering
+  bits, tinkling as it falls, with a cheer ("yay!") before the surprise's
+  name is said.
+
 ## 1.102.0
 - The Chopping Game: every chop is a tap -- holding your finger on the ice
   no longer keeps on chopping.
