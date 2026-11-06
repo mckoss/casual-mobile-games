@@ -12,7 +12,7 @@
 import { SIZE, isRoad, drivePath, jobAt, nextJob, canDo, makeTown } from './town.js';
 import { tick, partAt, light, sky, sunAt, WINDOW, NIGHT } from './clock.js';
 import { walkways, walkDoor, junctions, crossings, isJunction, isLit, lights, walkSignal, armOf, atEdge, circleAt, CIRCLE } from './streets.js';
-import { Traffic, lanePoint, startDir, streetTiles } from './traffic.js';
+import { Traffic, lanePoint, startDir, streetTiles, HONK } from './traffic.js';
 import { ahead, driveTurn, onFrom, walkAhead, walkTurn } from './steer.js';
 import * as D from './draw.js';
 import { emoji, preload } from './emoji.js';
@@ -911,6 +911,12 @@ export class Play {
       return;
     }
     e.preventDefault();
+    // (The big button for a fire, or a robber: into that driver's seat.)
+    const sos = this.emergencies().find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 10);
+    if (sos) {
+      this.switchTo(sos.h);
+      return;
+    }
     const b = this.pads.find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 12);
     if (b) this.choose(b.act);
     else {
@@ -927,12 +933,65 @@ export class Play {
     if (h.pause > 0 || h.deliver) return false;
     const o = f.options;
     const way = act === 'go' ? 'straight' : act;
+    // Held up behind a car: ▲ is the horn (and the car in front makes way).
+    if (h.kind !== 'walker' && f.go && this.honkable(h)) return act === 'go';
     // Driving: only stopped -- at the line, which way through the corner;
     // anywhere else, ▲ on to the corner.
     if (h.kind !== 'walker') return !f.go && (f.atCorner && o ? way === 'straight' || o[way] !== o.straight : act === 'go');
     if (!o) return act === 'go' && !f.go;
     if (f.go) return o[way] !== o.now;
     return way === 'straight' || o[way] !== o.straight;
+  }
+
+  // Driving, and there's a fire (not yet being put out) or a robber on the
+  // loose: a big button for each, top right, to be the driver of the fire
+  // engine or the police car instead. [{ h, icon, color, x, y, r }]
+  emergencies() {
+    const f = this.fp;
+    if (!f) return [];
+    const out = [];
+    const add = (kind, icon, color) => {
+      const h = this.helpers.find((m) => m.kind === kind);
+      if (h && f.h !== h && this.targetPlace(h)) out.push({ h, icon, color });
+    };
+    if (this.fire && this.fire.douse === null) add('fire', '🚒', '#d62828');
+    if (this.robber) add('police', '🚓', '#1d4e89');
+    return out.map((q, k) => ({ ...q, x: this.W - 62, y: 150 + k * 112, r: 46 }));
+  }
+
+  // Out of this seat and into another helper's.
+  switchTo(h) {
+    this.leave();
+    this.enter(h);
+  }
+
+  // The big buttons for a fire or a robber, pulsing.
+  drawEmergencies() {
+    const { g } = this;
+    for (const q of this.emergencies()) {
+      const pulse = 0.5 + 0.5 * Math.sin(this.t * 6);
+      g.fillStyle = `rgba(255,200,0,${0.35 + 0.4 * pulse})`;
+      g.beginPath();
+      g.arc(q.x, q.y, q.r + 8 + pulse * 4, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#ffffff';
+      g.strokeStyle = q.color;
+      g.lineWidth = 6;
+      g.beginPath();
+      g.arc(q.x, q.y, q.r, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.font = `${Math.round(q.r * 1.1)}px system-ui, sans-serif`;
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      emoji(g, q.icon, q.x, q.y + 2);
+    }
+  }
+
+  // Held up behind a car (not a light, or someone crossing), and not
+  // honking already?
+  honkable(h) {
+    return (h.wait === 'car' || h.wait === 'turn') && !(this.t < (h.honk ?? -1));
   }
 
   // Is a press now the way at the corner coming up? (Not, driving, till
@@ -948,6 +1007,13 @@ export class Play {
     const f = this.fp;
     this.plan(f);
     if (!this.can(act)) return false;
+    // Beep beep: the cars ahead pull over, and on you go.
+    if (f.go && this.honkable(f.h)) {
+      f.h.honk = this.t + HONK;
+      f.flash = { act, t: this.t };
+      this.hooks.sfx?.('honk');
+      return true;
+    }
     const way = this.choosing() ? { go: 'straight', left: 'left', right: 'right' }[act] : null;
     f.go = true;
     if (way) f.intent = way;
@@ -1758,6 +1824,7 @@ export class Play {
     // Held up: why, big, up top -- a red light, the red hand, someone
     // crossing, a car.
     if (f.wait) this.waitSign(f.wait);
+    this.drawEmergencies();
     g.restore();
     this.drawPads();
     this.drawTray(true);
@@ -1994,6 +2061,14 @@ export class Play {
       g.arc(b.x, b.y, b.r, 0, Math.PI * 2);
       g.fill();
       g.stroke();
+      // (Held up behind a car: ▲ is the horn.)
+      if (b.act === 'go' && live && f.go && this.honkable(f.h)) {
+        g.font = `${Math.round(b.r * 1.1)}px system-ui, sans-serif`;
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        emoji(g, '📣', b.x, b.y + 2);
+        continue;
+      }
       // An arrow: up, left or right.
       const a = { go: -Math.PI / 2, left: Math.PI, right: 0 }[b.act];
       const s = b.r * 0.55;

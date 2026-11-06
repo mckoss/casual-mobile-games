@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import { SIZE, isRoad, route, drivePath, nearestRoad, makeTown, dayPlan, jobAt, nextJob, canDo, builtBefore, LOTS, PARTS } from '../games/benji/town.js';
 import { tick, partAt, light, sky, WINDOW, NIGHT, DAY } from '../games/benji/clock.js';
 import { walkways, walkDoor, junctions, crossings, isJunction, isLit, lights, mayWalk, walkSignal, zebra, WALK_TIME } from '../games/benji/streets.js';
-import { Traffic, lanePoint, startDir, streetTiles, footprint, body, bump } from '../games/benji/traffic.js';
+import { Traffic, lanePoint, startDir, streetTiles, footprint, body, bump, HONK } from '../games/benji/traffic.js';
+
+// Two cars touching: never -- but for a moment while one of them has right
+// of way (a fire engine, or a car honking its way out of a jam), driving
+// through.
+const touching = (a, b, t) => bump(body(a), body(b)) && !(a.rightOfWay > t - 1 || b.rightOfWay > t - 1);
 
 test('the town: every place off the streets, on its own tile, with a door on a street, all joined up', () => {
   const town = makeTown(1);
@@ -241,7 +246,8 @@ function traffic(seconds, cars = 6, people = 8, seed = 1, parkers = 0) {
           const axis = c.dir.x || (c.tile.x !== ix) ? 'ew' : 'ns';
           assert.equal(lights(ix, iy, t)[axis], 'green', 'cars go on green');
         } else {
-          const others = tr.cars.filter((o) => o !== c && tr.through(o, c.pass));
+          // (Bar a car with right of way, out of a jam.)
+          const others = tr.cars.filter((o) => o !== c && tr.through(o, c.pass) && !(o.rightOfWay > t - 1) && !(c.rightOfWay > t - 1));
           assert.equal(others.length, 0, 'no lights: one car through at a time');
         }
       }
@@ -263,11 +269,11 @@ function traffic(seconds, cars = 6, people = 8, seed = 1, parkers = 0) {
       }
       if (p.crossing) assert.ok(!tr.carsOn(p.crossing) || was, 'no car on the crosswalk as they start');
     }
-    // No car ever in another.
+    // No car ever in another (but to get out of a jam, a moment).
     for (let i = 0; i < tr.cars.length; i++) {
       for (let j = i + 1; j < tr.cars.length; j++) {
         const [a, b] = [tr.cars[i], tr.cars[j]];
-        assert.ok(!bump(body(a), body(b)), `cars at ${a.x.toFixed(2)},${a.y.toFixed(2)} and ${b.x.toFixed(2)},${b.y.toFixed(2)} overlap at ${t.toFixed(2)}`);
+        assert.ok(!touching(a, b, t), `cars at ${a.x.toFixed(2)},${a.y.toFixed(2)} and ${b.x.toFixed(2)},${b.y.toFixed(2)} overlap at ${t.toFixed(2)}`);
       }
     }
     // Nobody on a crosswalk while a car is going over it.
@@ -356,7 +362,7 @@ test('the fire engine across town in traffic: never held up by a light, nobody r
       assert.ok(isRoad(Math.floor(c.x), Math.floor(c.y)), 'on the street');
     }
     assert.notEqual(engine.wait, 'light');
-    for (const c of tr.cars) if (c !== engine) assert.ok(!bump(body(c), body(engine)), `a car into the fire engine at ${t.toFixed(2)}`);
+    for (const c of tr.cars) if (c !== engine) assert.ok(!touching(c, engine, t), `a car into the fire engine at ${t.toFixed(2)}`);
   }
   assert.equal(engine.path.length, 0, 'the fire engine got there');
   assert.ok(yields > 0, 'cars pulled over');
@@ -375,6 +381,33 @@ test('the fire engine across town in traffic: never held up by a light, nobody r
     }
   }
   tr.cars.forEach((c, i) => assert.ok(c === engine || c.trips > trips[i], 'every car carries on'));
+});
+
+test('honk: a car stopped in the way pulls over, and the one honking goes by it (still stopping at the lights)', () => {
+  const tr = new Traffic(walkways());
+  const east = { x: 1, y: 0 };
+  // A car stopped in the lane, going nowhere (as if broken down) -- and one
+  // behind it.
+  const stuck = { tile: { x: 7, y: 2 }, dir: east, ...lanePoint({ x: 7, y: 2 }, east), path: drivePath({ x: 7, y: 2 }, east, { x: 9, y: 2 }).slice(1), len: 0.29, kind: 'car' };
+  const me = { tile: { x: 3, y: 2 }, dir: east, ...lanePoint({ x: 3, y: 2 }, east), path: drivePath({ x: 3, y: 2 }, east, { x: 9, y: 2 }).slice(1), len: 0.38, kind: 'mail', driven: true };
+  tr.cars = [stuck, me];
+  const dt = 1 / 30;
+  let t = 0;
+  const run = (secs, until = () => false) => {
+    for (const end = t + secs; t < end && !until(); t += dt) {
+      tr.t = t;
+      tr.drive(stuck, 0, dt);
+      tr.drive(me, 1.8, dt);
+      assert.ok(!bump(body(stuck), body(me)) || me.rightOfWay > t - 1, `into it at ${t.toFixed(2)}`);
+    }
+  };
+  run(4, () => me.wait === 'car');
+  assert.equal(me.wait, 'car', 'held up behind it');
+  assert.ok(me.x < stuck.x);
+  me.honk = t + HONK;
+  run(HONK, () => me.x > stuck.x + 0.8);
+  assert.ok(me.x > stuck.x + 0.8, `past it (${me.x.toFixed(2)} against ${stuck.x.toFixed(2)})`);
+  assert.ok(Math.abs(stuck.y - (2.5 + 0.34)) < 0.02, 'it pulled over to the curb');
 });
 
 test('the fire engine always gets there: in sixty towns busy with traffic, nobody ever stuck, no two cars ever touching -- the fire engine only, for a moment, with right of way', () => {
@@ -423,10 +456,8 @@ test('the fire engine always gets there: in sixty towns busy with traffic, nobod
       const way = engine.rightOfWay > t;
       right ||= way;
       for (const [i, a] of others.entries()) {
-        for (const b of others.slice(i + 1)) assert.ok(!bump(body(a), body(b)), `seed ${seed}: cars touching at ${t.toFixed(2)}`);
-        // (Touching the fire engine only with right of way, or just after,
-        // as it pulls clear.)
-        if (!way) assert.ok(!bump(body(a), body(engine)) || engine.rightOfWay > t - 1, `seed ${seed}: a car into the fire engine at ${t.toFixed(2)}`);
+        for (const b of others.slice(i + 1)) assert.ok(!touching(a, b, t), `seed ${seed}: cars touching at ${t.toFixed(2)}`);
+        assert.ok(!touching(a, engine, t), `seed ${seed}: a car into the fire engine at ${t.toFixed(2)}`);
       }
     }
     if (right) used++;

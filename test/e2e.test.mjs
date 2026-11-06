@@ -663,6 +663,63 @@ test('benji’s town: a robber at the shop, and the police car catches them and 
   }
 });
 
+test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); held up behind a car, ▲ honks', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:day', '2'));
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    // Driving the mail van; a fire and a robber.
+    const sos = await page.evaluate(() => {
+      const p = window.__benji;
+      for (let i = 0; i < 900 && !p.part; i++) p.update(1 / 30);
+      p.setDrive(true);
+      if (p.fp?.h.kind !== 'mail') {
+        p.leave();
+        p.enter(p.helpers.find((h) => h.kind === 'mail'));
+      }
+      const before = p.emergencies().length;
+      p.fireAt = p.t;
+      p.part.rob ??= { place: 'shop', after: 0 };
+      p.robAt = p.t;
+      p.update(1 / 30);
+      return { before, icons: p.emergencies().map((q) => q.icon).join() };
+    });
+    assert.deepEqual(sos, { before: 0, icons: '🚒,🚓' }, 'a big button for each, only then');
+    // Tapped: into the fire engine's seat.
+    const at = await page.evaluate(() => {
+      const p = window.__benji;
+      const r = p.canvas.getBoundingClientRect();
+      const q = p.emergencies()[0];
+      return [r.left + q.x, r.top + q.y];
+    });
+    await page.mouse.click(...at);
+    await page.waitForFunction(() => window.__benji.fp?.h.kind === 'fire');
+    assert.equal(await page.evaluate(() => window.__benji.emergencies().map((q) => q.icon).join()), '🚓');
+    // Held up behind a car: the arrows do nothing, ▲ honks.
+    const honk = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      const f = p.fp;
+      f.go = true;
+      f.h.wait = 'car';
+      const live = ['left', 'go', 'right'].filter((a) => p.can(a)).join();
+      const did = p.choose('go');
+      return { live, did, honking: f.h.honk > p.t, again: p.can('go') };
+    });
+    assert.deepEqual(honk, { live: 'go', did: true, honking: true, again: false });
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town: tap the helpers and they do their jobs, morning to evening; night falls and it\'s the next day; a treat on the way; later, drive them from the driver\'s seat', { skip: !chromium, timeout: 240000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

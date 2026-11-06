@@ -105,8 +105,15 @@ pictures and a sound for every touch.
   only down the end of a street to a door there. A truck parked at a door
   stops clear of the crosswalk; held up behind one, a car pulls up behind
   it if that's where it was going, or waits -- and a helper with nothing
-  to do that's in the way drives off home, to the end of its street, so
-  nothing ever gridlocks. When a helper is held up at a red light,
+  to do that's in the way drives off home, to the end of its street. And
+  nobody is stuck for good: a helper held up by cars for five seconds --
+  not by a light or someone crossing, by a jam -- honks, and the cars in
+  its way pull over to the curb as they do for the fire engine (driving
+  yourself, held up behind a car, ▲ is the horn -- a 📣 -- and does the
+  same at once). A honking car drives down the middle to get by, still
+  stopping for the lights and for people; and if it's still boxed in, it
+  has right of way through the cars on the move for a moment (never
+  through a parked one, and never stopping half way). When a helper is held up at a red light,
   the town says so: "Red light stop!" ... "Green light go!" (or "Wait
   for the walking man!" ... "Walk!").
 - Helpers with jobs, shown in a tray of pictures that tick off: the
@@ -164,6 +171,11 @@ pictures and a sound for every touch.
   station, lights off now, and in through its door with them: 🔒, "You
   took the robber to jail! Great job!". Two jobs in the tray (🦹, then 🔒,
   in that order).
+- Driving anything else when there's a fire (or a robber on the loose):
+  a big pulsing button at the top right of the windshield, 🚒 (or 🚓) --
+  tap it and you're straight into the fire engine's (or the police car's)
+  driver's seat, siren going. No need to find the small switch up top and
+  look for it in the town.
 - Each helper that can be sent on a job has a big round button over it,
   in its colour, with a picture of its next job (a bin, a letter, the dog,
   a brick) and a little green "go" -- kept in view at the edge of the

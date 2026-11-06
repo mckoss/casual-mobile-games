@@ -9,7 +9,10 @@
 // (where there is one) -- and never while a car is going over it. A fire
 // engine on its way to a fire (urgent) goes through red lights, down the
 // middle of the street, and everyone who can hear its siren pulls over to
-// the curb and stops till it's gone by. (No DOM: tested in Node.)
+// the curb and stops till it's gone by. A car that honks (honk: till when)
+// gets the same way made for it -- but still stops for the lights; and a
+// helper stuck in a jam a while honks by itself, so none is stuck for good.
+// (No DOM: tested in Node.)
 //
 // Cars: { x, y, tile, dir, path (street tiles), len (half its length) };
 // people: { x, y, node, path (sidewalk points) }. drive() and walk() move one
@@ -32,6 +35,8 @@ const PULL = 0.8; // how fast a car pulls over (sideways, tiles a second)
 // has right of way through them for a moment (so it can never be stuck).
 const STUCK = 0.7;
 const RIGHT_OF_WAY = 1.5;
+export const HONK = 4; // seconds a honk makes way for a car
+const JAM = 5; // held up this long by cars that aren't waiting for lights or people: a honk
 
 // A car's body, as drawn: a box round (x, y) turned to heading a -- len (half
 // its length: a car's 0.29, a truck's 0.38) along, HALF_W across.
@@ -121,6 +126,9 @@ export function startDir(t) {
   return runsNS(t.x, t.y) ? { x: 0, y: 1 } : { x: 1, y: 0 };
 }
 
+// Is way being made for car m: a fire engine on its way, or honking?
+const priority = (m, t) => !!m.urgent || t < (m.honk ?? -1);
+
 export class Traffic {
   // budge(car): a parked car is holding others up -- move it, if it can.
   constructor(ways, budge = null) {
@@ -144,7 +152,7 @@ export class Traffic {
     if (this.pullOver(m, dt)) return null;
     // (Pulled over, or down the middle for a fire: back into its lane -- even
     // stopped.)
-    if (!m.urgent) this.slide(m, LANE, dt);
+    if (!priority(m, this.t)) this.slide(m, LANE, dt);
     if (!m.path.length) {
       m.wait = null;
       m.stuck = 0;
@@ -158,7 +166,7 @@ export class Traffic {
     if (m.round?.key !== end) m.round = end && { key: end, pts: roundPoints(next, d), i: 0 };
     // (A fire engine down the middle; anyone still on the move near one --
     // turning, or through an intersection -- hugging the curb, to get by it.)
-    const lane = m.urgent ? 0 : this.hears(m) ? CURB : LANE;
+    const lane = priority(m, this.t) ? 0 : this.hears(m) ? CURB : LANE;
     const goal = m.round ? m.round.pts[m.round.i] : lanePoint(next, d, m.path[1] && dirOf(next, m.path[1]), lane);
     let dx = goal.x - m.x;
     let dy = goal.y - m.y;
@@ -169,6 +177,8 @@ export class Traffic {
     const off = d.x ? m.y - goal.y : m.x - goal.x;
     const steer = !m.round && !isJunction(next.x, next.y) && !isJunction(m.tile.x, m.tile.y) && Math.abs(off) > 0.02 && along > 0.3;
     if (steer) [dx, dy] = d.x ? [0.3 * d.x, -off] : [-off, 0.3 * d.y];
+    // (Not sideways into a car beside it: straight on, for now.)
+    if (steer && this.beside(m, dx, dy)) [dx, dy] = [0.3 * d.x, 0.3 * d.y];
     const reach = steer ? Math.hypot(dx, dy) : dist;
     let room = speed * dt;
     m.wait = null;
@@ -178,8 +188,9 @@ export class Traffic {
       m.wait = light.why;
       m.blocker = light.who || null;
     }
-    // (A fire engine with right of way: nobody holds it up.)
-    const way = m.urgent && this.t < (m.rightOfWay ?? -1);
+    // (A fire engine -- or a car honking -- with right of way: nobody on the
+    // move holds it up; it goes on through, till it's clear of them.)
+    const way = this.t < (m.rightOfWay ?? -1);
     if (reach > 1e-9 && !way) {
       const ahead = this.queueRoom(m, dx / reach, dy / reach);
       if (ahead.room < room) {
@@ -194,7 +205,7 @@ export class Traffic {
     if (step > 1e-9) {
       const a = Math.atan2(dy, dx);
       for (const u of [1, 0.5, 0.25]) {
-        const hit = !way && this.bumpInto(m, m.x + (dx / reach) * step * u, m.y + (dy / reach) * step * u, turnTo(m.head, a, Math.min(1, (step * u) / TURN)));
+        const hit = this.bumpInto(m, m.x + (dx / reach) * step * u, m.y + (dy / reach) * step * u, turnTo(m.head, a, Math.min(1, (step * u) / TURN)), way);
         if (!hit) {
           go = step * u;
           break;
@@ -204,7 +215,7 @@ export class Traffic {
       if (go < step) m.wait = 'car';
     }
     // (Stuck against a fire engine on its way: out of its way, sideways.)
-    if (go < 1e-3 && m.blocker?.urgent && this.hears(m) && this.nudge(m, d, dt)) {
+    if (go < 1e-3 && m.blocker && priority(m.blocker, this.t) && this.hears(m) && this.nudge(m, d, dt)) {
       m.wait = 'yield';
       m.stuck = 0;
       return null;
@@ -219,14 +230,29 @@ export class Traffic {
       }
     } else m.stuck = 0;
     if (go > 1e-3) m.movedAt = this.t;
-    // A fire engine held up by cars a while: right of way through them.
-    if (m.urgent && go < 1e-3 && (m.wait === 'car' || m.wait === 'turn')) {
+    // (Right of way lasts till it's out of anyone it went through.)
+    if (m.rightOfWay > this.t - dt && this.cars.some((o) => o !== m && bump(body(m), body(o)))) m.rightOfWay = Math.max(m.rightOfWay, this.t + 0.1);
+    // A fire engine (or a honking car) held up by cars a while: right of way
+    // through them.
+    const stopped = go < 1e-3 && (m.wait === 'car' || m.wait === 'turn');
+    if (priority(m, this.t) && stopped) {
       m.held = (m.held || 0) + dt;
       if (m.held > STUCK) {
         m.held = 0;
         m.rightOfWay = this.t + RIGHT_OF_WAY;
       }
     } else if (go > 1e-3) m.held = 0;
+    // A helper stuck in a jam -- held up by cars that aren't waiting for a
+    // light or for people -- a while: honk. (Just the helpers -- the trucks,
+    // the fire engine, the police car, the one you're driving: the cars
+    // about town only make way.)
+    if (stopped && m.kind && m.kind !== 'car' && !priority(m, this.t) && this.parked(m)) {
+      m.jam = (m.jam || 0) + dt;
+      if (m.jam > JAM) {
+        m.jam = 0;
+        m.honk = this.t + HONK;
+      }
+    } else if (go > 1e-3) m.jam = 0;
     if (go > 1e-9) m.head = turnTo(m.head, Math.atan2(dy, dx), Math.min(1, go / TURN));
     if (Math.abs(dx) > 0.02 && go > 0) m.face = Math.sign(dx);
     if (!steer && dist - go < 1e-9 && go === step) {
@@ -263,11 +289,11 @@ export class Traffic {
     return true;
   }
 
-  // Can m hear a fire engine on its way (and should give way to it)? Not
-  // the fire engine itself, nor the truck you're driving. (And the car a
-  // fire engine is held up by gives way, however far off.)
+  // Can m hear a fire engine on its way, or a car honking (and should give
+  // way to it)? Not one of those itself, nor the truck you're driving. (And
+  // the car it's held up by gives way, however far off.)
   hears(m) {
-    return !m.urgent && !m.driven && this.cars.some((u) => u.urgent && (u.blocker === m || Math.hypot(u.x - m.x, u.y - m.y) < HEAR));
+    return !priority(m, this.t) && !m.driven && this.cars.some((u) => priority(u, this.t) && (u.blocker === m || Math.hypot(u.x - m.x, u.y - m.y) < HEAR));
   }
 
   // Up against a fire engine, part way round a corner: a shuffle sideways
@@ -301,13 +327,26 @@ export class Traffic {
   }
 
 
+  // Would a step toward (dx, dy) take m into a car beside it (one it isn't
+  // touching already)?
+  beside(m, dx, dy) {
+    const k = 0.05 / Math.hypot(dx, dy);
+    const me = body(m, m.x + dx * k, m.y + dy * k, m.head, PAD);
+    const now = body(m, m.x, m.y, m.head, PAD);
+    return this.cars.some((o) => o !== m && bump(me, body(o, o.x, o.y, headOf(o), PAD)) && !bump(now, body(o, o.x, o.y, headOf(o), PAD)));
+  }
+
   // The car m would run into, going on to (x, y) heading h -- one in front
-  // of it it's not already touching -- if any.
-  bumpInto(m, x, y, h) {
+  // of it it's not already touching -- if any. (With right of way, only a
+  // parked one: it goes through the rest.)
+  bumpInto(m, x, y, h, way = false) {
     const me = body(m, x, y, h, PAD);
     const now = body(m, m.x, m.y, m.head, PAD);
+    // (Changing lanes, a car behind counts too: its back could swing into
+    // one.)
+    const side = Math.abs((x - m.x) * Math.sin(m.head) - (y - m.y) * Math.cos(m.head)) > 1e-3;
     return this.cars.find((o) => {
-      if (o === m || (o.x - x) * Math.cos(h) + (o.y - y) * Math.sin(h) <= 0) return false;
+      if (o === m || (way && o.path.length) || (!side && (o.x - x) * Math.cos(h) + (o.y - y) * Math.sin(h) <= 0)) return false;
       const them = body(o, o.x, o.y, headOf(o), PAD);
       return bump(me, them) && !bump(now, them);
     }) || null;
@@ -354,7 +393,7 @@ export class Traffic {
   // way, if not.
   exitFor(m, j, e) {
     const u = dirOf(j, e);
-    const lane = lanePoint(e, u, null, m.urgent ? 0 : LANE);
+    const lane = lanePoint(e, u, null, priority(m, this.t) ? 0 : LANE);
     return this.cars.find((o) => {
       if (o === m || this.t - (o.movedAt ?? -1) < 0.3) return false;
       const rx = o.x - lane.x;
@@ -397,8 +436,8 @@ export class Traffic {
         if (lit && !m.urgent && !mayDrive(j.x, j.y, axis, this.t)) return { room: Math.max(0, room), why: 'light' };
         if (this.peopleOn(j, arms)) return { room: Math.max(0, room), why: 'people' };
         // (A fire engine on its way doesn't wait on anyone pulled over for it.)
-        const who = this.cars.find((o) => o !== m && this.through(o, key) && (!lit || clash(arms, o.passArms)) && !(m.urgent && o.wait === 'yield'));
-        const way = m.urgent && this.t < (m.rightOfWay ?? -1);
+        const who = this.cars.find((o) => o !== m && this.through(o, key) && (!lit || clash(arms, o.passArms)) && !(priority(m, this.t) && o.wait === 'yield'));
+        const way = this.t < (m.rightOfWay ?? -1);
         if (who && !way) return { room: Math.max(0, room), why: 'turn', who };
         // (Not past anyone still waiting to go in ahead of it.)
         const first = this.cars.find((o) => {

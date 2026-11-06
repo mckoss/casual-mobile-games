@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.99.0
+- Benji's Town: no more getting stuck in traffic. Driving yourself, held
+  up behind a car, the big ▲ turns into a horn: honk, and the cars in your
+  way pull over to let you by. The helpers honk by themselves if they're
+  stuck in a jam.
+- Benji's Town: driving, when there's a fire, a big fire engine button
+  appears on the windshield: tap it to be the fire engine's driver straight
+  away (and a police car button when there's a robber).
+
 ## 1.98.0
 - Benji's Town: robbers! Once a day a robber turns up at the shop or the
   café -- "Robber! Call the police!" -- and the new police car waits at the
