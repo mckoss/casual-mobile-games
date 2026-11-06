@@ -106,11 +106,11 @@ pictures and a sound for every touch.
   stops clear of the crosswalk; held up behind one, a car pulls up behind
   it if that's where it was going, or waits -- and a helper with nothing
   to do that's in the way drives off home, to the end of its street. And
-  nobody is stuck for good: a helper held up by cars for five seconds --
-  not by a light or someone crossing, by a jam -- honks, and the cars in
-  its way pull over to the curb as they do for the fire engine (driving
-  yourself, held up behind a car, ▲ is the horn -- a 📣 -- and does the
-  same at once). A honking car drives down the middle to get by, still
+  nobody is stuck for good: a helper driving itself, held up by cars for
+  five seconds -- not by a light or someone crossing, by a jam -- honks,
+  and the cars in its way pull over to the curb as they do for the fire
+  engine. Driving yourself, the horn is yours to press: held up behind a
+  car, ▲ becomes the horn (a 📣), and so does a tap on the windshield. A honking car drives down the middle to get by, still
   stopping for the lights and for people; and if it's still boxed in, it
   has right of way through the cars on the move for a moment (never
   through a parked one, and never stopping half way). When a helper is held up at a red light,
@@ -176,6 +176,12 @@ pictures and a sound for every touch.
   tap it and you're straight into the fire engine's (or the police car's)
   driver's seat, siren going. No need to find the small switch up top and
   look for it in the town.
+- The fire engine, once the fire's out, and the police car, once the
+  robber's in jail, drive back to where they park by themselves -- not
+  left standing in the road.
+- Driving, a headlight switch at the top left of the windshield (a lamp
+  and its beams): on, the road ahead lights up -- faintly by day, brightly
+  in the evening and at night.
 - Each helper that can be sent on a job has a big round button over it,
   in its colour, with a picture of its next job (a bin, a letter, the dog,
   a brick) and a little green "go" -- kept in view at the edge of the

@@ -586,7 +586,11 @@ test('benji’s town: fire! it breaks out at a house, and the fire engine goes a
       });
       run(3, () => false); // (and then, what was done)
       const job = p.town.jobs.find((j) => j.kind === 'fire');
-      return { lit, out: p.fire === null && p.done.has(job.i), said, sounds, urgent, red, after: engine.urgent };
+      const out = p.fire === null && p.done.has(job.i);
+      // (And home again, out of the road -- not left standing in it.)
+      run(40, () => engine.tile.x === engine.at.x && engine.tile.y === engine.at.y && !engine.path.length);
+      const home = engine.tile.x === engine.at.x && engine.tile.y === engine.at.y;
+      return { lit, out, said, sounds, urgent, red, after: engine.urgent, home };
     });
     assert.deepEqual(r.lit, { fire: true, job: true, ready: true }, 'a fire, its job, and the fire engine ready');
     assert.ok(r.out, 'put out');
@@ -597,6 +601,7 @@ test('benji’s town: fire! it breaks out at a house, and the fire engine goes a
     assert.ok(r.urgent < 2.6 || r.sounds.includes('wail'), 'wail');
     assert.ok(r.urgent && !r.red, 'lights flashing on the way, and no stopping for red lights');
     assert.equal(r.after, false, 'lights off once the fire is out');
+    assert.ok(r.home, 'back at the firehouse');
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();
@@ -648,12 +653,15 @@ test('benji’s town: a robber at the shop, and the police car catches them and 
       run(60, () => !p.robber);
       run(3, () => false); // (and then, what was done)
       const done = p.town.jobs.filter((j) => j.helper === 'police').every((j) => p.done.has(j.i));
-      return { lit, caught, urgent, after, jailed: !p.robber, done, said, sounds };
+      run(30, () => police.tile.x === police.at.x && police.tile.y === police.at.y && !police.path.length);
+      const home = police.tile.x === police.at.x && police.tile.y === police.at.y;
+      return { lit, caught, urgent, after, jailed: !p.robber, done, said, sounds, home };
     });
     assert.deepEqual(r.lit, { robber: true, jobs: 'catch,jail', ready: true }, 'a robber, the jobs, and the police car ready');
     assert.ok(r.caught, 'caught');
     assert.ok(r.urgent > 0 && !r.after, 'lights and siren on the way, off once caught');
     assert.ok(r.jailed && r.done, 'in jail');
+    assert.ok(r.home, 'the police car back where it parks');
     for (const w of ['Robber! Call the police!', 'You caught the robber!', 'Time to take the robber to jail!', 'You took the robber to jail! Great job!']) assert.ok(r.said.includes(w), w);
     for (const s of ['alarm', 'siren', 'clink']) assert.ok(r.sounds.includes(s), s);
     assert.deepEqual(errors, []);

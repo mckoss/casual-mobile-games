@@ -463,6 +463,14 @@ export class Play {
     }
   }
 
+  // Its job done -- the fire out, the robber in jail -- and not yours to
+  // drive: back to where it waits, out of the way (not left in the road).
+  homeAgain(h) {
+    if (this.fp?.h === h || this.town.jobs.some((j) => j.helper === h.id && !this.done.has(j.i))) return;
+    h.path = this.way(h, h.at).slice(1);
+    h.budging = true;
+  }
+
   // Out to the robber and back with them (kind 'catch'), or to the jail's
   // door with them and back (kind 'jail'): a delivery's steps, with
   // handcuffs at the robber instead of a shop at the door.
@@ -907,6 +915,7 @@ export class Play {
       // honk.)
       const shop = this.signAt(this.eye, sx, sy);
       if (shop) this.treat(shop);
+      else if (f.h.kind !== 'walker' && f.go && this.honkable(f.h)) this.choose('go');
       else this.hooks.sfx?.(f.h.kind === 'walker' ? 'pop' : 'honk');
       return;
     }
@@ -915,6 +924,13 @@ export class Play {
     const sos = this.emergencies().find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 10);
     if (sos) {
       this.switchTo(sos.h);
+      return;
+    }
+    // (The headlights: on, or off.)
+    const lamp = this.lampButton();
+    if (lamp && Math.hypot(lamp.x - sx, lamp.y - sy) < lamp.r + 10) {
+      this.headlights = !this.headlights;
+      this.hooks.sfx?.('tap');
       return;
     }
     const b = this.pads.find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 12);
@@ -957,6 +973,86 @@ export class Play {
     if (this.fire && this.fire.douse === null) add('fire', '🚒', '#d62828');
     if (this.robber) add('police', '🚓', '#1d4e89');
     return out.map((q, k) => ({ ...q, x: this.W - 62, y: 150 + k * 112, r: 46 }));
+  }
+
+  // The headlight switch, top left of the windshield (driving, not walking
+  // the dog): { x, y, r }.
+  lampButton() {
+    if (!this.fp || this.fp.h.kind === 'walker') return null;
+    return { x: 54, y: 150, r: 36 };
+  }
+
+  // Your headlights, on: the road lit up ahead (faintly by day, brightly
+  // at night).
+  beams(view) {
+    const f = this.fp;
+    if (!this.headlights || !f || f.h.kind === 'walker' || f.away > 0.25) return;
+    const { g } = this;
+    const { bright } = light(this.clock);
+    const k = 0.25 + 0.75 * (1 - bright);
+    const h = f.h;
+    const fx = Math.cos(f.head);
+    const fy = Math.sin(f.head);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    for (const [d, size, a] of [[0.7, 0.8, 0.5], [1.4, 1.0, 0.42], [2.2, 1.2, 0.32], [3.1, 1.4, 0.22]]) {
+      for (const side of [-1, 1]) {
+        const x = h.x + fx * d - fy * side * 0.11;
+        const y = h.y + fy * d + fx * side * 0.11;
+        const at = view.at(x, y, 0.02);
+        if (!at) continue;
+        const r = Math.min(240, view.scale(x, y, 0.02) * size * 0.5);
+        const grad = g.createRadialGradient(at[0], at[1], 0, at[0], at[1], r);
+        grad.addColorStop(0, `rgba(255,245,200,${a * k})`);
+        grad.addColorStop(1, 'rgba(255,245,200,0)');
+        g.fillStyle = grad;
+        g.beginPath();
+        g.arc(at[0], at[1], r, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    g.restore();
+  }
+
+  // The headlight switch: a lamp with its beams -- lit, and glowing, when on.
+  drawLamp() {
+    const q = this.lampButton();
+    if (!q) return;
+    const { g } = this;
+    const on = !!this.headlights;
+    if (on) {
+      g.fillStyle = 'rgba(255,209,102,0.45)';
+      g.beginPath();
+      g.arc(q.x, q.y, q.r + 8, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = on ? '#fff7d6' : '#ffffff';
+    g.strokeStyle = on ? '#f4a261' : '#8d99ae';
+    g.lineWidth = 4;
+    g.beginPath();
+    g.arc(q.x, q.y, q.r, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    // (The lamp: a D, and its beams going off to the right.)
+    const s = q.r / 36;
+    const ink = on ? '#e76f51' : '#6c757d';
+    g.fillStyle = ink;
+    g.strokeStyle = ink;
+    g.beginPath();
+    g.moveTo(q.x - 4 * s, q.y - 14 * s);
+    g.quadraticCurveTo(q.x - 22 * s, q.y - 14 * s, q.x - 22 * s, q.y);
+    g.quadraticCurveTo(q.x - 22 * s, q.y + 14 * s, q.x - 4 * s, q.y + 14 * s);
+    g.closePath();
+    g.fill();
+    g.lineWidth = 3.5 * s;
+    g.lineCap = 'round';
+    for (const dy of [-10, -3.5, 3.5, 10]) {
+      g.beginPath();
+      g.moveTo(q.x + 2 * s, q.y + dy * s);
+      g.lineTo(q.x + 18 * s, q.y + dy * s + (on ? dy * 0.25 : 0) * s);
+      g.stroke();
+    }
+    g.lineCap = 'butt';
   }
 
   // Out of this seat and into another helper's.
@@ -1550,6 +1646,7 @@ export class Play {
       if (h.spray && h.pause <= 0) {
         h.spray = null;
         this.fire = null;
+        this.homeAgain(h);
       }
       // A step done (and the helper free again): what's next, at once.
       if (h.next && h.pause <= 0 && !h.deliver) {
@@ -1588,6 +1685,8 @@ export class Play {
         }
         if (d.t >= d.total) {
           h.deliver = null;
+          // (The robber in jail: the police car back to where it parks.)
+          if (d.kind === 'jail') this.homeAgain(h);
           // (A treat had: on with the trip it was on.)
           if (d.snack) {
             const back = h.treat.resume;
@@ -1816,6 +1915,7 @@ export class Play {
     for (const o of this.things(eye).sort((a, b) => a.d - b.d)) o.draw(1);
     this.flames(eye);
     this.dusk(eye, this.seatH);
+    this.beams(eye);
     this.overlays(eye, d ? [] : [h]);
     // In the cab: the dashboard and the wheel, turning as you turn (going
     // as the camera floats out).
@@ -1825,6 +1925,7 @@ export class Play {
     // crossing, a car.
     if (f.wait) this.waitSign(f.wait);
     this.drawEmergencies();
+    this.drawLamp();
     g.restore();
     this.drawPads();
     this.drawTray(true);

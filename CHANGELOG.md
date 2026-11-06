@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.100.0
+- Benji's Town: a headlight switch in the cab -- turn your headlights on
+  and the road ahead lights up (brightest in the evening and at night).
+- Benji's Town: the horn is yours. Driving yourself, held up behind a car,
+  press the horn (the big ▲, or a tap on the windshield) to make the cars
+  move over; your truck doesn't honk by itself any more.
+- Benji's Town: the fire engine (and the police car) go back where they
+  park when the job's done, instead of being left in the road.
+
 ## 1.99.0
 - Benji's Town: no more getting stuck in traffic. Driving yourself, held
   up behind a car, the big ▲ turns into a horn: honk, and the cars in your

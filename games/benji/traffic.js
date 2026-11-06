@@ -243,10 +243,11 @@ export class Traffic {
       }
     } else if (go > 1e-3) m.held = 0;
     // A helper stuck in a jam -- held up by cars that aren't waiting for a
-    // light or for people -- a while: honk. (Just the helpers -- the trucks,
-    // the fire engine, the police car, the one you're driving: the cars
-    // about town only make way.)
-    if (stopped && m.kind && m.kind !== 'car' && !priority(m, this.t) && this.parked(m)) {
+    // light or for people -- a while: honk. (Just the helpers driving
+    // themselves -- the trucks, the fire engine, the police car. Driving
+    // one yourself, the horn's yours to press; the cars about town only
+    // make way.)
+    if (stopped && m.kind && m.kind !== 'car' && !m.driven && !priority(m, this.t) && this.parked(m)) {
       m.jam = (m.jam || 0) + dt;
       if (m.jam > JAM) {
         m.jam = 0;
