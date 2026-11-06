@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.104.0
+- Benji's Town: a horn button, there all the time you're driving (under
+  the headlight switch) -- every press honks, and the cars ahead make way.
+  A truck parked in front of you with nothing to do (the garbage truck
+  home by the dump, say) drives off out of the way when you honk.
+- Benji's Town: the horn sounds like a real one -- two notes together,
+  held -- and deeper for the trucks and the fire engine.
+
 ## 1.103.1
 - Benji's Town: no more getting stuck behind a truck parked at home (the
   garbage truck by the dump, say) with every button greyed out -- honk and

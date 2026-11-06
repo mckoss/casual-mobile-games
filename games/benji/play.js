@@ -33,7 +33,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 export class Play {
   constructor(canvas, town, hooks = {}) {
-    preload([...Object.values(ICONS), ...Object.values(SIGNS), '🌅', '🌤️', '☀️', '🌇', '🌙', '🚗', '🚶', '💦']);
+    preload([...Object.values(ICONS), ...Object.values(SIGNS), '🌅', '🌤️', '☀️', '🌇', '🌙', '🚗', '🚶', '💦', '📣']);
     this.canvas = canvas;
     this.g = canvas.getContext('2d');
     this.town = town;
@@ -927,8 +927,8 @@ export class Play {
       // honk.)
       const shop = this.signAt(this.eye, sx, sy);
       if (shop) this.treat(shop);
-      else if (f.h.kind !== 'walker' && f.go && this.honkable(f.h)) this.choose('go');
-      else this.hooks.sfx?.(f.h.kind === 'walker' ? 'pop' : 'honk');
+      else if (f.h.kind !== 'walker') this.honk('tap');
+      else this.hooks.sfx?.('pop');
       return;
     }
     e.preventDefault();
@@ -936,6 +936,12 @@ export class Play {
     const sos = this.emergencies().find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 10);
     if (sos) {
       this.switchTo(sos.h);
+      return;
+    }
+    // (The horn: beep!)
+    const horn = this.hornButton();
+    if (horn && Math.hypot(horn.x - sx, horn.y - sy) < horn.r + 10) {
+      this.honk();
       return;
     }
     // (The headlights: on, or off.)
@@ -994,6 +1000,43 @@ export class Play {
     return { x: 54, y: 150, r: 36 };
   }
 
+  // The horn, under the headlight switch: there all the time you're
+  // driving (not walking the dog), and every press honks. { x, y, r }
+  hornButton() {
+    if (!this.fp || this.fp.h.kind === 'walker') return null;
+    return { x: 54, y: 252, r: 42 };
+  }
+
+  // Beep! Your horn: heard at once (the horn for what you're driving), and
+  // the cars ahead make way for a while -- pulling over, so you can drive
+  // down the middle -- and a helper parked in front of you with nothing to
+  // do drives off out of the way.
+  honk(act = 'horn') {
+    const f = this.fp;
+    const h = f.h;
+    h.honk = this.t + HONK;
+    f.flash = { act, t: this.t };
+    this.hooks.sfx?.('honk', h.kind);
+    this.hooks.haptic?.(15);
+    const idle = (o) => this.helpers.includes(o) && o !== h && !o.path.length && !(o.pause > 0) && !o.deliver;
+    // (The one at the front of whatever's holding you up...)
+    const seen = new Set([h]);
+    let o = h.blocker;
+    while (o?.blocker && !seen.has(o.blocker)) {
+      seen.add(o);
+      o = o.blocker;
+    }
+    if (o && idle(o)) this.budge(o);
+    // (...and any parked just ahead, in your way.)
+    const a = h.head ?? Math.atan2(h.dir.y, h.dir.x);
+    for (const m of this.helpers) {
+      if (m.kind === 'walker' || !idle(m)) continue;
+      const along = (m.x - h.x) * Math.cos(a) + (m.y - h.y) * Math.sin(a);
+      const across = Math.abs((m.x - h.x) * Math.sin(a) - (m.y - h.y) * Math.cos(a));
+      if (along > 0 && along < 1.6 && across < 0.45) this.budge(m);
+    }
+  }
+
   // Your headlights, on: the road lit up ahead (faintly by day, brightly
   // at night).
   beams(view) {
@@ -1027,6 +1070,34 @@ export class Play {
   }
 
   // The headlight switch: a lamp with its beams -- lit, and glowing, when on.
+  // The horn button: round, white, the horn on it -- flashing yellow as it
+  // honks.
+  drawHorn() {
+    const q = this.hornButton();
+    if (!q) return;
+    const { g } = this;
+    const f = this.fp;
+    const flash = f.flash && (f.flash.act === 'horn' || f.flash.act === 'go') && this.t < (f.h.honk ?? -1) ? Math.max(0, 1 - (this.t - f.flash.t) / 0.5) : 0;
+    if (flash) {
+      g.fillStyle = `rgba(255,200,0,${0.3 + 0.6 * flash})`;
+      g.beginPath();
+      g.arc(q.x, q.y, q.r + 8 + flash * 8, 0, Math.PI * 2);
+      g.fill();
+    }
+    const r = q.r * (1 - 0.08 * flash);
+    g.fillStyle = '#ffffff';
+    g.strokeStyle = '#f4a261';
+    g.lineWidth = 4;
+    g.beginPath();
+    g.arc(q.x, q.y, r, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.font = `${Math.round(r * 1.05)}px system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    emoji(g, '📣', q.x, q.y + 2);
+  }
+
   drawLamp() {
     const q = this.lampButton();
     if (!q) return;
@@ -1117,9 +1188,7 @@ export class Play {
     if (!this.can(act)) return false;
     // Beep beep: the cars ahead pull over, and on you go.
     if (f.go && this.honkable(f.h)) {
-      f.h.honk = this.t + HONK;
-      f.flash = { act, t: this.t };
-      this.hooks.sfx?.('honk');
+      this.honk(act);
       return true;
     }
     const way = this.choosing() ? { go: 'straight', left: 'left', right: 'right' }[act] : null;
@@ -1940,6 +2009,7 @@ export class Play {
     if (f.wait) this.waitSign(f.wait);
     this.drawEmergencies();
     this.drawLamp();
+    this.drawHorn();
     g.restore();
     this.drawPads();
     this.drawTray(true);

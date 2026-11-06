@@ -143,6 +143,65 @@ function iceChop(big) {
   }
 }
 
+// A car horn, as a real one sounds: two notes together a major third or so
+// apart (a horn pair, high and low), each a buzzing diaphragm -- rich in
+// harmonics, so a sawtooth and a square together -- pushed a little into
+// distortion, its brassy middle brought up and the fizz above taken off.
+// It's on at once and holds steady while it sounds (no fading away, like a
+// bell), then stops. pitch: the two notes (Hz); dur: how long it sounds.
+const HORNS = {
+  car: { pitch: [415, 520], dur: 0.42, vol: 0.075 },
+  truck: { pitch: [262, 330], dur: 0.5, vol: 0.085 },
+};
+HORNS.mail = HORNS.car;
+HORNS.police = HORNS.car;
+HORNS.garbage = HORNS.truck;
+HORNS.mixer = HORNS.truck;
+HORNS.fire = HORNS.truck;
+function horn({ pitch, dur, vol }, at = 0) {
+  const t = ac.currentTime + at;
+  const shape = ac.createWaveShaper();
+  const curve = new Float32Array(1024);
+  for (let i = 0; i < curve.length; i++) {
+    const x = (i / (curve.length - 1)) * 2 - 1;
+    curve[i] = Math.tanh(2.2 * x);
+  }
+  shape.curve = curve;
+  const body = ac.createBiquadFilter();
+  body.type = 'peaking';
+  body.frequency.value = 1500;
+  body.Q.value = 1.2;
+  body.gain.value = 7;
+  const top = ac.createBiquadFilter();
+  top.type = 'lowpass';
+  top.frequency.value = 3800;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.012);
+  g.gain.setValueAtTime(vol, t + dur - 0.04);
+  g.gain.linearRampToValueAtTime(0.0001, t + dur);
+  shape.connect(body);
+  body.connect(top);
+  top.connect(g);
+  g.connect(master);
+  for (const f of pitch) {
+    for (const [type, level] of [['sawtooth', 0.55], ['square', 0.3]]) {
+      const o = ac.createOscillator();
+      const lv = ac.createGain();
+      o.type = type;
+      // (A horn takes a moment to come up to pitch.)
+      o.frequency.setValueAtTime(f * 0.94, t);
+      o.frequency.exponentialRampToValueAtTime(f, t + 0.03);
+      o.detune.value = (Math.random() - 0.5) * 8;
+      lv.gain.value = level;
+      o.connect(lv);
+      lv.connect(shape);
+      o.start(t);
+      o.stop(t + dur + 0.02);
+    }
+  }
+}
+
 const SFX = {
   tap: () => tone('sine', 660, 880, 0.08, 0.15),
   // (Pitched high enough for phone speakers, which can't play deep bass.)
@@ -180,12 +239,9 @@ const SFX = {
     tone('sawtooth', 820, 1020, 0.09, 0.06, 0.05, 2600);
     tone('sawtooth', 1020, 640, 0.22, 0.07, 0.14, 2600);
   },
-  honk: () => {
-    tone('square', 370, 370, 0.22, 0.06, 0, 1800);
-    tone('square', 466, 466, 0.22, 0.06, 0, 1800);
-    tone('square', 370, 370, 0.18, 0.06, 0.27, 1800);
-    tone('square', 466, 466, 0.18, 0.06, 0.27, 1800);
-  },
+  // A horn (see horn()): a car's, or -- kind 'garbage', 'mixer', 'fire' --
+  // a truck's, deeper.
+  honk: (kind) => horn(HORNS[kind] || HORNS.car),
   pop: () => tone('sine', 500, 1100, 0.12, 0.1),
   whoosh: () => {
     thump(0.25, 0.22, 2400);

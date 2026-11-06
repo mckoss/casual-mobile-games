@@ -112,8 +112,12 @@ pictures and a sound for every touch.
   nobody is stuck for good: a helper driving itself, held up by cars for
   five seconds -- not by a light or someone crossing, by a jam -- honks,
   and the cars in its way pull over to the curb as they do for the fire
-  engine. Driving yourself, the horn is yours to press: held up behind a
-  car, ▲ becomes the horn (a 📣), and so does a tap on the windshield. A honking car drives down the middle to get by, still
+  engine. Driving yourself, the horn is yours to press, any time: a big
+  📣 button under the headlight switch (and a tap on the windshield; held
+  up behind a car, ▲ becomes the horn too). Every press honks -- a real
+  horn's sound, two notes together, deeper for the trucks -- the cars
+  ahead make way, and a helper parked just in front with nothing to do
+  drives off out of the way at once. A honking car drives down the middle to get by, still
   stopping for the lights and for people; and if it's still boxed in, it
   has right of way through the cars on the move for a moment (never
   through a parked one, and never stopping half way). When a helper is held up at a red light,

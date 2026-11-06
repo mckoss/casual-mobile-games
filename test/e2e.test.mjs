@@ -713,7 +713,7 @@ test('benji’s town: a robber at the shop, and the police car catches them and 
   }
 });
 
-test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); held up behind a car, ▲ honks', { skip: !chromium, timeout: 60000 }, async () => {
+test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); held up behind a car, ▲ honks; the horn button always', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
   try {
@@ -763,6 +763,37 @@ test('benji’s town, driving: a big button to be the fire engine (or the police
       return { live, did, honking: f.h.honk > p.t, again: p.can('go') };
     });
     assert.deepEqual(honk, { live: 'go', did: true, honking: true, again: false });
+    // The horn button: there all the time, every press a honk (a truck's
+    // horn, for the fire engine) -- and a helper parked just ahead with
+    // nothing to do drives off out of the way.
+    const horn = await page.evaluate(() => {
+      const p = window.__benji;
+      const f = p.fp;
+      f.h.honk = -1;
+      f.h.wait = null;
+      const sounds = (window.__sounds = []);
+      p.hooks.sfx = (n, arg) => sounds.push(`${n}:${arg}`);
+      // (The mail van, parked just in front.)
+      const van = p.helpers.find((h) => h.kind === 'mail');
+      if (p.fp.h === van) return null;
+      Object.assign(van, { path: [], pause: 0, deliver: null });
+      const a = f.h.head ?? Math.atan2(f.h.dir.y, f.h.dir.x);
+      van.x = f.h.x + Math.cos(a) * 0.9;
+      van.y = f.h.y + Math.sin(a) * 0.9;
+      const q = p.hornButton();
+      const r = p.canvas.getBoundingClientRect();
+      return { at: [r.left + q.x, r.top + q.y], sounds };
+    });
+    assert.ok(horn, 'driving the fire engine, not the van');
+    await page.mouse.click(...horn.at);
+    const after = await page.evaluate(() => {
+      const p = window.__benji;
+      const van = p.helpers.find((h) => h.kind === 'mail');
+      return { honking: p.fp.h.honk > p.t, van: van.path.length > 0 && van.budging };
+    });
+    assert.deepEqual(after, { honking: true, van: true });
+    await page.mouse.click(...horn.at);
+    assert.deepEqual(await page.evaluate(() => window.__sounds), ['honk:fire', 'honk:fire'], 'a truck horn, every press');
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();
