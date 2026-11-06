@@ -113,8 +113,8 @@ pictures and a sound for every touch.
   five seconds -- not by a light or someone crossing, by a jam -- honks,
   and the cars in its way pull over to the curb as they do for the fire
   engine. Driving yourself, the horn is yours to press, any time: a big
-  📣 button under the headlight switch (and a tap on the windshield; held
-  up behind a car, ▲ becomes the horn too). Every press honks -- a real
+  📣 button along the bottom, by the headlight switch (and a tap on the
+  windshield; held up behind a car, the horn glows). Every press honks -- a real
   horn's sound, two notes together, deeper for the trucks -- the cars
   ahead make way, and a helper parked just in front with nothing to do
   drives off out of the way at once. A honking car drives down the middle to get by, still
@@ -241,24 +241,27 @@ pictures and a sound for every touch.
 - Made for a three-year-old: a button you can press does something you
   can see and hear at once -- never later on -- and nothing is ever
   stuck. A button that would do nothing right now is faded, and does
-  nothing: no queued presses. Three big buttons. Driving goes one block
-  at a time, and the buttons work only while you're stopped -- mashing
-  them as you go does nothing, and one press never takes you past the
-  next corner. Stopped at the line, ◀ ▲ ▶ are the way through the corner
-  -- the little yellow arrows along the road swing round through it
-  (one set of arrows: a big one painted at the corner as well only said
-  the same again), the wheel turns, and it's said ("Left!", "Straight on!",
-  "Right!") -- and off you go (no holding), through it and up the next
-  block, slowing down to stop at the line at the next corner ("Which
-  way?"), the way to the job glowing. Stopped anywhere else (to begin
-  with, after a job), ▲ takes you on to the corner.
+  nothing: no queued presses. Driving, every button is along the bottom:
+  the headlights and the horn, then ◀, a big green gas pedal and ▶. Hold
+  the gas and you speed up, the engine rising with you (a synthesised
+  motor, ticking over in the cab, revving as you put your foot down); let
+  go and you slow down, coasting to a stop. No brake: the lights, people
+  crossing and the cars in front stop you all the same, and the engine
+  ticks over while you wait. ◀ or ▶ is the way you'll turn at the next
+  corner -- lit up yellow till you've turned (press it again for straight
+  on), the little yellow arrows along the road swinging round through
+  the corner at once, the wheel turning, and it's said ("Left!",
+  "Right!", "Straight on!") -- so with one finger it's ◀, then the gas.
+  Choose nothing and it's straight on; the way to the job glows. (Before
+  the gas pedal, driving went one block at a time: ▲ to the next corner,
+  then ◀ ▲ ▶ through it.)
   Walking the dog, you keep going (round the bends, the way to the job)
   and ◀ ▲ ▶ choose where the way next divides, the little arrows along
   the sidewalk going the way you chose. At the end of a street (the edge of town) you go
   round the turning circle by yourself, and it's said ("Turn around!") -- no reverse
   gear to get stuck in; the arrows fade till there's a corner ahead. At
-  each job you stop: the arrows fade while it's done, then ▲ glows for
-  the next. A finger dragged across the windshield looks round
+  each job you stop: the arrows and the gas fade while it's done (off the
+  gas -- press it again to go on). A finger dragged across the windshield looks round
   (the view follows the finger, like a panorama); let go and a moment
   later you look ahead again. A tap on the windshield honks.
 - The rules hold you just the same, but you're told why, every time: at a

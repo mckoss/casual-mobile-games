@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.105.0
+- Benji's Town: driving has a gas pedal. All the buttons are along the
+  bottom now -- headlights, horn, ◀, the gas pedal, ▶. Hold the gas to go
+  (you speed up, and hear the engine rev); let go and you slow down to a
+  stop. Press ◀ or ▶ and it stays lit: that's the way you'll turn at the
+  next corner (press it again for straight on). No more stopping at every
+  corner.
+
 ## 1.104.0
 - Benji's Town: a horn button, there all the time you're driving (under
   the headlight switch) -- every press honks, and the cars ahead make way.

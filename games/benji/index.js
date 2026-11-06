@@ -83,9 +83,15 @@ export function mount(root, ctx, sub) {
   for (const text of RECORDED) ctx.loadClip?.(clipFor(text));
   ctx.loadClip?.(YAY);
 
+  // (Away from the page -- the phone locked, say: the engine quiet. It
+  // starts up again with the next frame drawn.)
+  const hush2 = () => document.hidden && ctx.setLoop?.('motor', false);
+  document.addEventListener('visibilitychange', hush2);
+
   function teardown() {
     quiet();
     if (play) play.destroy();
+    ctx.setLoop?.('motor', false);
     play = null;
     if (onResize) window.removeEventListener('resize', onResize);
     onResize = null;
@@ -129,6 +135,13 @@ export function mount(root, ctx, sub) {
       haptic: ctx.haptic,
       say,
       cheer,
+      // The engine you're driving: level 0 (ticking over) to 1, or null
+      // for off.
+      engine: (level) => {
+        const on = level != null && !document.hidden;
+        ctx.setLoop?.('motor', on);
+        if (on) ctx.loopLevel?.('motor', level);
+      },
       // A part of the day begins (or night falls): the picture in the title.
       onPart: (part) => {
         title.innerHTML = `Day ${day} <span class="bt-part">${pic(PART[part])}</span>`;
@@ -181,5 +194,11 @@ export function mount(root, ctx, sub) {
   }
 
   route(sub);
-  return { route, destroy: teardown };
+  return {
+    route,
+    destroy: () => {
+      teardown();
+      document.removeEventListener('visibilitychange', hush2);
+    },
+  };
 }

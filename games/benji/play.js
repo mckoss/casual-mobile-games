@@ -143,6 +143,7 @@ export class Play {
 
   destroy() {
     cancelAnimationFrame(this.raf);
+    this.hooks.engine?.(null);
     this.canvas.removeEventListener('pointerdown', this.onDown);
     this.canvas.removeEventListener('pointermove', this.onMove);
     this.canvas.removeEventListener('pointerup', this.onUp);
@@ -172,14 +173,24 @@ export class Play {
     if (!this.cam.k) this.cam.k = this.kFit;
     const y = this.viewH + this.trayH / 2;
     this.buttons = [{ x: BTN + 10, y, dir: -1 }, { x: this.W - BTN - 10, y, dir: 1 }];
-    // In the driver's seat: the view, and the buttons -- ◀ ▲ ▶ along the
-    // bottom, and back to the town top left.
+    // In the driver's seat: the view, and the buttons along the bottom.
+    // Walking the dog: ◀ ▲ ▶. Driving: the headlights and the horn, then
+    // ◀, the gas pedal and ▶.
     this.seatH = this.H - 110;
     const py = this.H - 55;
     this.pads = [
       { act: 'left', x: this.W * 0.18, y: py, r: 34 },
       { act: 'go', x: this.W / 2, y: py, r: 42 },
       { act: 'right', x: this.W * 0.82, y: py, r: 34 },
+    ];
+    const u = Math.min(this.W / 5, 96);
+    const x0 = this.W / 2 - 2 * u;
+    this.carPads = [
+      { act: 'lamp', x: x0, y: py, r: 27 },
+      { act: 'horn', x: x0 + u, y: py, r: 31 },
+      { act: 'left', x: x0 + 2 * u, y: py, r: 31 },
+      { act: 'gas', x: x0 + 3 * u, y: py, r: 42, w: 62, h: 88 },
+      { act: 'right', x: x0 + 4 * u, y: py, r: 31 },
     ];
     this.eye.F = this.baseF = this.W / 2 / Math.tan((40 * Math.PI) / 180);
     this.eye.ox = this.W / 2;
@@ -901,11 +912,11 @@ export class Play {
 
   // In the driver's seat (or walking the dog), made for a three-year-old:
   // a button you can press does something you can see and hear, at once --
-  // never later on. Driving, they work only while you're stopped, and take
-  // you no further than the next corner: stopped at the line, ◀ ▲ ▶ are the
-  // way through it (the arrow on the road, said out loud) and on to the
-  // line at the next one; stopped anywhere else, ▲ on to the corner.
-  // Walking, ◀ ▲ ▶ choose the way where it next divides, as you go. A
+  // never later on. Driving, along the bottom: the headlights, the horn,
+  // ◀, the gas pedal (hold it to go: off it, you slow down and stop) and ▶
+  // (the way you'll turn at the next corner, lit till you have -- the
+  // arrow on the road, said out loud). Walking, ◀ ▲ ▶ choose the way where
+  // it next divides, as you go. A
   // button that would do nothing is faded, and does nothing. (Back out to
   // the town: the switch top right.) A finger dragged across the
   // windshield looks round; a tap on it honks.
@@ -919,6 +930,8 @@ export class Play {
       return;
     }
     if (type === 'up') {
+      // (Off the gas: you slow down, and stop.)
+      if (f.gas === e.pointerId) f.gas = null;
       if (!drag || e.pointerId !== drag.id) return;
       f.drag = null;
       f.lookT = 0;
@@ -938,21 +951,24 @@ export class Play {
       this.switchTo(sos.h);
       return;
     }
-    // (The horn: beep!)
-    const horn = this.hornButton();
-    if (horn && Math.hypot(horn.x - sx, horn.y - sy) < horn.r + 10) {
-      this.honk();
-      return;
-    }
-    // (The headlights: on, or off.)
-    const lamp = this.lampButton();
-    if (lamp && Math.hypot(lamp.x - sx, lamp.y - sy) < lamp.r + 10) {
+    const b = this.padList().find((q) => this.onPad(q, sx, sy));
+    if (b?.act === 'lamp') {
+      // (The headlights: on, or off.)
       this.headlights = !this.headlights;
       this.hooks.sfx?.('tap');
-      return;
-    }
-    const b = this.pads.find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 12);
-    if (b) this.choose(b.act);
+    } else if (b?.act === 'horn') this.honk();
+    else if (b?.act === 'gas') {
+      // (On the gas, for as long as that finger's down.)
+      if (!this.can('gas')) return;
+      f.gas = e.pointerId;
+      try {
+        this.canvas.setPointerCapture?.(e.pointerId);
+      } catch {
+        // (Never mind: we'll still hear it lift.)
+      }
+      f.flash = { act: 'gas', t: this.t };
+      this.hooks.haptic?.(8);
+    } else if (b) this.choose(b.act);
     else {
       this.canvas.setPointerCapture?.(e.pointerId);
       f.drag = { id: e.pointerId, sx, look: f.look, moved: false };
@@ -964,14 +980,21 @@ export class Play {
   can(act) {
     const f = this.fp;
     const h = f.h;
+    // Driving: the lights and the horn, always; the gas, unless you're busy
+    // with a job (out of the cab, say); ◀ or ▶, the way to turn at the
+    // corner coming up -- if it's a different way from straight on (or to
+    // change your mind: press it again for straight on).
+    if (h.kind !== 'walker') {
+      if (act === 'lamp' || act === 'horn') return true;
+      if (h.pause > 0 || h.deliver) return false;
+      if (act === 'gas') return true;
+      if (act !== 'left' && act !== 'right') return false;
+      const o = f.options;
+      return !!o && (f.intent === act || o[act] !== o.straight);
+    }
     if (h.pause > 0 || h.deliver) return false;
     const o = f.options;
     const way = act === 'go' ? 'straight' : act;
-    // Held up behind a car: ▲ is the horn (and the car in front makes way).
-    if (h.kind !== 'walker' && f.go && this.honkable(h)) return act === 'go';
-    // Driving: only stopped -- at the line, which way through the corner;
-    // anywhere else, ▲ on to the corner.
-    if (h.kind !== 'walker') return !f.go && (f.atCorner && o ? way === 'straight' || o[way] !== o.straight : act === 'go');
     if (!o) return act === 'go' && !f.go;
     if (f.go) return o[way] !== o.now;
     return way === 'straight' || o[way] !== o.straight;
@@ -997,14 +1020,26 @@ export class Play {
   // the dog): { x, y, r }.
   lampButton() {
     if (!this.fp || this.fp.h.kind === 'walker') return null;
-    return { x: 54, y: 150, r: 36 };
+    return this.carPads.find((q) => q.act === 'lamp');
+  }
+
+  // The buttons along the bottom, for what you're in.
+  padList() {
+    return this.fp?.h.kind === 'walker' ? this.pads : this.carPads;
+  }
+
+  // Is (sx, sy) on button q? (Round, or the pedal's rectangle -- and a
+  // little round each, for a small finger.)
+  onPad(q, sx, sy) {
+    if (q.w) return Math.abs(sx - q.x) < q.w / 2 + 10 && Math.abs(sy - q.y) < q.h / 2 + 8;
+    return Math.hypot(q.x - sx, q.y - sy) < q.r + 10;
   }
 
   // The horn, under the headlight switch: there all the time you're
   // driving (not walking the dog), and every press honks. { x, y, r }
   hornButton() {
     if (!this.fp || this.fp.h.kind === 'walker') return null;
-    return { x: 54, y: 252, r: 42 };
+    return this.carPads.find((q) => q.act === 'horn');
   }
 
   // Beep! Your horn: heard at once (the horn for what you're driving), and
@@ -1071,17 +1106,16 @@ export class Play {
 
   // The headlight switch: a lamp with its beams -- lit, and glowing, when on.
   // The horn button: round, white, the horn on it -- flashing yellow as it
-  // honks.
-  drawHorn() {
-    const q = this.hornButton();
-    if (!q) return;
+  // honks, and glowing when you're held up behind a car (press me!).
+  drawHorn(q) {
     const { g } = this;
     const f = this.fp;
-    const flash = f.flash && (f.flash.act === 'horn' || f.flash.act === 'go') && this.t < (f.h.honk ?? -1) ? Math.max(0, 1 - (this.t - f.flash.t) / 0.5) : 0;
-    if (flash) {
-      g.fillStyle = `rgba(255,200,0,${0.3 + 0.6 * flash})`;
+    const flash = f.flash && ['horn', 'tap', 'go'].includes(f.flash.act) ? Math.max(0, 1 - (this.t - f.flash.t) / 0.5) : 0;
+    const ask = f.go && this.honkable(f.h) ? 0.35 + 0.35 * Math.sin(this.t * 8) : 0;
+    if (flash || ask) {
+      g.fillStyle = `rgba(255,200,0,${Math.max(ask, 0.3 + 0.6 * flash)})`;
       g.beginPath();
-      g.arc(q.x, q.y, q.r + 8 + flash * 8, 0, Math.PI * 2);
+      g.arc(q.x, q.y, q.r + 8 + flash * 6, 0, Math.PI * 2);
       g.fill();
     }
     const r = q.r * (1 - 0.08 * flash);
@@ -1098,9 +1132,43 @@ export class Play {
     emoji(g, '📣', q.x, q.y + 2);
   }
 
-  drawLamp() {
-    const q = this.lampButton();
-    if (!q) return;
+  // The gas pedal: a tall green pedal with ridges across it -- pressed
+  // down (a little smaller, darker) while your finger's on it.
+  drawGas(q) {
+    const { g } = this;
+    const on = this.fp.gas != null;
+    const s = on ? 0.93 : 1;
+    const w = q.w * s;
+    const h = q.h * s;
+    const x = q.x - w / 2;
+    const y = q.y - h / 2 + (on ? 3 : 0);
+    if (on) {
+      g.fillStyle = 'rgba(46,204,113,0.35)';
+      g.beginPath();
+      g.roundRect(x - 8, y - 8, w + 16, h + 16, 20);
+      g.fill();
+    }
+    g.fillStyle = on ? '#1e9e57' : '#2ecc71';
+    g.strokeStyle = '#1d3557';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.roundRect(x, y, w, h, 14);
+    g.fill();
+    g.stroke();
+    g.strokeStyle = on ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.22)';
+    g.lineWidth = 4;
+    g.lineCap = 'round';
+    for (let k = 1; k <= 5; k++) {
+      const ry = y + (h * k) / 6;
+      g.beginPath();
+      g.moveTo(x + w * 0.24, ry);
+      g.lineTo(x + w * 0.76, ry);
+      g.stroke();
+    }
+    g.lineCap = 'butt';
+  }
+
+  drawLamp(q) {
     const { g } = this;
     const on = !!this.headlights;
     if (on) {
@@ -1177,7 +1245,7 @@ export class Play {
   // you're stopped at it.)
   choosing() {
     const f = this.fp;
-    return !!f.options && (f.h.kind === 'walker' || f.atCorner);
+    return !!f.options;
   }
 
   // A button pressed (act: 'go', 'left' or 'right'): if it does anything
@@ -1186,9 +1254,14 @@ export class Play {
     const f = this.fp;
     this.plan(f);
     if (!this.can(act)) return false;
-    // Beep beep: the cars ahead pull over, and on you go.
-    if (f.go && this.honkable(f.h)) {
-      this.honk(act);
+    // Driving: ◀ or ▶ is the way you'll turn at the next corner (lit, till
+    // you've turned) -- or, pressed again, straight on after all.
+    if (f.h.kind !== 'walker') {
+      f.intent = f.intent === act ? null : act;
+      this.plan(f);
+      f.flash = { act, t: this.t };
+      this.hooks.sfx?.('tap');
+      this.tell({ left: 'Left!', right: 'Right!' }[f.intent] || 'Straight on!');
       return true;
     }
     const way = this.choosing() ? { go: 'straight', left: 'left', right: 'right' }[act] : null;
@@ -1376,17 +1449,26 @@ export class Play {
     // (The camera out of the cab for a delivery -- and back in.)
     if (h.deliver || h.spray) f.out = (h.deliver || h.spray).cam;
     f.away = clamp(f.away + (h.deliver || h.spray ? dt : -dt) / 0.8, 0, 1);
-    let want = f.go && !busy ? SPEED[h.kind] * 0.7 : 0;
-    // (Coming up to a corner with no way chosen: slowing down, to stop at
-    // the line.)
-    if (f.stopIn != null) want = Math.min(want, 0.35 + 1.6 * f.stopIn);
-    f.v += clamp(want - f.v, -6 * dt, 3 * dt);
-    this.plan(f);
-    // There, and still no way chosen: stop, and ask.
-    if (h.kind !== 'walker' && f.go && !f.intent && !h.path.length && !busy) {
-      f.go = false;
-      this.tell('Which way?');
+    if (h.kind === 'walker') {
+      let want = f.go && !busy ? SPEED[h.kind] * 0.7 : 0;
+      // (Coming up to a corner with no way chosen: slowing down, to stop at
+      // the line.)
+      if (f.stopIn != null) want = Math.min(want, 0.35 + 1.6 * f.stopIn);
+      f.v += clamp(want - f.v, -6 * dt, 3 * dt);
+    } else {
+      // Driving: on the gas, speeding up (to a bit slower than they go by
+      // themselves: time to look about, and to turn); off it, slowing down
+      // -- coasting -- to a stop. (No brake: the lights, the people
+      // crossing and the cars in front stop you all the same.)
+      if (busy) f.gas = null;
+      f.go = f.gas != null;
+      const top = SPEED[h.kind] * 0.75;
+      f.v = busy ? 0 : clamp(f.v + (f.go ? 1.1 : -1.3) * dt, 0, top);
+      // (Held up -- a red light, a car -- the engine waits, ticking over.)
+      if (h.wait && h.movedAt !== undefined && this.t - h.movedAt > 0.3) f.v = Math.min(f.v, 0.4);
+      f.engine = 0.1 + 0.5 * (f.v / top) + (f.go ? 0.12 : 0);
     }
+    this.plan(f);
     // Turning round (the circle at the end of the street): say so.
     const n = h.path[0];
     const round = h.kind !== 'walker' && !!n && atEdge(n.x, n.y) && (n.x !== h.tile.x || n.y !== h.tile.y);
@@ -1459,7 +1541,7 @@ export class Play {
     const dir = moving && (base.x !== h.tile.x || base.y !== h.tile.y) ? { x: base.x - h.tile.x, y: base.y - h.tile.y } : h.dir;
     const to = this.target(h);
     f.hint = to ? driveTurn(base, dir, to) : null;
-    const turn = f.intent || f.hint || 'straight';
+    const turn = f.intent || 'straight';
     f.route = to ? this.driveRoute(base, dir, to, turn) : [];
     const plan = [...(moving ? [base] : []), ...ahead(base, dir, turn)];
     // The corner, and the way out of it (for the arrow on the road).
@@ -1469,15 +1551,10 @@ export class Play {
     const prev = k > 0 ? plan[k - 1] : moving ? h.tile : base;
     const into = inside ? h.dir : j && { x: j.x - prev.x, y: j.y - prev.y };
     f.corner = j && exit ? { at: { x: j.x + 0.5, y: j.y + 0.5 }, into, out: { x: exit.x - j.x, y: exit.y - j.y } } : null;
-    // Where each way out of it goes -- if it's the next thing (not round a
-    // dead end first: a choice there would be for later on).
-    let from = moving ? h.tile : base;
-    let next = !!f.corner;
-    for (const t of plan) {
-      if (isJunction(t.x, t.y)) break;
-      if (t.x - from.x === -dir.x && t.y - from.y === -dir.y) next = false;
-      from = t;
-    }
+    // Where each way out of it goes. (Round a turning circle first, too:
+    // with the gas pedal, the way at the corner after it can be chosen
+    // ahead of time.)
+    const next = !!f.corner;
     const exitOf = (turn) => {
       const pl = [...(moving ? [base] : []), ...ahead(base, dir, turn)];
       const i = pl.findIndex((t) => isJunction(t.x, t.y));
@@ -1489,13 +1566,8 @@ export class Play {
     // before the corner (no arrow on the road).
     f.stopIn = null;
     f.atCorner = false;
-    if (next && !f.intent && !inside) {
-      plan.length = k;
-      f.atCorner = k === 0;
-      f.corner = null;
-      const end = plan.length ? lanePoint(plan[plan.length - 1], dir) : { x: h.x, y: h.y };
-      f.stopIn = Math.hypot(end.x - h.x, end.y - h.y);
-    }
+    // (Driving with the gas pedal, there's no stopping at every corner:
+    // through it, the way chosen -- or straight on.)
     // Let through the intersection already, and turning another way now:
     // that crosswalk's yours too (and anyone on it, you wait for).
     if (j && exit && h.pass === `${j.x},${j.y}`) {
@@ -1688,6 +1760,10 @@ export class Play {
       this.later = null;
     }
     if (this.fp) this.fpSteer(dt);
+    // The engine, driving: ticking over, and rising as you put your foot
+    // down and speed up. (Off, out of the cab.)
+    const f = this.fp;
+    this.hooks.engine?.(f && f.h.kind !== 'walker' && !f.h.deliver && !f.h.spray ? f.engine ?? 0.1 : null);
     // The fire engine on its way to a fire (or at it), or the police car to a
     // robber: lights flashing, siren going, and through the red lights --
     // and everyone pulls over for it.
@@ -2008,8 +2084,6 @@ export class Play {
     // crossing, a car.
     if (f.wait) this.waitSign(f.wait);
     this.drawEmergencies();
-    this.drawLamp();
-    this.drawHorn();
     g.restore();
     this.drawPads();
     this.drawTray(true);
@@ -2224,46 +2298,46 @@ export class Play {
     g.fillStyle = '#f1f5f9';
     g.fillRect(0, this.seatH, this.W, this.H - this.seatH);
     const glow = 0.5 + 0.5 * Math.sin(this.t * 8);
-    for (const b of this.pads) {
-      // (Faded: it would do nothing now, so it does nothing. Glowing: the
-      // way to the job at the corner coming up -- or ▲, with no corner to
-      // choose at. Just pressed: a flash.)
+    const car = f.h.kind !== 'walker';
+    for (const b of this.padList()) {
+      // (Faded: it would do nothing now, so it does nothing.)
       const live = this.can(b.act);
       g.globalAlpha = live ? 1 : 0.25;
-      const way = b.act === 'go' ? 'straight' : b.act;
-      const lit = live && way === (this.choosing() ? f.hint || 'straight' : 'straight');
-      const flash = f.flash?.act === b.act ? Math.max(0, 1 - (this.t - f.flash.t) / 0.4) : 0;
-      if (lit || flash) {
-        g.fillStyle = `rgba(255,200,0,${Math.max(lit ? 0.35 + 0.4 * glow : 0, flash)})`;
+      if (b.act === 'lamp') this.drawLamp(b);
+      else if (b.act === 'horn') this.drawHorn(b);
+      else if (b.act === 'gas') this.drawGas(b);
+      else {
+        // An arrow. Walking: glowing, the way to the job where the way
+        // divides next. Driving: ◀ or ▶ lit up yellow while it's the way
+        // you're turning at the next corner -- and glowing gently, the way
+        // to the job, if that's a turn. Just pressed: a flash.
+        const way = b.act === 'go' ? 'straight' : b.act;
+        const chosen = car && f.intent === b.act;
+        const lit = live && !chosen && way === (car ? f.hint : this.choosing() ? f.hint || 'straight' : 'straight');
+        const flash = f.flash?.act === b.act ? Math.max(0, 1 - (this.t - f.flash.t) / 0.4) : 0;
+        if (lit || flash) {
+          g.fillStyle = `rgba(255,200,0,${Math.max(lit ? 0.35 + 0.4 * glow : 0, flash)})`;
+          g.beginPath();
+          g.arc(b.x, b.y, b.r + 9 + flash * 6, 0, Math.PI * 2);
+          g.fill();
+        }
+        g.fillStyle = chosen ? '#ffd166' : b.act === 'go' ? '#2ecc71' : '#ffffff';
+        g.strokeStyle = chosen ? '#e76f51' : '#1d3557';
+        g.lineWidth = chosen ? 5 : 3;
         g.beginPath();
-        g.arc(b.x, b.y, b.r + 9 + flash * 6, 0, Math.PI * 2);
+        g.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+        const a = { go: -Math.PI / 2, left: Math.PI, right: 0 }[b.act];
+        const s = b.r * 0.55;
+        g.fillStyle = b.act === 'go' ? '#ffffff' : '#1d3557';
+        g.beginPath();
+        g.moveTo(b.x + Math.cos(a) * s, b.y + Math.sin(a) * s);
+        g.lineTo(b.x + Math.cos(a + 2.4) * s, b.y + Math.sin(a + 2.4) * s);
+        g.lineTo(b.x + Math.cos(a - 2.4) * s, b.y + Math.sin(a - 2.4) * s);
+        g.closePath();
         g.fill();
       }
-      g.fillStyle = b.act === 'go' ? '#2ecc71' : '#ffffff';
-      g.strokeStyle = '#1d3557';
-      g.lineWidth = 3;
-      g.beginPath();
-      g.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-      g.fill();
-      g.stroke();
-      // (Held up behind a car: ▲ is the horn.)
-      if (b.act === 'go' && live && f.go && this.honkable(f.h)) {
-        g.font = `${Math.round(b.r * 1.1)}px system-ui, sans-serif`;
-        g.textAlign = 'center';
-        g.textBaseline = 'middle';
-        emoji(g, '📣', b.x, b.y + 2);
-        continue;
-      }
-      // An arrow: up, left or right.
-      const a = { go: -Math.PI / 2, left: Math.PI, right: 0 }[b.act];
-      const s = b.r * 0.55;
-      g.fillStyle = b.act === 'go' ? '#ffffff' : '#1d3557';
-      g.beginPath();
-      g.moveTo(b.x + Math.cos(a) * s, b.y + Math.sin(a) * s);
-      g.lineTo(b.x + Math.cos(a + 2.4) * s, b.y + Math.sin(a + 2.4) * s);
-      g.lineTo(b.x + Math.cos(a - 2.4) * s, b.y + Math.sin(a - 2.4) * s);
-      g.closePath();
-      g.fill();
     }
     g.globalAlpha = 1;
   }

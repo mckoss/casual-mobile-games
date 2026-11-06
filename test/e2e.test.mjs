@@ -713,7 +713,7 @@ test('benji’s town: a robber at the shop, and the police car catches them and 
   }
 });
 
-test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); held up behind a car, ▲ honks; the horn button always', { skip: !chromium, timeout: 60000 }, async () => {
+test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); the buttons along the bottom; the horn button always', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
   try {
@@ -751,18 +751,18 @@ test('benji’s town, driving: a big button to be the fire engine (or the police
     await page.mouse.click(...at);
     await page.waitForFunction(() => window.__benji.fp?.h.kind === 'fire');
     assert.equal(await page.evaluate(() => window.__benji.emergencies().map((q) => q.icon).join()), '🚓');
-    // Held up behind a car: the arrows do nothing, ▲ honks.
+    // Driving: the buttons along the bottom -- the headlights, the horn, ◀,
+    // the gas pedal, ▶ (no ▲); held up behind a car, the horn's the thing.
     const honk = await page.evaluate(() => {
       const p = window.__benji;
       cancelAnimationFrame(p.raf);
       const f = p.fp;
-      f.go = true;
+      f.gas = 1;
+      p.fpSteer(1 / 30);
       f.h.wait = 'car';
-      const live = ['left', 'go', 'right'].filter((a) => p.can(a)).join();
-      const did = p.choose('go');
-      return { live, did, honking: f.h.honk > p.t, again: p.can('go') };
+      return { pads: p.padList().map((q) => q.act).join(), live: ['lamp', 'horn', 'gas', 'go'].filter((a) => p.can(a)).join(), go: p.choose('go'), ask: p.honkable(f.h) && f.go };
     });
-    assert.deepEqual(honk, { live: 'go', did: true, honking: true, again: false });
+    assert.deepEqual(honk, { pads: 'lamp,horn,left,gas,right', live: 'lamp,horn,gas', go: false, ask: true });
     // The horn button: there all the time, every press a honk (a truck's
     // horn, for the fire engine) -- and a helper parked just ahead with
     // nothing to do drives off out of the way.
@@ -908,9 +908,17 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
     const pad = (act) => page.evaluate((act) => {
       const p = window.__benji;
       const r = p.canvas.getBoundingClientRect();
-      const b = p.pads.find((q) => q.act === act);
+      const b = p.padList().find((q) => q.act === act);
       return { x: r.left + b.x, y: r.top + b.y };
     }, act);
+    // (Driving: a second finger on the gas pedal, held down.)
+    const gas = (down) => page.evaluate(([down]) => {
+      const p = window.__benji;
+      const r = p.canvas.getBoundingClientRect();
+      const q = p.carPads.find((b) => b.act === 'gas');
+      p.canvas.dispatchEvent(new PointerEvent(down ? 'pointerdown' : 'pointerup', { pointerId: 7, clientX: r.left + q.x, clientY: r.top + q.y, bubbles: true }));
+    }, [down]);
+    let sped = false;
     let seated = false;
     let turned = false;
     let faded = false;
@@ -928,7 +936,7 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
       const st = await page.evaluate(() => {
         const p = window.__benji;
         const h = p.fp?.h || p.helpers.find((m) => p.targetPlace(m));
-        return h && { fp: !!p.fp, go: p.fp?.go, hint: p.fp?.hint, walker: h.kind === 'walker', live: p.fp && ['left', 'go', 'right'].filter((a) => p.can(a)), busy: h.pause > 0 || !!h.deliver, stale: !!p.fp && !p.fp.go && p.fp.intent !== null, at: p.screenOf(h.x, h.y, 0.25) };
+        return h && { fp: !!p.fp, go: p.fp?.go, gas: p.fp?.gas != null, v: p.fp?.v, intent: p.fp?.intent, hint: p.fp?.hint, walker: h.kind === 'walker', live: p.fp && ['left', 'go', 'right'].filter((a) => p.can(a)), busy: h.pause > 0 || !!h.deliver, stale: !!p.fp && !p.fp.go && p.fp.intent !== null, at: p.screenOf(h.x, h.y, 0.25) };
       });
       if (!st) {
         await page.waitForTimeout(300);
@@ -949,17 +957,31 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
         await page.mouse.up();
       }
       seated = true;
-      // (Stopped, nothing's left chosen; busy with a job, the arrows are
-      // faded, and pressing one does nothing.)
-      assert.ok(!st.stale, 'no arrow left chosen while stopped');
+      // (Walking, stopped: nothing's left chosen. Busy with a job, the arrows
+      // are faded, and pressing one does nothing.)
+      assert.ok(!st.walker || !st.stale, 'no arrow left chosen while stopped');
       if (st.busy) {
         assert.deepEqual(st.live, [], 'no arrows while busy with a job');
         const b = await pad('left');
         await page.mouse.click(b.x, b.y);
         faded = await page.evaluate(() => !window.__benji.fp || window.__benji.fp.intent === null);
-      } else if (st.go && !st.walker) {
-        // (Driving along: nothing to press till you stop.)
-        assert.deepEqual(st.live, [], 'no buttons while driving along');
+      } else if (!st.walker) {
+        // Driving: foot on the gas (speeding up), and ◀ or ▶ -- the way to
+        // the job, glowing -- for the corner coming up: lit, said, and the
+        // way through it on the road at once.
+        if (!st.gas) await gas(true);
+        if (st.v > 0.5) sped = true;
+        if ((st.hint === 'left' || st.hint === 'right') && st.intent !== st.hint && st.live.includes(st.hint)) {
+          const was = await page.evaluate(() => JSON.stringify(window.__benji.fp?.corner?.out));
+          const b = await pad(st.hint);
+          await page.mouse.click(b.x, b.y);
+          if (!turned) {
+            turned = await page.evaluate(([w, was, way]) => {
+              const p = window.__benji;
+              return p.fp?.intent === way && !!p.fp.corner && JSON.stringify(p.fp.corner.out) !== was && window.__said.includes(w);
+            }, [st.hint === 'left' ? 'Left!' : 'Right!', was, st.hint]);
+          }
+        }
       } else if (!st.go) {
         // (Stopped -- at a corner, one block at a time: the way to the job;
         // the way through it shows on the road at once, and it's said.)
@@ -978,6 +1000,7 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
       await page.waitForTimeout(250);
     }
     assert.ok(turned, 'a turn chosen, shown and said');
+    assert.ok(sped, 'on the gas, speeding up');
     assert.ok(faded, 'a press during a job does nothing');
     assert.ok(seated, 'drove it from the driver\'s seat');
     assert.ok(await page.evaluate(() => window.__won), 'the morning\'s jobs done');
