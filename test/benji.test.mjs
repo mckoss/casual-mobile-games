@@ -377,6 +377,64 @@ test('the fire engine across town in traffic: never held up by a light, nobody r
   tr.cars.forEach((c, i) => assert.ok(c === engine || c.trips > trips[i], 'every car carries on'));
 });
 
+test('the fire engine always gets there: in sixty towns busy with traffic, nobody ever stuck, no two cars ever touching -- the fire engine only, for a moment, with right of way', () => {
+  const streets = streetTiles(SIZE);
+  const dt = 1 / 30;
+  let used = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    let s = seed;
+    const rand = () => ((s = (s * 1103515245 + 12345) >>> 0) / 2 ** 32);
+    const anyStreet = () => streets[Math.floor(rand() * streets.length)];
+    const tr = new Traffic(walkways());
+    const taken = new Set();
+    const pick = () => {
+      let t = anyStreet();
+      while (taken.has(`${t.x},${t.y}`)) t = anyStreet();
+      for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) taken.add(`${t.x + dx},${t.y + dy}`);
+      return t;
+    };
+    const from = pick();
+    const dir = startDir(from);
+    const engine = { tile: from, dir, ...lanePoint(from, dir), path: drivePath(from, dir, anyStreet()).slice(1), len: 0.38 };
+    for (let k = 0; k < 10; k++) {
+      const tile = pick();
+      const d = startDir(tile);
+      tr.cars.push({ tile, dir: d, ...lanePoint(tile, d), path: [], len: k % 2 ? 0.29 : 0.38 });
+    }
+    tr.cars.push(engine);
+    const others = tr.cars.filter((c) => c !== engine);
+    const drive = (c) => {
+      if (!c.path.length && c !== engine) c.path = drivePath(c.tile, c.dir, anyStreet()).slice(1);
+      tr.drive(c, c === engine ? 2.8 : 1.6, dt);
+    };
+    // The town busy for a while; then the fire.
+    let t = 0;
+    for (; t < 20 + (seed % 20); t += dt) {
+      tr.t = t;
+      others.forEach(drive);
+    }
+    engine.urgent = true;
+    const t0 = t;
+    let right = false;
+    for (; engine.path.length; t += dt) {
+      assert.ok(t - t0 < 30, `seed ${seed}: the fire engine stuck at ${engine.x.toFixed(2)},${engine.y.toFixed(2)} (${engine.wait})`);
+      tr.t = t;
+      tr.cars.forEach(drive);
+      const way = engine.rightOfWay > t;
+      right ||= way;
+      for (const [i, a] of others.entries()) {
+        for (const b of others.slice(i + 1)) assert.ok(!bump(body(a), body(b)), `seed ${seed}: cars touching at ${t.toFixed(2)}`);
+        // (Touching the fire engine only with right of way, or just after,
+        // as it pulls clear.)
+        if (!way) assert.ok(!bump(body(a), body(engine)) || engine.rightOfWay > t - 1, `seed ${seed}: a car into the fire engine at ${t.toFixed(2)}`);
+      }
+    }
+    if (right) used++;
+  }
+  // (Right of way is the last resort, not the rule.)
+  assert.ok(used < 30, `right of way in ${used} of 60`);
+});
+
 test('the end of a street: round the turning circle (the island on the left), and back the other way; no car goes down one unless it is going there', async () => {
   const { circleAt, CIRCLE, atEdge } = await import('../games/benji/streets.js');
   const tr = new Traffic(walkways());

@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.97.1
+- Benji's Town: the fire engine can't get stuck any more on its way to a
+  fire. A car caught in an intersection or turning a corner as it comes
+  now squeezes past along the curb, and any car in its way pulls over,
+  however far off.
+
 ## 1.97.0
 - New game: **Crystal Cave**, contributed by Garnett Callis. A bubble
   shooter in a cave: drag anywhere to aim (a dotted line shows the way to

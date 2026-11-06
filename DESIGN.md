@@ -138,8 +138,13 @@ pictures and a sound for every touch.
   lights, and drives down the middle of the street; every car within
   earshot (three tiles) pulls over to the curb and stops
   till it's gone by -- even a helper stopped on a job -- then eases back
-  into its lane. (It still waits for anyone on a crosswalk, and never
-  drives into a car.) At the house the hose arcs water onto the roof for
+  into its lane. A car caught in an intersection or part way round a
+  corner keeps going, hugging the curb to get by, and any car the fire
+  engine is waiting on gives way however far off it is. (It still waits
+  for anyone on a crosswalk.) And should it still be held up by cars for
+  a moment, it has right of way through them for a second or so: it can
+  never be stuck. In sixty busy towns in the tests it always gets there,
+  and no two other cars ever touch. At the house the hose arcs water onto the roof for
   three seconds, lights still flashing (a rush of
   water; driving, the camera floats out of the cab to watch), the flames
   die down and the smoke turns to steam: "You put out the fire, great
