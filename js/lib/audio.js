@@ -83,6 +83,66 @@ function thump(vol, dur, cutoff, at = 0) {
   src.stop(t + dur);
 }
 
+// A struck thing ringing: a sine at f, there at once (no fade in -- it's
+// hit) and dying away over dur. (tone()'s 15 ms rise is too soft for that.)
+function ping(f, dur, vol, at = 0, f1 = f) {
+  const t = ac.currentTime + at;
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(f, t);
+  if (f1 !== f) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.001);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g);
+  g.connect(master);
+  o.start(t);
+  o.stop(t + dur + 0.02);
+}
+
+// A tick of noise a few milliseconds long, high-passed: a sharp edge
+// striking, a splinter breaking off.
+function tick(vol, dur, freq, at = 0) {
+  const t = ac.currentTime + at;
+  const src = ac.createBufferSource();
+  src.buffer = noise;
+  const f = ac.createBiquadFilter();
+  f.type = 'highpass';
+  f.frequency.value = freq;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  src.connect(f);
+  f.connect(g);
+  g.connect(master);
+  src.start(t, Math.random() * 1.5);
+  src.stop(t + dur + 0.01);
+}
+
+// An axe biting into ice, in layers: the steel edge striking (a hard tick),
+// the weight of the axe behind it (a short, falling thunk), the block
+// ringing (a few inharmonic partials, as a struck solid has -- bright and
+// brief, ice being stiff and brittle), and the ice crazing (splinters
+// ticking off just after). Pitch and timing vary a little, so no two chops
+// sound quite the same. big: the chunk breaking off, not just cracking.
+function iceChop(big) {
+  // (As loud as the other sounds: the hammer's hits, a win.)
+  const v = 0.4 * (0.85 + Math.random() * 0.3);
+  const f = (big ? 1150 : 1450) * (0.9 + Math.random() * 0.2);
+  tick(0.55 * v, 0.008, 2500);
+  ping(240 * (0.9 + Math.random() * 0.2), big ? 0.12 : 0.08, 0.5 * v, 0, 95);
+  knock(0.4 * v, 0.05, 520, 1.4);
+  [[1, 0.16, 0.16], [2.31, 0.1, 0.1], [4.2, 0.065, 0.07], [6.7, 0.045, 0.05]].forEach(([k, dur, vol]) => {
+    ping(f * k, dur * (big ? 1.4 : 1), vol * v, 0.001);
+  });
+  const splinters = big ? 9 : 4;
+  for (let k = 0; k < splinters; k++) {
+    const at = 0.008 + Math.random() * (big ? 0.11 : 0.06);
+    knock((0.5 - k * 0.035) * v, 0.004 + Math.random() * 0.005, 3000 + Math.random() * 3500, 1.3, at);
+  }
+}
+
 const SFX = {
   tap: () => tone('sine', 660, 880, 0.08, 0.15),
   // (Pitched high enough for phone speakers, which can't play deep bass.)
@@ -334,11 +394,22 @@ const SFX = {
     });
   },
   stick: () => knock(0.15, 0.04, 900, 2),
-  // The Chopping Game: a chop that cracks the ice but doesn't break it (a
-  // hard, icy tock with a little ring).
-  chop: () => {
-    knock(0.45, 0.05, 2600, 3);
-    tone('triangle', 1800, 900, 0.06, 0.05);
+  // The Chopping Game: the axe into the ice (see iceChop), and a chunk
+  // chopped through -- a heavier chop, the crack running right through it
+  // (a falling crunch), and its pieces landing on more ice, tinkling.
+  chop: () => iceChop(false),
+  icebreak: () => {
+    iceChop(true);
+    knock(0.14, 0.14, 1800, 0.9, 0.01);
+    // (Each piece a little ice of its own: a click, and two partials.)
+    for (let k = 0; k < 6; k++) {
+      const at = 0.16 + k * 0.05 + Math.random() * 0.05;
+      const f = 2600 + Math.random() * 3000;
+      const vol = 0.026 - k * 0.003;
+      knock(vol * 3, 0.004, f * 1.5, 1.5, at);
+      ping(f, 0.05 + Math.random() * 0.04, vol, at);
+      ping(f * 2.7, 0.03, vol * 0.5, at);
+    }
   },
   rumble: () => {
     [0, 0.22, 0.48].forEach((at, k) => thump(0.5 - k * 0.1, 0.4, 600 - k * 150, at));
@@ -598,6 +669,27 @@ export function sidetone(on, { freq = 600, vol = 0.4 } = {}) {
   } catch {
     // Never let audio problems break the game.
   }
+}
+
+// One sound effect played into a recording instead of the speakers (for
+// the tests, and for hearing a sound change): an AudioBuffer of secs.
+export function renderSfx(name, arg, secs = 0.8, rate = 44100) {
+  const Offline = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const saved = [ac, master, noise];
+  const off = new Offline(1, Math.round(secs * rate), rate);
+  try {
+    ac = off;
+    master = off.createGain();
+    master.gain.value = 0.6;
+    master.connect(off.destination);
+    noise = off.createBuffer(1, rate * 2, rate);
+    const d = noise.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    SFX[name](arg);
+  } finally {
+    [ac, master, noise] = saved;
+  }
+  return off.startRendering();
 }
 
 export function sfx(name, arg) {

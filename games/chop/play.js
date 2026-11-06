@@ -78,7 +78,7 @@ export class Play {
     const c = this.lv.chunks[r.i];
     if (r.broke) {
       this.shatter(r.i, x, y);
-      this.hooks.sfx?.('shatter', 2 + c.max);
+      this.hooks.sfx?.('icebreak');
       this.hooks.haptic?.(25);
       if (free(this.lv)) {
         this.freedAt = this.t;

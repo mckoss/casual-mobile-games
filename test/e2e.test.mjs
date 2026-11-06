@@ -2236,6 +2236,18 @@ test('the chopping game: tap the ice away, chunk by chunk, to free the surprise 
     await page.mouse.up();
     const after = await page.evaluate(() => window.__chop.lv.chunks.reduce((a, c) => a + c.hp, 0));
     assert.ok(before - after >= 2, `held: ${before - after} chops`);
+    // Its sounds -- the axe into the ice, a chunk breaking off -- play, and
+    // about as loud as the rest (the hammer's hits, a win), no louder.
+    const loud = await page.evaluate(async () => {
+      const m = await import('/js/lib/audio.js');
+      const out = {};
+      for (const name of ['chop', 'icebreak', 'hammer']) {
+        const d = (await m.renderSfx(name, undefined, 1)).getChannelData(0);
+        out[name] = d.reduce((a, x) => Math.max(a, Math.abs(x)), 0);
+      }
+      return out;
+    });
+    for (const name of ['chop', 'icebreak']) assert.ok(loud[name] > 0.05 && loud[name] <= loud.hammer, `${name}: ${JSON.stringify(loud)}`);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

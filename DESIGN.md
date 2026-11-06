@@ -326,6 +326,13 @@ button for the next block appear (no button before it does something).
   ...), drawn from Benji's Town's emoji pictures so they look the same on
   every device. The ones found so far line the top of the screen, and the
   game goes on from the last block (no levels to choose).
+- **The sound of it** (`iceChop` in `js/lib/audio.js`) is built in layers,
+  as an axe into ice is: the steel edge striking (a tick of noise a few
+  milliseconds long), the axe's weight behind it (a short falling thunk),
+  the block ringing (four inharmonic partials, bright and brief -- ice is
+  stiff and brittle), and the ice crazing just after (splinters). A chunk
+  chopped through is a heavier chop, a crunch as the crack runs through,
+  and its pieces tinkling down. Pitch and timing vary a little each time.
 
 ## Car Jam
 
