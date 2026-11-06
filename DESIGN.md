@@ -149,6 +149,21 @@ pictures and a sound for every touch.
   water; driving, the camera floats out of the cab to watch), the flames
   die down and the smoke turns to steam: "You put out the fire, great
   job!". That part of the day isn't done till the fire's out.
+- **Robbers!** Once a day too, in another part of it, a robber turns up
+  at the shop or the café -- a striped shirt, a black mask over the eyes,
+  a woolly hat and a bag of swag, the 🦹 over them -- standing outside on
+  the side you can see: an alarm, and "Robber! Call the police!". The
+  **police car** (white, a blue stripe, a light bar on its roof) waits at
+  the **police station** on the east side of town (grey stone, a blue
+  door and band, bars on its windows: the jail; a 🚓 sign). It races
+  there as the fire engine does -- lights flashing red and blue, siren
+  going, through the red lights, everyone pulling over -- and the officer
+  (a peaked cap, a badge) gets out, puts the handcuffs on ("You caught
+  the robber!", the camera out of the car to watch) and walks them back
+  to the car. Then "Time to take the robber to jail!": off to the police
+  station, lights off now, and in through its door with them: 🔒, "You
+  took the robber to jail! Great job!". Two jobs in the tray (🦹, then 🔒,
+  in that order).
 - Each helper that can be sent on a job has a big round button over it,
   in its colour, with a picture of its next job (a bin, a letter, the dog,
   a brick) and a little green "go" -- kept in view at the edge of the

@@ -47,6 +47,11 @@ export const LINES = [
   'Fire! Call the fire engine!',
   'Time to put out the fire!',
   'You put out the fire, great job!',
+  'Robber! Call the police!',
+  'Time to catch the robber!',
+  'You caught the robber!',
+  'Time to take the robber to jail!',
+  'You took the robber to jail! Great job!',
   'Yum! Ice cream!',
   'A delicious apple!',
 ];

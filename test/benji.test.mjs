@@ -563,6 +563,37 @@ test('the pictures: every emoji the town draws has its picture with the game (so
   for (const ch of used) assert.ok(existsSync(new URL(emojiURL(ch))), `${ch}: run tools/benji-emoji.py`);
 });
 
+test('robbers! a police station with its jail and police car, and once a day a robber at the shop or the cafe -- caught, then taken to jail', () => {
+  for (let day = 1; day <= 12; day++) {
+    const town = makeTown(day);
+    const station = town.places.find((p) => p.kind === 'police');
+    assert.ok(station && station.doors.every((d) => isRoad(d.x, d.y)), 'a police station by the street');
+    const car = town.helpers.find((h) => h.kind === 'police');
+    assert.ok(car && car.home === station.id && station.doors.includes(car.at), 'its police car, parked outside');
+    // (Every helper parked on a tile of its own: none in another's way.)
+    const spots = town.helpers.filter((h) => h.kind !== 'walker').map((h) => `${h.at.x},${h.at.y}`);
+    assert.equal(new Set(spots).size, spots.length, `day ${day}: two helpers parked on one tile (${spots})`);
+    const robs = town.phases.filter((p) => p.rob);
+    assert.equal(robs.length, 1, `day ${day}: one robbery`);
+    if (town.phases.length > 1) assert.ok(!robs[0].fire, `day ${day}: not in the same part of the day as the fire`);
+    const { place, after } = robs[0].rob;
+    assert.ok(['shop', 'cafe'].includes(place));
+    assert.ok(after >= 8 && after <= 16);
+    // (The jobs, as play.js adds them: catch the robber, then -- and only
+    // then -- to jail.)
+    const n = town.jobs.length;
+    const jobs = [...town.jobs, { helper: 'police', kind: 'catch', place, i: n }, { helper: 'police', kind: 'jail', place: 'police', last: true, i: n + 1 }];
+    const t2 = { ...town, jobs };
+    const done = new Set();
+    assert.equal(nextJob(t2, car, done).kind, 'catch');
+    assert.notEqual(jobAt(t2, car, station.door, done)?.kind, 'jail', 'not to jail before the robber is caught');
+    assert.equal(jobAt(t2, car, town.places.find((p) => p.id === place).door, done).kind, 'catch');
+    done.add(n);
+    assert.equal(nextJob(t2, car, done).kind, 'jail');
+    assert.equal(jobAt(t2, car, station.door, done).kind, 'jail');
+  }
+});
+
 test('fire! a firehouse with its fire engine, and once a day a fire at a house, a while into one part of the day', () => {
   for (let day = 1; day <= 12; day++) {
     const town = makeTown(day);

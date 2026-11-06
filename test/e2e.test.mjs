@@ -604,6 +604,65 @@ test('benji’s town: fire! it breaks out at a house, and the fire engine goes a
   }
 });
 
+test('benji’s town: a robber at the shop, and the police car catches them and takes them to jail', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:day', '2'));
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const r = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      const said = [];
+      const sounds = [];
+      p.hooks.say = (w) => w && said.push(w);
+      p.hooks.sfx = (n) => sounds.push(n);
+      const run = (secs, until) => {
+        for (let i = 0; i < secs * 30 && !until(); i++) p.update(1 / 30);
+      };
+      run(30, () => p.part);
+      p.robAt = p.t;
+      p.part.rob ??= { place: 'shop', after: 0 };
+      run(1, () => p.robber);
+      const police = p.helpers.find((h) => h.kind === 'police');
+      const lit = { robber: !!p.robber, jobs: p.town.jobs.filter((j) => j.helper === 'police').map((j) => j.kind).join(), ready: p.ready(police) };
+      // (Drawn, waiting outside: one frame.)
+      p.draw();
+      p.start(police);
+      let urgent = 0;
+      run(60, () => {
+        if (police.urgent) urgent += 1 / 30;
+        return p.robber?.caught;
+      });
+      const caught = !!p.robber?.caught;
+      p.update(1 / 30);
+      const after = police.urgent;
+      // On to the jail: send it again.
+      run(5, () => p.ready(police));
+      p.start(police);
+      run(60, () => !p.robber);
+      run(3, () => false); // (and then, what was done)
+      const done = p.town.jobs.filter((j) => j.helper === 'police').every((j) => p.done.has(j.i));
+      return { lit, caught, urgent, after, jailed: !p.robber, done, said, sounds };
+    });
+    assert.deepEqual(r.lit, { robber: true, jobs: 'catch,jail', ready: true }, 'a robber, the jobs, and the police car ready');
+    assert.ok(r.caught, 'caught');
+    assert.ok(r.urgent > 0 && !r.after, 'lights and siren on the way, off once caught');
+    assert.ok(r.jailed && r.done, 'in jail');
+    for (const w of ['Robber! Call the police!', 'You caught the robber!', 'Time to take the robber to jail!', 'You took the robber to jail! Great job!']) assert.ok(r.said.includes(w), w);
+    for (const s of ['alarm', 'siren', 'clink']) assert.ok(r.sounds.includes(s), s);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town: tap the helpers and they do their jobs, morning to evening; night falls and it\'s the next day; a treat on the way; later, drive them from the driver\'s seat', { skip: !chromium, timeout: 240000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

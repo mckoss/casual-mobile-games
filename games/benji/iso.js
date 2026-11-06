@@ -431,18 +431,54 @@ export function firehouse(x, y, h) {
   return m;
 }
 
+// The police station at (x, y), its front toward h: grey stone, a blue
+// band and a blue door -- and bars on the windows, for the jail.
+export function policeStation(x, y, h) {
+  const m = new Model(x, y, h);
+  const b = m.box(-0.4, -0.42, 0, 0.4, 0.42, 0.58, '#8d99ae');
+  m.box(-0.43, -0.45, 0.58, 0.43, 0.45, 0.64, '#2b2d42');
+  m.decal(b.e, onX(0.402, -0.38, 0.38, 0.44, 0.52), '#1d4e89');
+  m.decal(b.e, onX(0.402, -0.09, 0.09, 0, 0.32), '#1d3557');
+  const barred = (face, on, at, from, to, z0, z1) => {
+    m.decal(face, on(at, from, to, z0, z1), GLASS);
+    for (let k = 1; k < 4; k++) {
+      const c = from + ((to - from) * k) / 4;
+      m.decal(face, on(at + Math.sign(at) * 0.002, c - 0.008, c + 0.008, z0, z1), '#343a40');
+    }
+  };
+  for (const y0 of [-0.33, 0.15]) barred(b.e, onX, 0.402, y0, y0 + 0.18, 0.14, 0.34);
+  for (const y0 of [-0.3, 0.06]) barred(b.w, onX, -0.402, y0, y0 + 0.24, 0.22, 0.42);
+  barred(b.s, onY, 0.422, -0.12, 0.12, 0.22, 0.42);
+  barred(b.n, onY, -0.422, -0.12, 0.12, 0.22, 0.42);
+  return m;
+}
+
 // A vehicle at (x, y), heading h: the garbage truck, the mail van, the
 // cement mixer (its drum turning with t -- or, with cargo 'roof', a flatbed
-// of timbers and tiles), the fire engine, or a little car (in color).
+// of timbers and tiles), the fire engine, the police car, or a little car
+// (in color).
 export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = false, lights = false, cargo = null) {
   const m = new Model(x, y, h, z);
-  const L = kind === 'car' ? 0.29 : 0.38;
+  const L = kind === 'car' || kind === 'police' ? 0.29 : 0.38;
   for (const wx of [-L + 0.11, L - 0.11]) for (const wy of [-0.15, 0.13]) m.box(wx - 0.065, wy, 0, wx + 0.065, wy + 0.02, 0.13, '#222222');
   if (kind === 'car') {
     const b = m.box(-0.29, -0.13, 0.05, 0.29, 0.13, 0.17, color);
     m.decal(b.e, onX(0.292, -0.1, -0.05, 0.1, 0.14), '#fff3b0');
     m.decal(b.e, onX(0.292, 0.05, 0.1, 0.1, 0.14), '#fff3b0');
     m.box(-0.14, -0.11, 0.17, 0.12, 0.11, 0.29, GLASS, color);
+    return m;
+  }
+  if (kind === 'police') {
+    // The police car: white, a dark blue stripe down each side, and a light
+    // bar on the roof -- flashing red and blue on a call (lights).
+    const b = m.box(-0.29, -0.13, 0.05, 0.29, 0.13, 0.17, '#f8f9fa');
+    for (const [f, at] of [[b.s, 0.132], [b.n, -0.132]]) m.decal(f, onY(at, -0.27, 0.27, 0.09, 0.13), '#1d3557');
+    m.decal(b.e, onX(0.292, -0.1, -0.05, 0.1, 0.14), '#fff3b0');
+    m.decal(b.e, onX(0.292, 0.05, 0.1, 0.1, 0.14), '#fff3b0');
+    m.box(-0.14, -0.11, 0.17, 0.12, 0.11, 0.29, GLASS, '#f8f9fa');
+    const red = Math.floor(t * 6) % 2 === 0;
+    m.box(-0.04, -0.1, 0.29, 0.04, -0.005, 0.325, lights ? (red ? '#ff1f1f' : '#5c0a0a') : '#8a1c1c');
+    m.box(-0.04, 0.005, 0.29, 0.04, 0.1, 0.325, lights ? (red ? '#0b1f4d' : '#3d8bff') : '#1d3557');
     return m;
   }
   m.box(-0.38, -0.14, 0.05, 0.38, 0.14, 0.11, '#555555');
@@ -509,8 +545,23 @@ export function person(x, y, h, t, color, opts = {}) {
   const sw = opts.walking ? Math.sin(t * 10) * 0.04 : 0;
   m.box(-0.025 + sw, 0.012, 0, 0.025 + sw, 0.05, 0.16, '#3d405b');
   m.box(-0.025 - sw, -0.05, 0, 0.025 - sw, -0.012, 0.16, '#3d405b');
-  m.box(-0.045, -0.065, 0.16, 0.045, 0.065, 0.33, color);
+  if (opts.robber) {
+    // A robber: a striped shirt, a mask over the eyes, a woolly hat -- and
+    // the swag bag on their back, till they're caught.
+    for (let z = 0.16, k = 0; z < 0.33; z += 0.034, k++) m.box(-0.045, -0.065, z, 0.045, 0.065, Math.min(0.33, z + 0.034), k % 2 ? '#f8f9fa' : '#212529');
+  } else m.box(-0.045, -0.065, 0.16, 0.045, 0.065, 0.33, color);
   m.ball(0, 0, 0.39, 0.065, '#f1c27d');
+  if (opts.robber) {
+    m.box(-0.068, -0.068, 0.382, 0.068, 0.068, 0.41, '#111111');
+    m.box(-0.06, -0.06, 0.43, 0.06, 0.06, 0.475, '#343a40');
+    if (!opts.cuffed) m.ball(-0.085, 0, 0.27, 0.06, '#c9a227');
+  }
+  if (opts.police) {
+    // A police officer: a peaked cap, and a badge.
+    m.box(-0.05, -0.058, 0.43, 0.06, 0.058, 0.47, '#0b1f4d');
+    m.box(0.02, -0.058, 0.43, 0.095, 0.058, 0.44, '#0b1f4d');
+    m.box(0.045, 0.015, 0.26, 0.05, 0.045, 0.295, '#ffd166');
+  }
   if (opts.postie) {
     m.box(-0.05, -0.055, 0.43, 0.075, 0.055, 0.465, '#1d4e89');
     m.box(-0.035, 0.065, 0.17, 0.04, 0.1, 0.27, '#8d5524');

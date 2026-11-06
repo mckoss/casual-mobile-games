@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.98.0
+- Benji's Town: robbers! Once a day a robber turns up at the shop or the
+  café -- "Robber! Call the police!" -- and the new police car waits at the
+  new police station, with its jail. Send it (or drive it) there, lights
+  flashing and siren going, with everyone pulling over; the officer puts
+  the handcuffs on and walks the robber to the car, and then you take the
+  robber to jail: "You took the robber to jail! Great job!"
+
 ## 1.97.1
 - Benji's Town: the fire engine can't get stuck any more on its way to a
   fire. A car caught in an intersection or turning a corner as it comes
