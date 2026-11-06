@@ -1056,3 +1056,18 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .mr-trouble li:not(.top) .mr-bar i { background: rgba(255, 255, 255, .45); }
 .mr-trouble small { font-variant-numeric: tabular-nums; text-align: right; }
 .mr-practise { display: block; margin: 0 auto 10px; }
+
+/* The Chopping Game: a block of ice in the snow, and (once the surprise is
+   out) one big green button for the next block */
+.ch-screen { --bg: #0b3a5b; background: #0b3a5b; }
+.ch-next {
+  position: absolute; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom));
+  width: 96px; height: 96px; border-radius: 50%; border: 4px solid #fff;
+  background: #2dc653; color: #fff; display: grid; place-items: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); animation: ch-pulse 1.2s ease-in-out infinite;
+}
+.ch-next[hidden] { display: none; }
+.ch-next svg { width: 52px; height: 52px; }
+.ch-next:active { transform: scale(0.94); }
+@keyframes ch-pulse { 50% { transform: scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .ch-next { animation: none; } }

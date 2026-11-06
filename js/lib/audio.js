@@ -334,6 +334,12 @@ const SFX = {
     });
   },
   stick: () => knock(0.15, 0.04, 900, 2),
+  // The Chopping Game: a chop that cracks the ice but doesn't break it (a
+  // hard, icy tock with a little ring).
+  chop: () => {
+    knock(0.45, 0.05, 2600, 3);
+    tone('triangle', 1800, 900, 0.06, 0.05);
+  },
   rumble: () => {
     [0, 0.22, 0.48].forEach((at, k) => thump(0.5 - k * 0.1, 0.4, 600 - k * 150, at));
     tone('sawtooth', 60, 40, 0.8, 0.08, 0, 300);

@@ -2190,3 +2190,55 @@ test('crystal cave: aim with a drag and fire, a roof cleared scored against par,
     server.close();
   }
 });
+
+test('the chopping game: tap the ice away, chunk by chunk, to free the surprise -- then the next block', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/#/chop`);
+    await page.waitForFunction(() => window.__chop);
+    const next = page.locator('[data-act=next]');
+    assert.equal(await next.isVisible(), false, 'no Next button till the surprise is out');
+    const box = await page.locator('canvas.board').boundingBox();
+    const where = () => page.evaluate(() => window.__chop.lv.chunks.map((_, i) => window.__chop.screenOf(i)).filter(Boolean));
+    const start = (await where()).length;
+    assert.ok(start >= 4, `a block in chunks (${start})`);
+    // A tap on the ice: one chunk the less.
+    const [x0, y0] = (await where())[0];
+    await page.mouse.click(box.x + x0, box.y + y0);
+    assert.equal(await page.evaluate(() => window.__chop.left()), start - 1);
+    // A tap off the ice: nothing chopped.
+    await page.mouse.click(box.x + 8, box.y + box.height - 8);
+    assert.equal(await page.evaluate(() => window.__chop.left()), start - 1);
+    // The rest.
+    for (let k = 0; k < 20 && (await page.evaluate(() => window.__chop.left())); k++) {
+      for (const [x, y] of await where()) await page.mouse.click(box.x + x, box.y + y);
+    }
+    assert.equal(await page.evaluate(() => window.__chop.freedAt !== null), true, 'the surprise is free');
+    await next.waitFor({ state: 'visible', timeout: 5000 });
+    assert.equal(await page.locator('.ch-screen .pill').textContent(), '1');
+    assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:chop:level')), '2');
+    await next.click({ force: true }); // (it pulses: never still)
+    await page.waitForFunction(() => window.__chop?.lv.n === 2 && window.__chop.freedAt === null);
+    assert.equal(await next.isVisible(), false);
+    // Holding on keeps chopping, where the finger is: down on one chunk, then
+    // slid onto the next.
+    const [[x1, y1], [x2, y2]] = await where();
+    const before = await page.evaluate(() => window.__chop.lv.chunks.reduce((a, c) => a + c.hp, 0));
+    await page.mouse.move(box.x + x1, box.y + y1);
+    await page.mouse.down();
+    await page.waitForTimeout(200);
+    await page.mouse.move(box.x + x2, box.y + y2);
+    await page.waitForTimeout(900);
+    await page.mouse.up();
+    const after = await page.evaluate(() => window.__chop.lv.chunks.reduce((a, c) => a + c.hp, 0));
+    assert.ok(before - after >= 2, `held: ${before - after} chops`);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});

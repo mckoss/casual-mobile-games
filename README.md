@@ -16,6 +16,8 @@ the whole arcade.
   the dog walker and the cement mixer to send them off to work around a
   little town in 3D -- with sidewalks, crosswalks and traffic lights; later,
   be the driver (or walk the dog), from the driver's seat.
+- **The Chopping Game** -- for little ones: something's frozen in a block of
+  ice; tap to chop the ice away, chunk by chunk, and out comes the surprise.
 - **Car Jam** -- swipe cars out of a jammed parking lot; mind the grannies.
 - **Tap Maze** -- tap arrows to send them off the board, if their path is clear.
 - **Breakout** -- the arcade classic, in portrait or landscape.
@@ -109,6 +111,7 @@ games/trial-bike/           Trial Bike: engine.js (bike physics, courses, the co
 games/crystal-cave/         Crystal Cave: engine.js (the roof, the shot, the kinds, the computer miner; runs in Node), play.js (view, chambers), worker.js
 games/jigsaw/               Jigsaw: puzzle.js (grid, piece shapes), play.js, samples.js
 games/benji/                Benji's Town: town.js (the town, routes, the days and their jobs), clock.js (the time of day, the sky), streets.js (sidewalks, crosswalks, lights), traffic.js (lanes, stopping, crossing), steer.js (driving yourself: the way ahead, which way to turn) -- all run in Node; iso.js (the 3D: from above, and from the driver's seat), draw.js, play.js
+games/chop/                 The Chopping Game: model.js (the block, its chunks, the surprises; runs in Node), play.js (view)
 js/lib/photos.js            the player's photos, stored on the device (IndexedDB)
 js/lib/orientation.js       orientation lock with fallback
 js/lib/campaign.js          shared level select, progress and dialogs
@@ -170,6 +173,7 @@ Benji's Town's pictures of emoji (`games/benji/emoji/*.svg`) are Google's
 [Noto Emoji](https://github.com/googlefonts/noto-emoji), Apache License
 2.0, fetched by `tools/benji-emoji.py`: the town draws those rather than
 relying on the device's emoji font, which some browsers (a car's) lack.
+(The Chopping Game's surprises come from the same pictures.)
 Its cheer (`games/benji/sounds/yay.mp3`) is the one from
 [mckoss/letter-tracer](https://github.com/mckoss/letter-tracer), supplied by
 the project owner.

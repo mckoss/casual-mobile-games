@@ -2,7 +2,8 @@
 """Benji's Town: fetch the emoji pictures it draws.
 
 Some browsers (a car's, say) have no colour emoji font, so the town draws
-its emoji from pictures that come with the game: Google's Noto Emoji (the
+its emoji from pictures that come with the game -- as does The Chopping
+Game, from the same folder: Google's Noto Emoji (the
 look Android phones have), Apache License 2.0. This finds every emoji in
 games/benji/*.js and fetches any picture not there yet, into
 games/benji/emoji/<code points>.svg (e.g. 1f5d1.svg for the wastebasket;
@@ -31,7 +32,8 @@ def code(ch):
 
 def main():
     found = set()
-    for f in glob.glob(os.path.join(HERE, '*.js')):
+    # (The Chopping Game draws its surprises with Benji's pictures too.)
+    for f in glob.glob(os.path.join(HERE, '*.js')) + glob.glob(os.path.join('games', 'chop', '*.js')):
         for m in EMOJI.findall(open(f, encoding='utf-8').read()):
             if m not in PLAIN:
                 found.add(m)

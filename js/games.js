@@ -13,6 +13,14 @@ export const GAMES = [
     art: () => import('../games/benji/art.js'),
   },
   {
+    id: 'chop',
+    title: 'The Chopping Game',
+    blurb: 'For little ones: something’s frozen in the ice! Tap to chop the ice away, chunk by chunk, and find out what it is -- a penguin, a puppy, a present... a new surprise in every block.',
+    color: '#48cae4',
+    load: () => import('../games/chop/index.js'),
+    art: () => import('../games/chop/art.js'),
+  },
+  {
     id: 'car-jam',
     title: 'Car Jam',
     blurb: 'Swipe cars out of a jammed parking lot. Mind the grannies!',

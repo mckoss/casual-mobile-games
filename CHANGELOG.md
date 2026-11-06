@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.101.0
+- New game: The Chopping Game, for little ones. Something's frozen in a
+  block of ice: tap (or hold) to chop the ice away, chunk by chunk, and
+  find out what it is -- a penguin, a puppy, a present... a new surprise in
+  every block, and thicker ice as you go.
+
 ## 1.100.0
 - Benji's Town: a headlight switch in the cab -- turn your headlights on
   and the road ahead lights up (brightest in the evening and at night).

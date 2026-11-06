@@ -303,6 +303,30 @@ pictures and a sound for every touch.
   you: lights, walk signals, bubbles, arrows), `play.js` (the screen and
   its camera).
 
+## The Chopping Game
+
+For little ones, like Benji's Town: nothing to read and nothing to get
+wrong. Something's frozen in a block of ice -- the shape of it just shows
+through -- and every tap on the ice chops it: the chunk there cracks or, if
+that was its last chop, shatters and its pieces tumble away. Hold on and it
+keeps on chopping, wherever the finger goes. With the last chunk gone the
+surprise is free: it jumps for joy in a ring of sparkles, its name appears
+and (with the sound on) is said out loud, and only then does the big green
+button for the next block appear (no button before it does something).
+
+- **The block** (`model.js`, runs in Node) is cut into chunks like cracked
+  ice: the cells of a Voronoi diagram of points scattered over a grid, so
+  they fit together exactly, no gaps, and every one is convex and big
+  enough to tap. The same block every time for a level.
+- **Getting harder, gently:** 6 big chunks to begin with, then more (up to
+  5 × 6); from the third block some ice is thicker, a deeper blue, and
+  takes two chops (from the seventh, a few take three). A chop that doesn't
+  break a chunk cracks it, so each chop shows.
+- **Surprises:** twenty, in turn (a penguin, a puppy, a present, a unicorn
+  ...), drawn from Benji's Town's emoji pictures so they look the same on
+  every device. The ones found so far line the top of the screen, and the
+  game goes on from the last block (no levels to choose).
+
 ## Car Jam
 
 A top-down parking-lot puzzle. The lot is jammed full of cars and hedged in,
