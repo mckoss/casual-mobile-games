@@ -2224,18 +2224,18 @@ test('the chopping game: tap the ice away, chunk by chunk, to free the surprise 
     await next.click({ force: true }); // (it pulses: never still)
     await page.waitForFunction(() => window.__chop?.lv.n === 2 && window.__chop.freedAt === null);
     assert.equal(await next.isVisible(), false);
-    // Holding on keeps chopping, where the finger is: down on one chunk, then
-    // slid onto the next.
+    // A finger held down (and slid onto the next chunk) is one chop, not
+    // more: every chop is a tap.
     const [[x1, y1], [x2, y2]] = await where();
     const before = await page.evaluate(() => window.__chop.lv.chunks.reduce((a, c) => a + c.hp, 0));
     await page.mouse.move(box.x + x1, box.y + y1);
     await page.mouse.down();
     await page.waitForTimeout(200);
     await page.mouse.move(box.x + x2, box.y + y2);
-    await page.waitForTimeout(900);
+    await page.waitForTimeout(1200);
     await page.mouse.up();
     const after = await page.evaluate(() => window.__chop.lv.chunks.reduce((a, c) => a + c.hp, 0));
-    assert.ok(before - after >= 2, `held: ${before - after} chops`);
+    assert.equal(before - after, 1, 'held: one chop');
     // Its sounds -- the axe into the ice, a chunk breaking off -- play, and
     // about as loud as the rest (the hammer's hits, a win), no louder.
     const loud = await page.evaluate(async () => {

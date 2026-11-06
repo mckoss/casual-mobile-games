@@ -1,12 +1,12 @@
 // The Chopping Game in play: the block of ice, the surprise inside it, and
-// the chopping. Tap the ice to chop it -- or hold, and keep on chopping:
+// the chopping. Tap the ice to chop it -- each tap one chop (holding a
+// finger down doesn't keep chopping: you chop, every time):
 // cracks spread from each chop, a chunk chopped through shatters and its
 // pieces tumble away, and with the last of the ice gone, out comes the
 // surprise.
 import { W, H, chop, free, left, centroid } from './model.js';
 import { emoji } from '../benji/emoji.js';
 
-const REPEAT = 0.26; // seconds between chops, holding on
 // Ice, thicker for each chop it takes: lighter to deeper blue.
 const ICE = ['', 'rgba(222,244,255,0.93)', 'rgba(176,220,250,0.95)', 'rgba(132,190,240,0.97)'];
 
@@ -24,7 +24,6 @@ export class Play {
     this.swings = [];
     this.flakes = Array.from({ length: 40 }, (_, i) => ({ x: (i * 0.618) % 1, y: (i * 0.37) % 1, s: 0.5 + ((i * 0.29) % 1), v: 0.02 + ((i * 0.13) % 1) * 0.04 }));
     this.freedAt = null;
-    this.hold = null;
     this.resize();
     this.bind();
     let last = performance.now();
@@ -82,7 +81,6 @@ export class Play {
       this.hooks.haptic?.(25);
       if (free(this.lv)) {
         this.freedAt = this.t;
-        this.hold = null;
         this.hooks.sfx?.('win');
         this.hooks.onFree?.(this.lv.surprise);
       }
@@ -141,36 +139,15 @@ export class Play {
     };
     const down = (e) => {
       e.preventDefault();
-      c.setPointerCapture?.(e.pointerId);
       const [px, py] = at(e);
-      this.hold = { id: e.pointerId, px, py, next: this.t + REPEAT * 1.6 };
       this.chopAt(px, py);
     };
-    const move = (e) => {
-      if (this.hold && e.pointerId === this.hold.id) [this.hold.px, this.hold.py] = at(e);
-    };
-    const up = (e) => {
-      if (this.hold && e.pointerId === this.hold.id) this.hold = null;
-    };
     c.addEventListener('pointerdown', down);
-    c.addEventListener('pointermove', move);
-    c.addEventListener('pointerup', up);
-    c.addEventListener('pointercancel', up);
-    this.unbind = () => {
-      c.removeEventListener('pointerdown', down);
-      c.removeEventListener('pointermove', move);
-      c.removeEventListener('pointerup', up);
-      c.removeEventListener('pointercancel', up);
-    };
+    this.unbind = () => c.removeEventListener('pointerdown', down);
   }
 
   update(dt) {
     this.t += dt;
-    // Holding on: on chopping, where the finger is.
-    if (this.hold && this.t >= this.hold.next) {
-      this.hold.next = this.t + REPEAT;
-      this.chopAt(this.hold.px, this.hold.py);
-    }
     for (const p of this.shards) {
       p.t += dt;
       p.vy += 1.6 * dt;

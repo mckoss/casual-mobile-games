@@ -6,6 +6,10 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.102.0
+- The Chopping Game: every chop is a tap -- holding your finger on the ice
+  no longer keeps on chopping.
+
 ## 1.101.1
 - The Chopping Game: a new chopping sound -- an axe biting into the ice,
   the block ringing and splintering -- and a chunk chopped through breaks

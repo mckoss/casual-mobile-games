@@ -308,8 +308,9 @@ pictures and a sound for every touch.
 For little ones, like Benji's Town: nothing to read and nothing to get
 wrong. Something's frozen in a block of ice -- the shape of it just shows
 through -- and every tap on the ice chops it: the chunk there cracks or, if
-that was its last chop, shatters and its pieces tumble away. Hold on and it
-keeps on chopping, wherever the finger goes. With the last chunk gone the
+that was its last chop, shatters and its pieces tumble away. One chop a
+tap: holding a finger down (or sliding it) doesn't keep chopping -- the
+chopping is the fun. With the last chunk gone the
 surprise is free: it jumps for joy in a ring of sparkles, its name appears
 and (with the sound on) is said out loud, and only then does the big green
 button for the next block appear (no button before it does something).
