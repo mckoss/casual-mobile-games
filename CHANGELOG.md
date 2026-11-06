@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.103.1
+- Benji's Town: no more getting stuck behind a truck parked at home (the
+  garbage truck by the dump, say) with every button greyed out -- honk and
+  it drives once round the block to let you by. And a truck held up just
+  round a corner onto a dead-end street no longer gets stuck there with ▲
+  doing nothing.
+
 ## 1.103.0
 - The Chopping Game: a new celebration when the surprise is free -- the
   last of the ice breaks like glass and comes showering down in glittering

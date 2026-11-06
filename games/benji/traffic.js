@@ -76,6 +76,16 @@ const clash = (a, b) => a[0] !== b[0] && !(OPPOSITE[a[0]] === b[0] && a[1] === b
 const dirOf = (a, b) => ({ x: Math.sign(b.x - a.x), y: Math.sign(b.y - a.y) });
 const same = (a, b) => a.x === b.x && a.y === b.y;
 
+// A car's way along the street it's on: if its dir isn't (the street runs
+// the other way -- it was put on this tile part way round a corner, say),
+// the way along it it's facing.
+export function alongStreet(m) {
+  const { tile: t, dir: d } = m;
+  if (isJunction(t.x, t.y) || isRoad(t.x + d.x, t.y + d.y) || isRoad(t.x - d.x, t.y - d.y)) return;
+  const a = m.head ?? 0;
+  m.dir = runsNS(t.x, t.y) ? { x: 0, y: Math.sin(a) < 0 ? -1 : 1 } : { x: Math.cos(a) < 0 ? -1 : 1, y: 0 };
+}
+
 // The intersection a street tile leads into (each one leads into one).
 function junctionBy(t) {
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (isJunction(t.x + dx, t.y + dy)) return { x: t.x + dx, y: t.y + dy };
@@ -360,7 +370,10 @@ export class Traffic {
     let why = 'car';
     for (let o = m.blocker; o; o = o.blocker) {
       if (seen.has(o)) return true;
-      if (o.wait === 'light' || o.wait === 'people' || o.wait === 'yield') return false;
+      if (o.wait === 'light' || o.wait === 'people') return false;
+      // (Pulled over for a fire engine or a horn, it'll be going on -- unless
+      // it's nowhere to go: then it's parked.)
+      if (o.wait === 'yield') return !o.path.length;
       if (o.wait !== 'car' && o.wait !== 'turn') return why === 'car';
       why = o.wait;
       seen.add(o);
@@ -372,10 +385,15 @@ export class Traffic {
   // behind it), or ask it to move. The street tile it's reached, if that's
   // it.
   unstick(m, dist) {
-    if (m.path.length === 1 && dist < 1.3) {
+    if (m.path.length === 1 && dist < 1.3 && !this.inJunction(m)) {
       const here = { x: Math.floor(m.x), y: Math.floor(m.y) };
       const there = m.path.shift();
-      if (isRoad(here.x, here.y)) m.tile = here;
+      if (isRoad(here.x, here.y) && !same(here, m.tile)) {
+        // (Its way, now, along the street it's on.)
+        m.dir = dirOf(m.tile, here);
+        m.tile = here;
+        alongStreet(m);
+      }
       return there;
     }
     // (The one at the front of the queue.)
@@ -387,6 +405,12 @@ export class Traffic {
     }
     this.budge?.(o);
     return null;
+  }
+
+  // Is any of m in an intersection? (Not somewhere to stop and park.)
+  inJunction(m) {
+    const [x0, y0, x1, y1] = footprint(m);
+    return [[x0, y0], [x1, y0], [x0, y1], [x1, y1]].some(([x, y]) => isJunction(Math.floor(x), Math.floor(y)));
   }
 
   // Is the way out of intersection j, onto street tile e, clear of cars

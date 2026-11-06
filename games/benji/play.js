@@ -12,7 +12,7 @@
 import { SIZE, isRoad, drivePath, jobAt, nextJob, canDo, makeTown } from './town.js';
 import { tick, partAt, light, sky, sunAt, WINDOW, NIGHT } from './clock.js';
 import { walkways, walkDoor, junctions, crossings, isJunction, isLit, lights, walkSignal, armOf, atEdge, circleAt, CIRCLE } from './streets.js';
-import { Traffic, lanePoint, startDir, streetTiles, HONK } from './traffic.js';
+import { Traffic, lanePoint, startDir, streetTiles, alongStreet, HONK } from './traffic.js';
 import { ahead, driveTurn, onFrom, walkAhead, walkTurn } from './steer.js';
 import * as D from './draw.js';
 import { emoji, preload } from './emoji.js';
@@ -251,8 +251,20 @@ export class Play {
   // busy with a job: they'll be going on in a moment.)
   budge(o, bedtime = false) {
     if (!this.helpers.includes(o) || this.fp?.h === o || o.path.length || (o.pause > 0 && !bedtime) || o.deliver) return;
-    const home = this.place(o.home).door;
-    if (o.tile.x === home.x && o.tile.y === home.y) return;
+    // (Home: where it parks -- the fire engine and the police car down the
+    // end of the street beside the station, the rest at the door.)
+    const home = o.at || this.place(o.home).door;
+    if (o.tile.x === home.x && o.tile.y === home.y) {
+      // Home already, and still in the way (parked where the others need to
+      // get by): once round -- on along the street (or round the turning
+      // circle) and back -- so they can.
+      const d = isRoad(o.tile.x + o.dir.x, o.tile.y + o.dir.y) ? o.dir : { x: -o.dir.x, y: -o.dir.y };
+      const on = { x: o.tile.x + d.x, y: o.tile.y + d.y };
+      if (!isRoad(on.x, on.y)) return;
+      o.path = [on, ...drivePath(on, d, home).slice(1)];
+      o.budging = true;
+      return;
+    }
     o.path = this.way(o, home).slice(1);
     o.budging = true;
   }
@@ -1361,6 +1373,8 @@ export class Play {
   // the middle of the intersection (choosing after that is for the next
   // one); turned toward someone on a crosswalk, you wait for them.
   planDrive(f, h) {
+    // (Always a way on along the street you're on.)
+    alongStreet(h);
     if (!isJunction(h.tile.x, h.tile.y) && isJunction(f.last.x, f.last.y)) f.intent = null;
     f.last = h.tile;
     const at = lanePoint(h.tile, h.dir);

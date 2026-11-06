@@ -105,7 +105,10 @@ pictures and a sound for every touch.
   only down the end of a street to a door there. A truck parked at a door
   stops clear of the crosswalk; held up behind one, a car pulls up behind
   it if that's where it was going, or waits -- and a helper with nothing
-  to do that's in the way drives off home, to the end of its street. And
+  to do that's in the way drives off home, to the end of its street --
+  or, home already (parked there in the others' way), once round the block
+  and back. (Pulled up short behind one, a car never stops with its tail
+  in an intersection, and is set going along the street it's on.) And
   nobody is stuck for good: a helper driving itself, held up by cars for
   five seconds -- not by a light or someone crossing, by a jam -- honks,
   and the cars in its way pull over to the curb as they do for the fire

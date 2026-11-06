@@ -609,6 +609,48 @@ test('benji’s town: fire! it breaks out at a house, and the fire engine goes a
   }
 });
 
+test('benji’s town: a truck parked at home in someone’s way goes once round the block and back, when asked', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:day', '2'));
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const r = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      p.hooks.say = () => {};
+      p.hooks.sfx = () => {};
+      const truck = p.helpers.find((h) => h.kind === 'fire');
+      const home = { x: truck.at.x, y: truck.at.y }; // (where it parks)
+      const at = { ...truck.tile };
+      p.budge(truck);
+      const out = { home, at, path: truck.path.length, last: truck.path[truck.path.length - 1], budging: truck.budging, left: false };
+      for (let i = 0; i < 30 * 90 && truck.path.length; i++) {
+        p.update(1 / 30);
+        if (truck.tile.x !== at.x || truck.tile.y !== at.y) out.left = true;
+      }
+      out.back = { ...truck.tile };
+      out.done = !truck.path.length;
+      return out;
+    });
+    assert.deepEqual(r.at, r.home, 'home to begin with');
+    assert.ok(r.path > 0 && r.budging, 'asked to move: off it goes');
+    assert.deepEqual(r.last, r.home, 'and back home again');
+    assert.ok(r.left, 'it left its tile');
+    assert.ok(r.done, 'got back');
+    assert.deepEqual(r.back, r.home);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town: a robber at the shop, and the police car catches them and takes them to jail', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

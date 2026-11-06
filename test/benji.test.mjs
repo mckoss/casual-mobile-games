@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { SIZE, isRoad, route, drivePath, nearestRoad, makeTown, dayPlan, jobAt, nextJob, canDo, builtBefore, LOTS, PARTS } from '../games/benji/town.js';
 import { tick, partAt, light, sky, WINDOW, NIGHT, DAY } from '../games/benji/clock.js';
 import { walkways, walkDoor, junctions, crossings, isJunction, isLit, lights, mayWalk, walkSignal, zebra, WALK_TIME } from '../games/benji/streets.js';
-import { Traffic, lanePoint, startDir, streetTiles, footprint, body, bump, HONK } from '../games/benji/traffic.js';
+import { Traffic, lanePoint, startDir, streetTiles, footprint, body, bump, alongStreet, HONK } from '../games/benji/traffic.js';
 
 // Two cars touching: never -- but for a moment while one of them has right
 // of way (a fire engine, or a car honking its way out of a jam), driving
@@ -408,6 +408,35 @@ test('honk: a car stopped in the way pulls over, and the one honking goes by it 
   run(HONK, () => me.x > stuck.x + 0.8);
   assert.ok(me.x > stuck.x + 0.8, `past it (${me.x.toFixed(2)} against ${stuck.x.toFixed(2)})`);
   assert.ok(Math.abs(stuck.y - (2.5 + 0.34)) < 0.02, 'it pulled over to the curb');
+});
+
+test('stuck behind a helper with nowhere to go (pulled over for the horn, or not): it counts as parked, so it is asked to move', () => {
+  const tr = new Traffic(walkways());
+  const me = { wait: 'car' };
+  const truck = { wait: 'yield', path: [] };
+  me.blocker = truck;
+  assert.equal(tr.parked(me), true, 'pulled over, going nowhere: parked');
+  truck.path = [{ x: 3, y: 2 }];
+  assert.equal(tr.parked(me), false, 'pulled over on its way somewhere: it will go on');
+  truck.wait = null;
+  truck.path = [];
+  assert.equal(tr.parked(me), true);
+});
+
+test('a car on a street the other way from its dir (put there part way round a corner) is set going along it, the way it faces', () => {
+  // (1, 6): a dead-end street running east-west, off the intersection at (2, 6).
+  assert.ok(isRoad(1, 6) && isRoad(0, 6) && !isRoad(1, 5) && !isRoad(1, 7));
+  const m = { tile: { x: 1, y: 6 }, dir: { x: 0, y: 1 }, head: Math.PI - 0.25 };
+  alongStreet(m);
+  assert.deepEqual(m.dir, { x: -1, y: 0 });
+  m.head = 0.1;
+  m.dir = { x: 0, y: -1 };
+  alongStreet(m);
+  assert.deepEqual(m.dir, { x: 1, y: 0 });
+  // (Along it already: left alone.)
+  m.dir = { x: -1, y: 0 };
+  alongStreet(m);
+  assert.deepEqual(m.dir, { x: -1, y: 0 });
 });
 
 test('the fire engine always gets there: in sixty towns busy with traffic, nobody ever stuck, no two cars ever touching -- the fire engine only, for a moment, with right of way', () => {
