@@ -762,7 +762,7 @@ test('benji’s town, driving: a big button to be the fire engine (or the police
       f.h.wait = 'car';
       return { pads: p.padList().map((q) => q.act).join(), live: ['lamp', 'horn', 'gas', 'go'].filter((a) => p.can(a)).join(), go: p.choose('go'), ask: p.honkable(f.h) && f.go };
     });
-    assert.deepEqual(honk, { pads: 'lamp,horn,left,gas,right', live: 'lamp,horn,gas', go: false, ask: true });
+    assert.deepEqual(honk, { pads: 'wheel,lamp,horn,gas', live: 'lamp,horn,gas', go: false, ask: true });
     // The horn button: there all the time, every press a honk (a truck's
     // horn, for the fire engine) -- and a helper parked just ahead with
     // nothing to do drives off out of the way.
@@ -962,19 +962,26 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
       assert.ok(!st.walker || !st.stale, 'no arrow left chosen while stopped');
       if (st.busy) {
         assert.deepEqual(st.live, [], 'no arrows while busy with a job');
-        const b = await pad('left');
+        // (Walking, ◀; driving, the gas pedal: faded, and nothing.)
+        const b = await pad(st.walker ? 'left' : 'gas');
         await page.mouse.click(b.x, b.y);
-        faded = await page.evaluate(() => !window.__benji.fp || window.__benji.fp.intent === null);
+        faded = await page.evaluate(() => !window.__benji.fp || (window.__benji.fp.intent === null && window.__benji.fp.gas == null));
       } else if (!st.walker) {
-        // Driving: foot on the gas (speeding up), and ◀ or ▶ -- the way to
-        // the job, glowing -- for the corner coming up: lit, said, and the
-        // way through it on the road at once.
+        // Driving: foot on the gas (speeding up), and the steering wheel
+        // turned the way to the job (glowing) for the corner coming up:
+        // lit, said, and the way through it on the road at once.
         if (!st.gas) await gas(true);
         if (st.v > 0.5) sped = true;
         if ((st.hint === 'left' || st.hint === 'right') && st.intent !== st.hint && st.live.includes(st.hint)) {
+          // (A thumb on the steering wheel, slid that way, and let go: it
+          // springs back, and the way stays chosen.)
           const was = await page.evaluate(() => JSON.stringify(window.__benji.fp?.corner?.out));
-          const b = await pad(st.hint);
-          await page.mouse.click(b.x, b.y);
+          const b = await pad('wheel');
+          const side = st.hint === 'left' ? -1 : 1;
+          await page.mouse.move(b.x, b.y);
+          await page.mouse.down();
+          for (let i = 1; i <= 6; i++) await page.mouse.move(b.x + side * i * 10, b.y);
+          await page.mouse.up();
           if (!turned) {
             turned = await page.evaluate(([w, was, way]) => {
               const p = window.__benji;

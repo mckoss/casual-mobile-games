@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.106.0
+- Benji's Town: a steering wheel. Driving, it's far left along the
+  bottom, for your left thumb -- slide it left or right to turn at the
+  next corner (it springs back to the middle when you let go, and the
+  turn stays chosen) -- and the gas pedal is far right, for your right
+  thumb, with the headlights and the horn in between.
+
 ## 1.105.0
 - Benji's Town: driving has a gas pedal. All the buttons are along the
   bottom now -- headlights, horn, ◀, the gas pedal, ▶. Hold the gas to go

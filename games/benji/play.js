@@ -174,8 +174,9 @@ export class Play {
     const y = this.viewH + this.trayH / 2;
     this.buttons = [{ x: BTN + 10, y, dir: -1 }, { x: this.W - BTN - 10, y, dir: 1 }];
     // In the driver's seat: the view, and the buttons along the bottom.
-    // Walking the dog: ◀ ▲ ▶. Driving: the headlights and the horn, then
-    // ◀, the gas pedal and ▶.
+    // Walking the dog: ◀ ▲ ▶. Driving: a steering wheel far left (for your
+    // left thumb), the headlights and the horn, and the gas pedal far right
+    // (your right thumb).
     this.seatH = this.H - 110;
     const py = this.H - 55;
     this.pads = [
@@ -183,14 +184,15 @@ export class Play {
       { act: 'go', x: this.W / 2, y: py, r: 42 },
       { act: 'right', x: this.W * 0.82, y: py, r: 34 },
     ];
-    const u = Math.min(this.W / 5, 96);
-    const x0 = this.W / 2 - 2 * u;
+    const wheel = { act: 'wheel', x: 72, y: py, r: 44 };
+    const gas = { act: 'gas', x: this.W - 50, y: py, r: 42, w: 62, h: 88 };
+    const a = wheel.x + wheel.r + 22;
+    const b = gas.x - gas.w / 2 - 12;
     this.carPads = [
-      { act: 'lamp', x: x0, y: py, r: 27 },
-      { act: 'horn', x: x0 + u, y: py, r: 31 },
-      { act: 'left', x: x0 + 2 * u, y: py, r: 31 },
-      { act: 'gas', x: x0 + 3 * u, y: py, r: 42, w: 62, h: 88 },
-      { act: 'right', x: x0 + 4 * u, y: py, r: 31 },
+      wheel,
+      { act: 'lamp', x: a + (b - a) * 0.22, y: py, r: 27 },
+      { act: 'horn', x: a + (b - a) * 0.74, y: py, r: 31 },
+      gas,
     ];
     this.eye.F = this.baseF = this.W / 2 / Math.tan((40 * Math.PI) / 180);
     this.eye.ox = this.W / 2;
@@ -912,10 +914,11 @@ export class Play {
 
   // In the driver's seat (or walking the dog), made for a three-year-old:
   // a button you can press does something you can see and hear, at once --
-  // never later on. Driving, along the bottom: the headlights, the horn,
-  // ◀, the gas pedal (hold it to go: off it, you slow down and stop) and ▶
-  // (the way you'll turn at the next corner, lit till you have -- the
-  // arrow on the road, said out loud). Walking, ◀ ▲ ▶ choose the way where
+  // never later on. Driving, along the bottom: the steering wheel (a thumb
+  // on it, slid left or right: the way you'll turn at the next corner, lit
+  // till you have -- the arrow on the road, said out loud; let go, it
+  // springs back to the middle), the headlights, the horn, and the gas
+  // pedal (hold it to go: off it, you slow down and stop). Walking, ◀ ▲ ▶ choose the way where
   // it next divides, as you go. A
   // button that would do nothing is faded, and does nothing. (Back out to
   // the town: the switch top right.) A finger dragged across the
@@ -924,14 +927,21 @@ export class Play {
     const f = this.fp;
     const drag = f.drag;
     if (type === 'move') {
+      // (The steering wheel, turned by the thumb on it: slid left, or right.)
+      if (f.steer && e.pointerId === f.steer.id) {
+        this.steerTo(clamp((sx - f.steer.sx) / 46, -1.3, 1.3));
+        return;
+      }
       if (!drag || e.pointerId !== drag.id) return;
       if (Math.abs(sx - drag.sx) > 8) drag.moved = true;
       if (drag.moved) f.look = clamp(drag.look - (sx - drag.sx) / this.eye.F, -LOOK, LOOK);
       return;
     }
     if (type === 'up') {
-      // (Off the gas: you slow down, and stop.)
+      // (Off the gas: you slow down, and stop. Off the wheel: it springs
+      // back to the middle -- the way you chose stays chosen.)
       if (f.gas === e.pointerId) f.gas = null;
+      if (f.steer?.id === e.pointerId) f.steer = null;
       if (!drag || e.pointerId !== drag.id) return;
       f.drag = null;
       f.lookT = 0;
@@ -957,6 +967,15 @@ export class Play {
       this.headlights = !this.headlights;
       this.hooks.sfx?.('tap');
     } else if (b?.act === 'horn') this.honk();
+    else if (b?.act === 'wheel') {
+      // (A thumb on the wheel: steering.)
+      f.steer = { id: e.pointerId, sx: sx - (f.steerA || 0) * 46, way: null };
+      try {
+        this.canvas.setPointerCapture?.(e.pointerId);
+      } catch {
+        // (Never mind.)
+      }
+    }
     else if (b?.act === 'gas') {
       // (On the gas, for as long as that finger's down.)
       if (!this.can('gas')) return;
@@ -975,6 +994,25 @@ export class Play {
     }
   }
 
+  // The steering wheel turned to angle a (radians; left negative): turned
+  // well over, the way you'll turn at the next corner (if there's a turn
+  // that way there) -- and, held, back to the middle, straight on. It
+  // always turns, whether or not there's a way to go that way.
+  steerTo(a) {
+    const f = this.fp;
+    f.steerA = a;
+    const want = a < -0.35 ? 'left' : a > 0.35 ? 'right' : null;
+    if (want === f.steer?.way) return;
+    if (f.steer) f.steer.way = want;
+    if (want ? this.can(want) && f.intent !== want : f.intent !== null) {
+      f.intent = want;
+      this.plan(f);
+      f.flash = { act: want || 'wheel', t: this.t };
+      this.hooks.sfx?.('tap');
+      this.tell({ left: 'Left!', right: 'Right!' }[want] || 'Straight on!');
+    }
+  }
+
   // What a button would do now -- at once -- if anything: start you off,
   // or change the way you go at the corner coming up.
   can(act) {
@@ -985,7 +1023,7 @@ export class Play {
     // corner coming up -- if it's a different way from straight on (or to
     // change your mind: press it again for straight on).
     if (h.kind !== 'walker') {
-      if (act === 'lamp' || act === 'horn') return true;
+      if (act === 'lamp' || act === 'horn' || act === 'wheel') return true;
       if (h.pause > 0 || h.deliver) return false;
       if (act === 'gas') return true;
       if (act !== 'left' && act !== 'right') return false;
@@ -1130,6 +1168,70 @@ export class Play {
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     emoji(g, '📣', q.x, q.y + 2);
+  }
+
+  // The steering wheel along the bottom: a wheel in the colour of what
+  // you're driving, turned by your thumb (and springing back to the
+  // middle); either side of it a little arrow, lit up yellow for the way
+  // you're turning at the next corner -- glowing, the way to the job.
+  drawWheel(q) {
+    const { g } = this;
+    const f = this.fp;
+    const glow = 0.5 + 0.5 * Math.sin(this.t * 8);
+    for (const way of ['left', 'right']) {
+      const side = way === 'left' ? -1 : 1;
+      const x = q.x + side * (q.r + 13);
+      const chosen = f.intent === way;
+      const hint = !chosen && f.hint === way && this.can(way);
+      if (hint) {
+        g.fillStyle = `rgba(255,200,0,${0.3 + 0.4 * glow})`;
+        g.beginPath();
+        g.arc(x, q.y, 13, 0, Math.PI * 2);
+        g.fill();
+      }
+      g.fillStyle = chosen ? '#ffb703' : this.can(way) ? '#1d3557' : 'rgba(29,53,87,0.25)';
+      g.beginPath();
+      g.moveTo(x + side * 9, q.y);
+      g.lineTo(x - side * 5, q.y - 10);
+      g.lineTo(x - side * 5, q.y + 10);
+      g.closePath();
+      g.fill();
+    }
+    const flash = f.flash && ['left', 'right', 'wheel'].includes(f.flash.act) ? Math.max(0, 1 - (this.t - f.flash.t) / 0.4) : 0;
+    if (f.steer || flash) {
+      g.fillStyle = `rgba(255,200,0,${Math.max(f.steer ? 0.25 : 0, flash * 0.7)})`;
+      g.beginPath();
+      g.arc(q.x, q.y, q.r + 7, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.save();
+    g.translate(q.x, q.y);
+    g.rotate(f.steerA || 0);
+    g.strokeStyle = '#1b1b1b';
+    g.lineWidth = 9;
+    g.beginPath();
+    g.arc(0, 0, q.r - 5, 0, Math.PI * 2);
+    g.stroke();
+    g.lineWidth = 7;
+    g.beginPath();
+    for (const a of [Math.PI, 0, Math.PI / 2]) {
+      g.moveTo(0, 0);
+      g.lineTo(Math.cos(a) * (q.r - 5), Math.sin(a) * (q.r - 5));
+    }
+    g.stroke();
+    g.fillStyle = COLORS[f.h.kind] || '#555';
+    g.strokeStyle = '#1b1b1b';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(0, 0, q.r * 0.3, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    // (A mark at the top, to see it turn.)
+    g.fillStyle = '#ffd166';
+    g.beginPath();
+    g.arc(0, -(q.r - 5), 5, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
   }
 
   // The gas pedal: a tall green pedal with ridges across it -- pressed
@@ -1492,8 +1594,10 @@ export class Play {
     const d = ahead - f.head;
     const turnRate = Math.atan2(Math.sin(d), Math.cos(d));
     f.head += turnRate * Math.min(1, dt * 6);
+    // (The steering wheel along the bottom, let go: back to the middle.)
+    if (!f.steer && f.steerA) f.steerA = Math.abs(f.steerA) < 0.01 ? 0 : f.steerA * (1 - Math.min(1, dt * 9));
     const lean = { left: -0.5, right: 0.5 }[f.intent] || 0;
-    f.wheel += (clamp(turnRate * 3, -1.4, 1.4) + lean - f.wheel) * Math.min(1, dt * 6);
+    f.wheel += (clamp(turnRate * 3 + (f.steerA || 0) * 0.8, -1.6, 1.6) + lean - f.wheel) * Math.min(1, dt * 6);
     // Held up (for more than a moment): say why, every time -- and say go
     // when you go again.
     const now = f.go && !busy ? h.wait : null;
@@ -2306,6 +2410,7 @@ export class Play {
       if (b.act === 'lamp') this.drawLamp(b);
       else if (b.act === 'horn') this.drawHorn(b);
       else if (b.act === 'gas') this.drawGas(b);
+      else if (b.act === 'wheel') this.drawWheel(b);
       else {
         // An arrow. Walking: glowing, the way to the job where the way
         // divides next. Driving: ◀ or ▶ lit up yellow while it's the way

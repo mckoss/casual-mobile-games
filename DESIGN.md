@@ -113,7 +113,7 @@ pictures and a sound for every touch.
   five seconds -- not by a light or someone crossing, by a jam -- honks,
   and the cars in its way pull over to the curb as they do for the fire
   engine. Driving yourself, the horn is yours to press, any time: a big
-  📣 button along the bottom, by the headlight switch (and a tap on the
+  📣 button along the bottom, beside the headlight switch (and a tap on the
   windshield; held up behind a car, the horn glows). Every press honks -- a real
   horn's sound, two notes together, deeper for the trucks -- the cars
   ahead make way, and a helper parked just in front with nothing to do
@@ -241,18 +241,24 @@ pictures and a sound for every touch.
 - Made for a three-year-old: a button you can press does something you
   can see and hear at once -- never later on -- and nothing is ever
   stuck. A button that would do nothing right now is faded, and does
-  nothing: no queued presses. Driving, every button is along the bottom:
-  the headlights and the horn, then ◀, a big green gas pedal and ▶. Hold
+  nothing: no queued presses. Driving, everything is along the bottom,
+  made for two thumbs: a steering wheel far left, the headlights and the
+  horn in the middle, and a big green gas pedal far right. Hold
   the gas and you speed up, the engine rising with you (a synthesised
   motor, ticking over in the cab, revving as you put your foot down); let
   go and you slow down, coasting to a stop. No brake: the lights, people
   crossing and the cars in front stop you all the same, and the engine
-  ticks over while you wait. ◀ or ▶ is the way you'll turn at the next
-  corner -- lit up yellow till you've turned (press it again for straight
-  on), the little yellow arrows along the road swinging round through
-  the corner at once, the wheel turning, and it's said ("Left!",
-  "Right!", "Straight on!") -- so with one finger it's ◀, then the gas.
-  Choose nothing and it's straight on; the way to the job glows. (Before
+  ticks over while you wait. A thumb on the steering wheel, slid left or
+  right, turns it (and the wheel in the cab with it); turned well over,
+  that's the way you'll turn at the next corner -- the little arrow
+  beside the wheel lit up yellow till you've turned, the little yellow
+  arrows along the road swinging round through the corner at once, and
+  it's said ("Left!", "Right!"). Let go and the wheel springs back to the
+  middle, the way still chosen (so one finger will do: steer, then the
+  gas); turned back to the middle while you hold it, straight on again.
+  Choose nothing and it's straight on; the arrow beside the wheel for the
+  way to the job glows. (For a while it was ◀ and ▶ buttons that stayed
+  lit.) (Before
   the gas pedal, driving went one block at a time: ▲ to the next corner,
   then ◀ ▲ ▶ through it.)
   Walking the dog, you keep going (round the bends, the way to the job)
