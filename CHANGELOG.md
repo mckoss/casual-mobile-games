@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.107.1
+- Anonymous play statistics now go to mckoss.com's own analytics (Umami)
+  instead of Google Analytics. Still no accounts, and the games work
+  offline just the same.
+
 ## 1.107.0
 - Benji's Town: two ways to drive. The simple buttons are back (◀ ▲ ▶, a
   block at a time, stopping at each corner to choose the way) and are

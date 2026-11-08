@@ -287,11 +287,16 @@ test('analytics events recorded offline are sent once back online', { skip: !chr
   const browser = await chromium.launch();
   try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-    // Stand-in for gtag.js so the test never talks to Google.
-    let gtagLoads = 0;
-    await context.route('https://www.googletagmanager.com/**', (route) => {
-      gtagLoads++;
-      route.fulfill({ contentType: 'text/javascript', body: 'window.__gtagLoaded = true;' });
+    // Stand-in for the mckoss.com analytics loader (which loads Umami), so
+    // the test never talks to the real one. It records what's sent.
+    let loaderLoads = 0;
+    await context.route('https://mckoss.com/js/mk.js', (route) => {
+      loaderLoads++;
+      route.fulfill({
+        contentType: 'text/javascript',
+        body: `window.__umami = window.__umami || [];
+          window.umami = { track: (a, b) => window.__umami.push(typeof a === 'function' ? ['page_view', a({})] : [a, b]) };`,
+      });
     });
     const page = await context.newPage();
     const url = `http://localhost:${server.address().port}/`;
@@ -314,13 +319,14 @@ test('analytics events recorded offline are sent once back online', { skip: !chr
     assert.ok(queued.includes('level_start'), `queued while offline: ${queued}`);
 
     await context.setOffline(false);
-    await page.waitForFunction(() => window.__gtagLoaded &&
+    await page.waitForFunction(() => window.__umami &&
       JSON.parse(localStorage.getItem('pocket-arcade:analytics-queue')).length === 0);
-    const sent = await page.evaluate(() => window.dataLayer.filter((a) => a[0] === 'event').map((a) => [a[1], a[2]]));
+    const sent = await page.evaluate(() => window.__umami);
     const names = sent.map(([n]) => n);
     assert.ok(names.includes('app_open') && names.includes('level_start') && names.includes('page_view'), names.join());
     assert.equal(sent.find(([n]) => n === 'level_start')[1].game, 'car-jam');
-    assert.ok(gtagLoads >= 1);
+    assert.ok(sent.some(([n, p]) => n === 'page_view' && /\/car-jam$/.test(p.url)), JSON.stringify(sent));
+    assert.ok(loaderLoads >= 1);
   } finally {
     await browser.close();
     server.close();

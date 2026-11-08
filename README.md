@@ -129,12 +129,17 @@ returns `{ route(sub), destroy() }`, add an entry to `js/games.js`, and run
 
 ### Analytics
 
-`js/lib/analytics.js` reports to Google Analytics 4 (the mckoss.com property,
-`G-GBPSK1HQ34`). Events are queued on the device and sent whenever it is
-online, so play while offline is uploaded on the next connection (tagged with
-`queued_minutes`). Events: `page_view`, `app_open` (installed vs browser),
-`app_installed`, `level_start`, `level_complete` (with `stars`) and
-`level_fail`, each with `game` and `level`. Nothing is sent from localhost.
+`index.html` includes the shared mckoss.com analytics loader
+(`https://mckoss.com/js/mk.js`), which loads the self-hosted Umami tracker
+(stats.mckoss.com) for the hostnames it knows. The service worker never
+caches it (it only handles same-origin requests), and the app works offline
+without it. `js/lib/analytics.js` sends custom events through `window.umami`:
+they're queued on the device and sent whenever it is online, so play while
+offline is uploaded on the next connection (tagged with `queued_minutes`).
+Events: page views for in-app navigation, `app_open` (installed vs browser),
+`app_installed`, `app_update`, `level_start`, `level_complete` (with `stars`)
+and `level_fail`, each with `game` and `level`. Nothing is sent from
+localhost.
 
 ### Deployment
 
