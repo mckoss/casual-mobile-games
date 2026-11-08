@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.107.0
+- Benji's Town: two ways to drive. The simple buttons are back (◀ ▲ ▶, a
+  block at a time, stopping at each corner to choose the way) and are
+  where you start; a switch in the top bar while you're driving changes
+  to the gas pedal and steering wheel, and back. Your choice is kept.
+
 ## 1.106.0
 - Benji's Town: a steering wheel. Driving, it's far left along the
   bottom, for your left thumb -- slide it left or right to turn at the

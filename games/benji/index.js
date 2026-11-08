@@ -114,6 +114,15 @@ export function mount(root, ctx, sub) {
   const switchLabel = () => (drive ? 'Watch them go' : 'Drive them yourself');
   // Driving them yourself, or watching them go: yours to choose, and kept.
   let drive = ctx.load('drive', false);
+  // Driving with the simple buttons (◀ ▲ ▶, a block at a time) or with the
+  // pedals (a steering wheel and a gas pedal): kept too. The switch, in the
+  // top bar while you're driving, shows what a tap does -- a gas pedal, or
+  // the three arrows.
+  let pedal = ctx.load('pedal', false);
+  const PEDAL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="10" height="18" rx="3"/><path d="M10 7.5h4M10 11h4M10 14.5h4"/></svg>';
+  const ARROWS = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.5l5 7H7z"/><path d="M2.5 16l6-4v8z"/><path d="M21.5 16l-6-4v8z"/></svg>';
+  const modeIcon = () => (pedal ? ARROWS : PEDAL);
+  const modeLabel = () => (pedal ? 'Simple buttons' : 'Gas pedal and steering wheel');
 
   function showTown() {
     teardown();
@@ -122,6 +131,7 @@ export function mount(root, ctx, sub) {
         <header class="bar">
           <button class="icon-btn" data-act="home" aria-label="Back">${ICON.back}</button>
           <h2>Day ${day} <span class="bt-part">${pic(PART.dawn)}</span></h2>
+          <button class="icon-btn bt-drive bt-mode" data-act="mode" aria-label="${modeLabel()}"${drive ? '' : ' hidden'}>${modeIcon()}</button>
           <button class="icon-btn bt-drive" data-act="drive" aria-label="${switchLabel()}" aria-pressed="${drive}">${switchIcon()}</button>
           <button class="icon-btn" data-act="restart" aria-label="A new town">${ICON.restart}</button>
         </header>
@@ -154,6 +164,7 @@ export function mount(root, ctx, sub) {
       },
     });
     play.drive = drive;
+    play.pedal = pedal;
     // Handle for the end-to-end tests (test/e2e.test.mjs).
     window.__benji = play;
     // The car button: drive them yourself (lit), or watch them go.
@@ -165,8 +176,19 @@ export function mount(root, ctx, sub) {
       car.setAttribute('aria-pressed', String(drive));
       car.setAttribute('aria-label', switchLabel());
       car.innerHTML = switchIcon();
+      mode.hidden = !drive;
       // (On: into a driver's seat at once. Off: back out over the town.)
       play.setDrive(drive);
+    };
+    // The simple buttons, or the pedals.
+    const mode = root.querySelector('[data-act=mode]');
+    mode.onclick = () => {
+      ctx.sfx('tap');
+      pedal = !pedal;
+      ctx.save('pedal', pedal);
+      mode.setAttribute('aria-label', modeLabel());
+      mode.innerHTML = modeIcon();
+      play.setPedal(pedal);
     };
     onResize = () => play?.resize();
     window.addEventListener('resize', onResize);

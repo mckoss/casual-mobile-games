@@ -713,7 +713,7 @@ test('benji’s town: a robber at the shop, and the police car catches them and 
   }
 });
 
-test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); the buttons along the bottom; the horn button always', { skip: !chromium, timeout: 60000 }, async () => {
+test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); held up behind a car, ▲ honks; the horn button always', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
   try {
@@ -751,18 +751,18 @@ test('benji’s town, driving: a big button to be the fire engine (or the police
     await page.mouse.click(...at);
     await page.waitForFunction(() => window.__benji.fp?.h.kind === 'fire');
     assert.equal(await page.evaluate(() => window.__benji.emergencies().map((q) => q.icon).join()), '🚓');
-    // Driving: the buttons along the bottom -- the headlights, the horn, ◀,
-    // the gas pedal, ▶ (no ▲); held up behind a car, the horn's the thing.
+    // Held up behind a car: the arrows do nothing, ▲ honks.
     const honk = await page.evaluate(() => {
       const p = window.__benji;
       cancelAnimationFrame(p.raf);
       const f = p.fp;
-      f.gas = 1;
-      p.fpSteer(1 / 30);
+      f.go = true;
       f.h.wait = 'car';
-      return { pads: p.padList().map((q) => q.act).join(), live: ['lamp', 'horn', 'gas', 'go'].filter((a) => p.can(a)).join(), go: p.choose('go'), ask: p.honkable(f.h) && f.go };
+      const live = ['left', 'go', 'right'].filter((a) => p.can(a)).join();
+      const did = p.choose('go');
+      return { live, did, honking: f.h.honk > p.t, again: p.can('go') };
     });
-    assert.deepEqual(honk, { pads: 'wheel,lamp,horn,gas', live: 'lamp,horn,gas', go: false, ask: true });
+    assert.deepEqual(honk, { live: 'go', did: true, honking: true, again: false });
     // The horn button: there all the time, every press a honk (a truck's
     // horn, for the fire engine) -- and a helper parked just ahead with
     // nothing to do drives off out of the way.
@@ -794,6 +794,67 @@ test('benji’s town, driving: a big button to be the fire engine (or the police
     assert.deepEqual(after, { honking: true, van: true });
     await page.mouse.click(...horn.at);
     assert.deepEqual(await page.evaluate(() => window.__sounds), ['honk:fire', 'honk:fire'], 'a truck horn, every press');
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('benji’s town, driving with the pedals: the switch in the top bar; a steering wheel for one thumb, the gas pedal for the other', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:day', '7'));
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    // Watching: no switch for the buttons. Driving: there it is, and the
+    // simple buttons to begin with.
+    assert.equal(await page.locator('[data-act=mode]').isVisible(), false);
+    await page.evaluate(() => {
+      const p = window.__benji;
+      for (let i = 0; i < 900 && !p.part; i++) p.update(1 / 30);
+    });
+    await page.locator('[data-act=drive]').click();
+    await page.waitForFunction(() => window.__benji.fp);
+    assert.equal(await page.evaluate(() => window.__benji.padList().map((q) => q.act).join()), 'left,go,right');
+    await page.locator('[data-act=mode]').click();
+    assert.equal(await page.evaluate(() => window.__benji.padList().map((q) => q.act).join()), 'wheel,lamp,horn,gas');
+    assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:benji:pedal')), 'true');
+    const at = await page.evaluate(() => {
+      const p = window.__benji;
+      const r = p.canvas.getBoundingClientRect();
+      const o = {};
+      for (const q of p.carPads) o[q.act] = [r.left + q.x, r.top + q.y];
+      return o;
+    });
+    // The right thumb on the gas (held), and off you go, speeding up.
+    await page.evaluate(([x, y]) => window.__benji.canvas.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 7, clientX: x, clientY: y, bubbles: true })), at.gas);
+    await page.waitForFunction(() => window.__benji.fp.v > 0.5, null, { timeout: 10000 });
+    // The left thumb on the wheel, slid the way there's a turn: that's the
+    // way at the next corner -- and let go, the wheel springs back, the
+    // way still chosen.
+    const way = await page.evaluate(() => ['left', 'right'].find((w) => window.__benji.can(w)));
+    assert.ok(way, 'a corner coming up to turn at');
+    const side = way === 'left' ? -1 : 1;
+    await page.mouse.move(...at.wheel);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) await page.mouse.move(at.wheel[0] + side * i * 10, at.wheel[1]);
+    assert.equal(await page.evaluate(() => window.__benji.fp.intent), way);
+    await page.mouse.up();
+    await page.waitForFunction(() => Math.abs(window.__benji.fp.steerA) < 0.05, null, { timeout: 5000 });
+    assert.equal(await page.evaluate(() => window.__benji.fp.intent), way, 'still chosen');
+    // Off the gas: slowing down to a stop.
+    await page.evaluate(([x, y]) => window.__benji.canvas.dispatchEvent(new PointerEvent('pointerup', { pointerId: 7, clientX: x, clientY: y, bubbles: true })), at.gas);
+    await page.waitForFunction(() => window.__benji.fp.v === 0, null, { timeout: 10000 });
+    // And back to the simple buttons.
+    await page.locator('[data-act=mode]').click();
+    assert.equal(await page.evaluate(() => window.__benji.padList().map((q) => q.act).join()), 'left,go,right');
+    assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:benji:pedal')), 'false');
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();
@@ -908,17 +969,9 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
     const pad = (act) => page.evaluate((act) => {
       const p = window.__benji;
       const r = p.canvas.getBoundingClientRect();
-      const b = p.padList().find((q) => q.act === act);
+      const b = p.pads.find((q) => q.act === act);
       return { x: r.left + b.x, y: r.top + b.y };
     }, act);
-    // (Driving: a second finger on the gas pedal, held down.)
-    const gas = (down) => page.evaluate(([down]) => {
-      const p = window.__benji;
-      const r = p.canvas.getBoundingClientRect();
-      const q = p.carPads.find((b) => b.act === 'gas');
-      p.canvas.dispatchEvent(new PointerEvent(down ? 'pointerdown' : 'pointerup', { pointerId: 7, clientX: r.left + q.x, clientY: r.top + q.y, bubbles: true }));
-    }, [down]);
-    let sped = false;
     let seated = false;
     let turned = false;
     let faded = false;
@@ -936,7 +989,7 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
       const st = await page.evaluate(() => {
         const p = window.__benji;
         const h = p.fp?.h || p.helpers.find((m) => p.targetPlace(m));
-        return h && { fp: !!p.fp, go: p.fp?.go, gas: p.fp?.gas != null, v: p.fp?.v, intent: p.fp?.intent, hint: p.fp?.hint, walker: h.kind === 'walker', live: p.fp && ['left', 'go', 'right'].filter((a) => p.can(a)), busy: h.pause > 0 || !!h.deliver, stale: !!p.fp && !p.fp.go && p.fp.intent !== null, at: p.screenOf(h.x, h.y, 0.25) };
+        return h && { fp: !!p.fp, go: p.fp?.go, hint: p.fp?.hint, walker: h.kind === 'walker', live: p.fp && ['left', 'go', 'right'].filter((a) => p.can(a)), busy: h.pause > 0 || !!h.deliver, stale: !!p.fp && !p.fp.go && p.fp.intent !== null, at: p.screenOf(h.x, h.y, 0.25) };
       });
       if (!st) {
         await page.waitForTimeout(300);
@@ -957,38 +1010,17 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
         await page.mouse.up();
       }
       seated = true;
-      // (Walking, stopped: nothing's left chosen. Busy with a job, the arrows
-      // are faded, and pressing one does nothing.)
-      assert.ok(!st.walker || !st.stale, 'no arrow left chosen while stopped');
+      // (Stopped, nothing's left chosen; busy with a job, the arrows are
+      // faded, and pressing one does nothing.)
+      assert.ok(!st.stale, 'no arrow left chosen while stopped');
       if (st.busy) {
         assert.deepEqual(st.live, [], 'no arrows while busy with a job');
-        // (Walking, ◀; driving, the gas pedal: faded, and nothing.)
-        const b = await pad(st.walker ? 'left' : 'gas');
+        const b = await pad('left');
         await page.mouse.click(b.x, b.y);
-        faded = await page.evaluate(() => !window.__benji.fp || (window.__benji.fp.intent === null && window.__benji.fp.gas == null));
-      } else if (!st.walker) {
-        // Driving: foot on the gas (speeding up), and the steering wheel
-        // turned the way to the job (glowing) for the corner coming up:
-        // lit, said, and the way through it on the road at once.
-        if (!st.gas) await gas(true);
-        if (st.v > 0.5) sped = true;
-        if ((st.hint === 'left' || st.hint === 'right') && st.intent !== st.hint && st.live.includes(st.hint)) {
-          // (A thumb on the steering wheel, slid that way, and let go: it
-          // springs back, and the way stays chosen.)
-          const was = await page.evaluate(() => JSON.stringify(window.__benji.fp?.corner?.out));
-          const b = await pad('wheel');
-          const side = st.hint === 'left' ? -1 : 1;
-          await page.mouse.move(b.x, b.y);
-          await page.mouse.down();
-          for (let i = 1; i <= 6; i++) await page.mouse.move(b.x + side * i * 10, b.y);
-          await page.mouse.up();
-          if (!turned) {
-            turned = await page.evaluate(([w, was, way]) => {
-              const p = window.__benji;
-              return p.fp?.intent === way && !!p.fp.corner && JSON.stringify(p.fp.corner.out) !== was && window.__said.includes(w);
-            }, [st.hint === 'left' ? 'Left!' : 'Right!', was, st.hint]);
-          }
-        }
+        faded = await page.evaluate(() => !window.__benji.fp || window.__benji.fp.intent === null);
+      } else if (st.go && !st.walker) {
+        // (Driving along: nothing to press till you stop.)
+        assert.deepEqual(st.live, [], 'no buttons while driving along');
       } else if (!st.go) {
         // (Stopped -- at a corner, one block at a time: the way to the job;
         // the way through it shows on the road at once, and it's said.)
@@ -1007,7 +1039,6 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
       await page.waitForTimeout(250);
     }
     assert.ok(turned, 'a turn chosen, shown and said');
-    assert.ok(sped, 'on the gas, speeding up');
     assert.ok(faded, 'a press during a job does nothing');
     assert.ok(seated, 'drove it from the driver\'s seat');
     assert.ok(await page.evaluate(() => window.__won), 'the morning\'s jobs done');

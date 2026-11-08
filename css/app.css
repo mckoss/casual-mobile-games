@@ -475,6 +475,8 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .bt-screen .bar { gap: 8px; }
 .bt-screen h2 { flex: 1; }
 .bt-drive svg { width: 26px; height: 26px; fill: none; }
+.bt-mode svg[fill="currentColor"] { fill: currentColor; }
+.bt-mode[hidden] { display: none; }
 .bt-btn-icon { width: 26px; height: 26px; display: block; margin: 0 auto; }
 .bt-emoji { width: 1.15em; height: 1.15em; vertical-align: -0.2em; display: inline-block; }
 .el-screen .el-music.off { opacity: .4; }

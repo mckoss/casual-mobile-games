@@ -241,9 +241,23 @@ pictures and a sound for every touch.
 - Made for a three-year-old: a button you can press does something you
   can see and hear at once -- never later on -- and nothing is ever
   stuck. A button that would do nothing right now is faded, and does
-  nothing: no queued presses. Driving, everything is along the bottom,
-  made for two thumbs: a steering wheel far left, the headlights and the
-  horn in the middle, and a big green gas pedal far right. Hold
+  nothing: no queued presses. Two ways to drive, chosen with a switch in
+  the top bar (there while you're driving, showing what a tap does: a gas
+  pedal, or three arrows; and kept):
+  - **The simple buttons** (to begin with): three big buttons along the
+    bottom, and the headlights and the horn up on the windshield. Driving
+    goes one block at a time, and ◀ ▲ ▶ work only while you're stopped --
+    mashing them as you go does nothing, and one press never takes you
+    past the next corner. Stopped at the line, ◀ ▲ ▶ are the way through
+    the corner -- the little yellow arrows along the road swing round
+    through it, the wheel turns, and it's said ("Left!", "Straight on!",
+    "Right!") -- and off you go, through it and up the next block, slowing
+    down to stop at the line at the next corner ("Which way?"), the way to
+    the job glowing. Stopped anywhere else (to begin with, after a job), ▲
+    takes you on to the corner; held up behind a car, ▲ is the horn.
+  - **The pedals:** everything along the bottom, made for two thumbs: a
+    steering wheel far left, the headlights and the horn in the middle,
+    and a big green gas pedal far right. Hold
   the gas and you speed up, the engine rising with you (a synthesised
   motor, ticking over in the cab, revving as you put your foot down); let
   go and you slow down, coasting to a stop. No brake: the lights, people
