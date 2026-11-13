@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.115.0
+- Benji's Town: in the taxi, once someone's in, the driver turns round to
+  the back seat and asks "Where would you like to go?" -- "To the store,
+  please!" (and when you're driving the taxi yourself, you see them in
+  the back, waving).
+
 ## 1.114.2
 - Benji's Town: softer headlights -- the beam has no hard edges now,
   fading gently to the sides and on down the road (and the street lamps'

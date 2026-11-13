@@ -167,9 +167,17 @@ pictures and a sound for every touch.
   glass all along the front under a green awning) -- at night. And the
   **taxi** (yellow, checked, a sign on the roof; it waits at the taxi
   stand) takes someone waiting outside their house, waving 🙋, to the
-  grocery store ("Hop in!"), waits while they shop ("I got the
-  groceries!"), and takes them home with their bag ("Thank you!") -- in
-  that order.
+  grocery store ("Hop in!" -- then the driver asks "Where would you like
+  to go?" and they answer "To the store, please!", 🛒), waits while they
+  shop ("I got the groceries!"), and takes them home with their bag
+  ("Thank you!") -- in that order. Driving the taxi yourself, once
+  they're in, the camera comes back into the cab and the driver turns
+  right round to the back seat (the world turning behind, the dashboard
+  sliding away and the back of the cab sliding in): the back window with
+  the street behind, the fare buckled in on the back seat in their own
+  colour, smiling; the question in a bubble from the driver, then their
+  answer in a bubble with a picture of the store, waving and talking --
+  and round to the front again (about six seconds, `ASK`).
 - The **hospital** (tall and white, a red cross over the door, a helipad
   on the roof) and its **ambulance** (white, a red stripe and cross, a
   light bar): someone poorly waits outside their house 🤒; the ambulance

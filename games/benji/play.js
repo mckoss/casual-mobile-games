@@ -33,6 +33,9 @@ const ISLAND = { x: -9.5, y: 8.5, r: 3.4 };
 // How far the camera can go: the town, the airport and the island.
 const VIEW = { x0: -13, x1: SIZE + 7, y0: -2, y1: SIZE + 2 };
 const BOX = 40; // the tray's pictures (and the gap between them: 5)
+// The taxi driver asking the fare where to (seconds into it): turning round,
+// asking, the answer, and all of it.
+const ASK = { turn: 0.5, where: 1.3, answer: 3.3, total: 6 };
 const LOOK = 1.75; // how far round you can look (radians, either way)
 const HOSE = 3.2; // seconds of the fire engine's hose to put a fire out
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -614,6 +617,14 @@ export class Play {
         // Someone out of their house and into the taxi.
         h.fare = { color: p.color || '#4cc9f0' };
         h.deliver = this.board(h, 'fare', at, this.doorstep(p, h), 1, false, h.fare.color, true);
+        // (Then, in the back: the driver turns round -- "Where would you
+        // like to go?" -- "To the store, please!")
+        {
+          const d = h.deliver;
+          const side = d.steps[d.steps.length - 1].a;
+          d.steps.push({ do: 'ask', a: side, b: side, head: h.head, t: d.total, dur: ASK.total });
+          d.total += ASK.total;
+        }
         h.pause = h.deliver.total;
         this.hooks.sfx?.('pop');
         return;
@@ -2111,7 +2122,7 @@ export class Play {
     // to turn.)
     // (The camera out of the cab for a delivery -- and back in.)
     if (h.deliver || h.spray) f.out = (h.deliver || h.spray).cam;
-    f.away = clamp(f.away + (h.deliver || h.spray ? dt : -dt) / 0.8, 0, 1);
+    f.away = clamp(f.away + ((h.deliver && !this.asking(h)) || h.spray ? dt : -dt) / 0.8, 0, 1);
     if (!this.usePedals()) {
       // Walking, or the simple buttons: going (at a steady speed) once
       // you've pressed to go, slowing down to stop at the line at the next
@@ -2335,6 +2346,28 @@ export class Play {
   }
 
 
+  // In the taxi, the fare just in: how far through asking them where to
+  // (seconds), or null.
+  asking(h) {
+    const d = h.deliver;
+    if (d?.kind !== 'fare') return null;
+    const ask = d.steps.find((q) => q.do === 'ask');
+    return ask && d.t >= ask.t ? d.t - ask.t : null;
+  }
+
+  // How far round the driver's turned, to look at the fare in the back (0
+  // ahead, 1 right round): round once the camera's back in the cab, and
+  // back again at the end.
+  lookBack(h) {
+    const s2 = this.asking(h);
+    if (s2 === null) return 0;
+    const ease = (u) => {
+      const v = clamp(u, 0, 1);
+      return v * v * (3 - 2 * v);
+    };
+    return ease((s2 - ASK.turn) / 0.8) * (1 - ease((s2 - (ASK.total - 0.8)) / 0.8));
+  }
+
   // Where the postal worker is, out of the van on a delivery.
   postie(d) {
     const st = d.steps.findLast((q) => q.t <= d.t) || d.steps[0];
@@ -2354,7 +2387,7 @@ export class Play {
       step: st.do,
       u,
       // (In the shop: out of sight.)
-      hidden: st.do === 'inside',
+      hidden: st.do === 'inside' || st.do === 'ask',
       // (The van's back doors: open while it's taken out.)
       open: !d.snack && (st.do === 'take' || (st.do === 'walk' && st.carry && u < 0.35) || (st.do === 'walk' && !st.carry && st.b === d.steps[2].a && u > 0.7)),
     };
@@ -2538,6 +2571,16 @@ export class Play {
         if (d.kid) {
           // (On the bus: hello.)
           if (['kid', 'fare', 'patient', 'lift'].includes(d.kind) && was < at('in', 0.5) && d.t >= at('in', 0.5)) this.boarded(h);
+          // (The taxi's fare, asked where to.)
+          if (d.kind === 'fare') {
+            const ask = d.steps.find((q) => q.do === 'ask');
+            const passed = (s2) => was < ask.t + s2 && d.t >= ask.t + s2;
+            if (passed(ASK.where)) this.hooks.say?.('Where would you like to go?');
+            if (passed(ASK.answer)) {
+              this.pop('🛒', d.at);
+              this.hooks.say?.('To the store, please!');
+            }
+          }
         } else if (d.kind === 'catch') {
           if (was < at('cuff', 0.5) && d.t >= at('cuff', 0.5)) this.cuffed(h);
         } else if (d.kind === 'jail') {
@@ -2980,6 +3023,9 @@ export class Play {
       const turn = Math.atan2(Math.sin(c.h + f.look - eye.h), Math.cos(c.h + f.look - eye.h));
       eye.set(mix(eye.x, c.x), mix(eye.y, c.y), mix(eye.z, c.z), eye.h + turn * k, mix(eye.pitch, c.pitch));
     }
+    // (The taxi driver, turned round to the fare in the back.)
+    const back = h.kind === 'taxi' ? this.lookBack(h) : 0;
+    if (back > 0) eye.set(eye.x, eye.y, eye.z, eye.h + Math.PI * back, eye.pitch);
     this.sky(this.seatH);
     g.save();
     g.beginPath();
@@ -2998,7 +3044,13 @@ export class Play {
     this.overlays(eye, d ? [] : [h]);
     // In the cab: the dashboard and the wheel, turning as you turn (going
     // as the camera floats out).
-    if (h.kind !== 'walker' && f.away < 0.3) this.dashboard(h, f.wheel);
+    if (h.kind !== 'walker' && f.away < 0.3 && back < 1) {
+      g.save();
+      g.translate(-back * this.W * 1.2, 0);
+      this.dashboard(h, f.wheel);
+      g.restore();
+    }
+    if (back > 0) this.backSeat(h, back);
     if (h.urgent) this.cabLights();
     // Held up: why, big, up top -- a red light, the red hand, someone
     // crossing, a car.
@@ -3087,6 +3139,145 @@ export class Play {
 
   // The dashboard across the bottom of the windscreen, in the cab's colour,
   // and the steering wheel.
+  // In the taxi, turned round: the back of the cab -- the roof and the
+  // pillars round the back window (the street behind, out of it), the back
+  // seat, and the fare sitting on it, buckled in -- and what's said: "Where
+  // would you like to go?", and their answer, the store (waving). Slides in
+  // as the driver turns (back: 0 to 1).
+  backSeat(h, back) {
+    const { g, W } = this;
+    const H = this.seatH;
+    const s2 = this.asking(h) ?? 0;
+    const color = h.fare?.color || h.deliver?.color || '#4cc9f0';
+    g.save();
+    g.translate((1 - back) * W * 1.2, 0);
+    // The roof lining, and the pillars either side of the back window.
+    g.fillStyle = '#4a4a4a';
+    g.beginPath();
+    g.moveTo(-W * 0.04, 0);
+    g.lineTo(W * 1.04, 0);
+    g.lineTo(W * 1.04, H * 0.1);
+    g.quadraticCurveTo(W / 2, H * 0.2, -W * 0.04, H * 0.1);
+    g.closePath();
+    g.fill();
+    g.fillStyle = '#3a3a3a';
+    for (const sd of [-1, 1]) {
+      const x0 = sd < 0 ? 0 : W;
+      g.beginPath();
+      g.moveTo(x0 + sd * W * 0.04, 0);
+      g.lineTo(x0 - sd * W * 0.02, 0);
+      g.lineTo(x0 - sd * W * 0.16, H * 0.52);
+      g.lineTo(x0 + sd * W * 0.04, H * 0.6);
+      g.closePath();
+      g.fill();
+    }
+    // The shelf under the back window, and the back seat.
+    g.fillStyle = '#2b2b2b';
+    g.fillRect(-W * 0.04, H * 0.5, W * 1.08, H * 0.06);
+    const seat = '#1f2a44';
+    g.fillStyle = seat;
+    const sx = W * 0.06;
+    const sw = W * 0.88;
+    const sy = H * 0.55;
+    g.beginPath();
+    g.roundRect(sx, sy, sw, H * 0.5, W * 0.06);
+    g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.08)';
+    g.lineWidth = 3;
+    for (const u of [1 / 3, 2 / 3]) {
+      g.beginPath();
+      g.moveTo(sx + sw * u, sy + H * 0.04);
+      g.lineTo(sx + sw * u, H);
+      g.stroke();
+    }
+    // The fare: sitting in the middle, buckled in.
+    const r = Math.min(W * 0.14, H * 0.11);
+    const cx = W / 2;
+    const cy = H * 0.5;
+    g.fillStyle = color;
+    g.beginPath();
+    g.roundRect(cx - r * 1.5, cy + r * 0.9, r * 3, H, r * 0.9);
+    g.fill();
+    // (Waving, as they answer.)
+    const waving = s2 > ASK.answer && s2 < ASK.total - 0.8;
+    const wave = waving ? Math.sin(this.t * 9) * 0.35 : 0;
+    g.save();
+    g.translate(cx + r * 1.35, cy + r * 1.4);
+    g.rotate(waving ? -2.3 + wave : -0.25);
+    g.fillStyle = color;
+    g.beginPath();
+    g.roundRect(-r * 0.3, 0, r * 0.6, r * 1.6, r * 0.3);
+    g.fill();
+    g.fillStyle = '#f1c27d';
+    g.beginPath();
+    g.arc(0, r * 1.7, r * 0.34, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+    // (The seat belt, across.)
+    g.strokeStyle = '#6c757d';
+    g.lineWidth = r * 0.22;
+    g.beginPath();
+    g.moveTo(cx - r * 1.3, cy + r * 1.1);
+    g.lineTo(cx + r * 1.1, H);
+    g.stroke();
+    // The head: a face, smiling, and hair.
+    g.fillStyle = '#f1c27d';
+    g.beginPath();
+    g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#5a3825';
+    g.beginPath();
+    g.arc(cx, cy - r * 0.1, r * 1.04, Math.PI * 1.02, Math.PI * 1.98);
+    g.fill();
+    g.fillStyle = '#212529';
+    for (const sd of [-1, 1]) {
+      g.beginPath();
+      g.arc(cx + sd * r * 0.36, cy + r * 0.05, r * 0.12, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.strokeStyle = '#212529';
+    g.lineWidth = Math.max(2, r * 0.09);
+    g.lineCap = 'round';
+    g.beginPath();
+    const talking = s2 > ASK.answer && s2 < ASK.answer + 1.4 ? Math.abs(Math.sin(this.t * 14)) : 0;
+    g.ellipse(cx, cy + r * 0.38, r * 0.34, r * (0.14 + 0.16 * talking), 0, 0, Math.PI);
+    g.stroke();
+    // What's said, in bubbles: the driver's question (from down here) --
+    // then their answer, with a picture of where (the store).
+    const bubble = (x, y, w, bh, tail, text, pic) => {
+      g.fillStyle = '#ffffff';
+      g.strokeStyle = '#212529';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.roundRect(x, y, w, bh, 16);
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.moveTo(tail[0] - 10, y + (tail[1] > y ? bh : 0));
+      g.lineTo(tail[0], tail[1]);
+      g.lineTo(tail[0] + 10, y + (tail[1] > y ? bh : 0));
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#ffffff';
+      g.fillRect(tail[0] - 8.5, y + (tail[1] > y ? bh - 2 : 0), 17, 4);
+      g.fillStyle = '#212529';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      const fs = Math.round(Math.min(22, W * 0.05));
+      g.font = `bold ${fs}px system-ui, sans-serif`;
+      if (pic) {
+        g.font = `${Math.round(bh * 0.6)}px system-ui, sans-serif`;
+        emoji(g, pic, x + bh * 0.55, y + bh / 2);
+        g.font = `bold ${fs}px system-ui, sans-serif`;
+        g.fillText(text, x + bh * 0.55 + (w - bh * 0.55) / 2, y + bh / 2);
+      } else g.fillText(text, x + w / 2, y + bh / 2);
+    };
+    const bw = Math.min(W - 24, 330);
+    if (s2 > ASK.where - 0.1 && s2 < ASK.answer + 0.3) bubble((W - bw) / 2, H * 0.78, bw, 52, [W * 0.3, H], 'Where would you like to go?');
+    if (s2 > ASK.answer - 0.1 && s2 < ASK.total - 0.6) bubble(W - bw * 0.8 - 12, cy - r * 2.9, bw * 0.8, 64, [cx + r * 0.2, cy - r * 1.1], 'To the store, please!', '🛒');
+    g.restore();
+  }
+
   dashboard(h, wheel) {
     const { g, W } = this;
     const top = this.seatH - Math.min(90, this.seatH * 0.16);

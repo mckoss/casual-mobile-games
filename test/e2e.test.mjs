@@ -918,10 +918,61 @@ test('benji’s town: the taxi takes someone to the grocery store and home with 
     assert.deepEqual(r.order, ['fare', 'shop', 'back'], 'picked up, shopping, home');
     assert.deepEqual(r.night, { part: 'night', dark: true, jobs: 'crate,store' });
     assert.ok(r.food, 'the food at the store');
-    for (const w of ['Hop in!', 'I got the groceries!', 'Thank you!', 'You took them shopping! Great job!', 'It’s night time! Turn on your headlights!', 'Fresh food from the farm!', 'Fresh food for the store!', 'You brought food to the store! Great job!', 'Goodnight!']) {
+    for (const w of ['Hop in!', 'Where would you like to go?', 'To the store, please!', 'I got the groceries!', 'Thank you!', 'You took them shopping! Great job!', 'It’s night time! Turn on your headlights!', 'Fresh food from the farm!', 'Fresh food for the store!', 'You brought food to the store! Great job!', 'Goodnight!']) {
       assert.ok(r.said.includes(w), w);
     }
+    assert.ok(r.said.indexOf('Hop in!') < r.said.indexOf('Where would you like to go?') && r.said.indexOf('Where would you like to go?') < r.said.indexOf('To the store, please!'), 'in, then where to, then the store');
     assert.ok(r.said.indexOf('You brought food to the store! Great job!') < r.said.lastIndexOf('Goodnight!'), `well done, then goodnight: ${JSON.stringify(r.said.slice(-12))}`);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('benji’s town: driving the taxi yourself, the driver turns round to the fare in the back to ask where to, and back again', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => {
+      localStorage.setItem('pocket-arcade:benji:day', '7');
+      localStorage.setItem('pocket-arcade:benji:drive', 'false');
+    });
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const r = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      const said = [];
+      p.hooks.say = (w) => w && said.push(w);
+      p.hooks.sfx = () => {};
+      const taxi = p.helpers.find((h) => h.kind === 'taxi');
+      for (let i = 0; i < 30 * 600 && taxi.deliver?.kind !== 'fare'; i++) {
+        p.update(1 / 30);
+        for (const h of p.helpers) if (p.ready(h)) p.start(h);
+      }
+      if (!taxi.deliver) return null;
+      // (In the driver's seat as the fare comes out to the taxi.)
+      taxi.deliver.t = 0;
+      p.enter(taxi);
+      let most = 0;
+      let inCab = false;
+      for (let i = 0; i < 30 * 12 && taxi.deliver; i++) {
+        p.update(1 / 30);
+        const k = p.lookBack(taxi);
+        if (k > most) most = k;
+        // (Turned right round: the camera back in the cab, not out on the street.)
+        if (k === 1) inCab = p.fp.away === 0;
+        p.draw();
+      }
+      return { most, inCab, after: p.lookBack(taxi), still: p.fp?.h === taxi, said: said.filter((w) => ['Hop in!', 'Where would you like to go?', 'To the store, please!'].includes(w)) };
+    });
+    assert.ok(r, 'the taxi picks someone up');
+    assert.deepEqual(r, { most: 1, inCab: true, after: 0, still: true, said: ['Hop in!', 'Where would you like to go?', 'To the store, please!'] });
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();
