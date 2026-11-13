@@ -43,6 +43,7 @@ const PLACES = [
   { id: 'taxi', kind: 'taxi', x: 3, y: 15, stub: true },
   { id: 'hospital', kind: 'hospital', x: 8, y: 15, w: 2, h: 2, stub: true },
   { id: 'tower', kind: 'tower', x: 11, y: 11, w: 2, h: 2 },
+  { id: 'airport', kind: 'airport', x: 16, y: 5 },
   { id: 'h1', kind: 'home', x: 1, y: 1, color: '#ff6b6b' },
   { id: 'h2', kind: 'home', x: 7, y: 1, color: '#ffd166' },
   { id: 'h3', kind: 'home', x: 11, y: 3, color: '#4cc9f0' },
@@ -186,6 +187,9 @@ export function nearestRoad(px, py) {
 //            hole (twice, deeper); then each day a storey -- the steel
 //            truck loads girders at the builders' yard and brings them to
 //            the site -- six of them; then the roof
+//   plane:   a trip to Island City: the airplane takes off from the airport
+//            (its runway out past the east edge of town), flies over the
+//            town and the sea to the island, lands, and flies home again
 // The night has jobs too (the food truck, with its headlights on).
 // And once a day, a little while into one part of it, a fire breaks out at
 // a house: the fire engine to the rescue (play.js lights it, and adds the
@@ -199,7 +203,7 @@ const DAYS = [
   { morning: { garbage: 2, bus: 2 }, midday: { mail: 2 }, evening: { dog: 1 }, night: { food: 1 } },
   { morning: { garbage: 2 }, midday: { build: 1, money: 2 }, evening: { dog: 1, taxi: 1 } },
   { morning: { garbage: 3, mail: 2 }, midday: { mail: 2, ambulance: 1 }, evening: { dog: 1, tower: 1 }, night: { food: 1 } },
-  { morning: { mail: 3, heli: 1 }, midday: { build: 1 }, evening: { dog: 1, taxi: 1, tower: 1 }, night: { food: 1 } },
+  { morning: { mail: 3, heli: 1 }, midday: { build: 1, plane: 1 }, evening: { dog: 1, taxi: 1, tower: 1 }, night: { food: 1 } },
 ];
 export function dayPlan(day) {
   if (day <= DAYS.length) return DAYS[day - 1];
@@ -207,7 +211,7 @@ export function dayPlan(day) {
   const k = day - DAYS.length;
   return {
     morning: { garbage: 2 + (k % 2), bus: 2 + ((k >> 1) % 2), ...(k % 3 === 2 ? { heli: 1 } : {}) },
-    midday: { ...(k % 3 === 0 ? { build: 1, money: 2 } : { mail: 2 + ((k >> 1) % 2), money: 2 + (k % 2) }), ...(k % 2 ? {} : { ambulance: 1 }) },
+    midday: { ...(k % 3 === 0 ? { build: 1, money: 2 } : { mail: 2 + ((k >> 1) % 2), money: 2 + (k % 2) }), ...(k % 2 ? { plane: 1 } : { ambulance: 1 }) },
     evening: { ...(k % 2 ? { dog: 1, taxi: 1 } : { dog: 1, ...(k % 3 === 1 ? { heli: 1 } : {}) }), tower: 1 },
     night: { food: 1 },
   };
@@ -311,6 +315,10 @@ export function makeTown(n) {
       // (It waits on the hospital roof.)
       helper({ id: 'heli', kind: 'heli', at: by('hospital').door, home: 'hospital' });
       jobs.push({ helper: 'heli', kind: 'lift', place: r() < 0.5 ? 'park' : 'farm', seq: 1 }, { helper: 'heli', kind: 'ward', place: 'hospital', seq: 2 });
+    }
+    if (p.plane) {
+      helper({ id: 'plane', kind: 'plane', at: by('airport').door, home: 'airport' });
+      jobs.push({ helper: 'plane', kind: 'trip', place: 'airport' });
     }
     if (p.tower && tower < TOWER) {
       if (tower === 0) {

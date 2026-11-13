@@ -18,14 +18,20 @@ import * as D from './draw.js';
 import { emoji, preload } from './emoji.js';
 import * as I from './iso.js';
 
-const SPEED = { garbage: 2.2, mail: 2.6, mixer: 2, bus: 2.1, money: 2.4, food: 2.2, taxi: 2.6, ambulance: 2.8, heli: 3.2, digger: 1.6, steel: 2.2, fire: 2.8, police: 2.8, walker: 1.3, car: 1.6, person: 0.9 };
-export const COLORS = { garbage: '#2a9d8f', mail: '#e63946', mixer: '#ff9f1c', bus: '#ffb703', money: '#2d6a4f', food: '#52b788', taxi: '#ffd60a', ambulance: '#e63946', heli: '#c1121f', digger: '#f4a261', steel: '#e85d04', fire: '#d62828', police: '#1d4e89', walker: '#7b2cbf' };
+const SPEED = { garbage: 2.2, mail: 2.6, mixer: 2, bus: 2.1, money: 2.4, food: 2.2, taxi: 2.6, ambulance: 2.8, heli: 3.2, plane: 5, digger: 1.6, steel: 2.2, fire: 2.8, police: 2.8, walker: 1.3, car: 1.6, person: 0.9 };
+export const COLORS = { garbage: '#2a9d8f', mail: '#e63946', mixer: '#ff9f1c', bus: '#ffb703', money: '#2d6a4f', food: '#52b788', taxi: '#ffd60a', ambulance: '#e63946', heli: '#c1121f', plane: '#1d4e89', digger: '#f4a261', steel: '#e85d04', fire: '#d62828', police: '#1d4e89', walker: '#7b2cbf' };
 // The jobs, as pictures in the tray.
-const ICONS = { bin: '🗑️', recycle: '♻️', dump: '🚮', letter: '✉️', parcel: '📦', walk: '🐕', home: '🏠', build: '🧱', kid: '🧒', school: '🏫', cash: '💰', bank: '🏦', crate: '🥕', store: '🏪', fare: '🙋', shop: '🛒', back: '🏡', patient: '🤒', lift: '🤕', ward: '🏥', dig: '🚜', girders: '🏗️', storey: '🏢', topping: '🏢', fire: '🔥', catch: '🦹', jail: '🔒' };
+const ICONS = { bin: '🗑️', recycle: '♻️', dump: '🚮', letter: '✉️', parcel: '📦', walk: '🐕', home: '🏠', build: '🧱', kid: '🧒', school: '🏫', cash: '💰', bank: '🏦', crate: '🥕', store: '🏪', fare: '🙋', shop: '🛒', back: '🏡', patient: '🤒', lift: '🤕', ward: '🏥', trip: '✈️', dig: '🚜', girders: '🏗️', storey: '🏢', topping: '🏢', fire: '🔥', catch: '🦹', jail: '🔒' };
 const PEOPLE = ['#ef476f', '#118ab2', '#ffd166', '#06d6a0'];
-const SIGNS = { post: '📮', shop: '🍎', cafe: '🍦', dump: '🚮', yard: '🚧', firehouse: '🚒', police: '🚓', school: '🏫', bank: '🏦', grocery: '🛒', farm: '🌽', taxi: '🚕', hospital: '🏥', tower: '🏗️' };
+const SIGNS = { post: '📮', shop: '🍎', cafe: '🍦', dump: '🚮', yard: '🚧', firehouse: '🚒', police: '🚓', school: '🏫', bank: '🏦', grocery: '🛒', farm: '🌽', taxi: '🚕', hospital: '🏥', tower: '🏗️', airport: '✈️' };
 const BUILDINGS = { post: ['#e63946', '#8d1b26'], shop: ['#ffd166', '#e09f3e'], cafe: ['#f4a261', '#9c6644'] };
 const BTN = 28; // the turn buttons' radius
+// Out past the edge of town: the airport's runway (east), and Island City,
+// out in the sea (west).
+const RUNWAY = { y: 5.5, x0: 17.7, x1: 23.4 };
+const ISLAND = { x: -9.5, y: 8.5, r: 3.4 };
+// How far the camera can go: the town, the airport and the island.
+const VIEW = { x0: -13, x1: SIZE + 7, y0: -2, y1: SIZE + 2 };
 const BOX = 40; // the tray's pictures (and the gap between them: 5)
 const LOOK = 1.75; // how far round you can look (radians, either way)
 const HOSE = 3.2; // seconds of the fire engine's hose to put a fire out
@@ -69,6 +75,8 @@ export class Play {
       m.head = m.dir ? Math.atan2(m.dir.y, m.dir.x) : 0;
       // (The helicopter: on the hospital roof, on its helipad.)
       if (m.kind === 'heli') Object.assign(m, this.pad(), { z: I.ROOF + 0.04 });
+      // (The airplane: at the far end of the runway, facing along it.)
+      if (m.kind === 'plane') Object.assign(m, { x: RUNWAY.x1 - 0.8, y: RUNWAY.y, z: 0, head: Math.PI });
       return m;
     };
     this.helpers = town.helpers.map(this.newHelper);
@@ -104,7 +112,7 @@ export class Play {
     this.stars = Array.from({ length: 70 }, () => [r(), r() * 0.6, 0.5 + r()]);
     this.traffic = new Traffic(this.walk, (o) => this.budge(o));
     const movers = [...this.helpers, ...this.ambient];
-    this.traffic.cars = movers.filter((m) => m.kind !== 'walker' && m.kind !== 'person' && m.kind !== 'heli');
+    this.traffic.cars = movers.filter((m) => m.kind !== 'walker' && m.kind !== 'person' && m.kind !== 'heli' && m.kind !== 'plane');
     this.traffic.people = movers.filter((m) => m.kind === 'walker' || m.kind === 'person');
     // Which way each is facing (turning smoothly as it goes).
     for (const m of movers) {
@@ -270,7 +278,81 @@ export class Play {
   way(h, to) {
     // (The helicopter flies straight there.)
     if (h.kind === 'heli') return h.tile.x === to.x && h.tile.y === to.y ? [h.tile] : [h.tile, to];
+    if (h.kind === 'plane') return [h.tile];
     return drivePath(h.tile, h.dir, to);
+  }
+
+  // The airplane's trip to Island City, step by step: aboard, along the
+  // runway and up, over the town, over the sea, down onto the island's
+  // airstrip; a while there; round, and back the same way, home along the
+  // runway and round to face it again.
+  planeRoute() {
+    const [R, S] = [RUNWAY, ISLAND];
+    const P = (x, y, z, v) => ({ to: { x, y, z }, v });
+    return [
+      { wait: 1.6 },
+      P(R.x0 + 0.6, R.y, 0, 3.2), { event: 'up' },
+      P(14, R.y, 1.0, 5), P(3, 6.6, 2.6, 5.5), P(S.x + 4.4, S.y, 1.0, 5), P(S.x + 2.2, S.y, 0, 3.5), P(S.x - 1.2, S.y, 0, 1.6),
+      { event: 'island' }, { wait: 3 }, { turn: 0 },
+      P(S.x + 2.4, S.y, 0, 3.2), { event: 'up' }, P(S.x + 5, S.y, 1.0, 5), P(5, 9.6, 2.6, 5.5), P(14.4, R.y, 1.0, 5), P(R.x0 + 0.6, R.y, 0, 3.5), P(R.x1 - 0.8, R.y, 0, 1.6),
+      { turn: Math.PI }, { event: 'home' },
+    ];
+  }
+
+  planeFly(m, dt) {
+    const tr = m.trip;
+    if (!tr) return;
+    m.pause = 1;
+    const next = () => {
+      tr.k++;
+      tr.t = 0;
+    };
+    const st = tr.steps[tr.k];
+    if (!st) {
+      // Home: the trip done.
+      m.trip = null;
+      m.pause = 0;
+      this.done.add(tr.job);
+      this.finished(m);
+      return;
+    }
+    if (st.wait) {
+      tr.t += dt;
+      if (tr.t >= st.wait) next();
+      return;
+    }
+    if (st.event) {
+      if (st.event === 'up') {
+        this.hooks.sfx?.('whoosh');
+        this.hooks.say?.('Up we go!');
+      } else if (st.event === 'island') {
+        this.pop('🏝️', { x: ISLAND.x - 0.5, y: ISLAND.y - 1 });
+        this.hooks.sfx?.('ding');
+        this.hooks.say?.('Welcome to Island City!');
+      } else if (st.event === 'home') this.hooks.say?.('Home again!');
+      next();
+      return;
+    }
+    if (st.turn !== undefined) {
+      const d = Math.atan2(Math.sin(st.turn - m.head), Math.cos(st.turn - m.head));
+      m.head += Math.max(-2 * dt, Math.min(2 * dt, d));
+      if (Math.abs(d) < 0.01) next();
+      return;
+    }
+    const dx = st.to.x - m.x;
+    const dy = st.to.y - m.y;
+    const d = Math.hypot(dx, dy);
+    const step = st.v * dt;
+    if (d <= step) {
+      Object.assign(m, { x: st.to.x, y: st.to.y, z: st.to.z });
+      next();
+      return;
+    }
+    const a = Math.atan2(dy, dx);
+    m.head += Math.atan2(Math.sin(a - m.head), Math.cos(a - m.head)) * Math.min(1, dt * 3);
+    m.x += (dx / d) * step;
+    m.y += (dy / d) * step;
+    m.z += (st.to.z - m.z) * (step / d);
   }
 
   // The helipad on the hospital roof: { x, y }.
@@ -459,6 +541,16 @@ export class Play {
         h.pause = h.deliver.total;
         this.hooks.sfx?.('pop');
         return;
+      case 'trip':
+        // All aboard! (The trip done -- ticked off -- only once it's home.)
+        this.done.delete(job.i);
+        if (h.trip) return;
+        h.trip = { job: job.i, steps: this.planeRoute(), k: 0, t: 0 };
+        h.pause = 1;
+        this.pop('🧳', at);
+        this.hooks.sfx?.('ding');
+        this.hooks.say?.('All aboard!');
+        return;
       case 'dig':
         // The excavator digs (scoop after scoop): the hole half dug, then
         // dug.
@@ -608,7 +700,7 @@ export class Play {
     if (this.town.jobs.some((j) => j.helper === h.id && !this.done.has(j.i))) return;
     // (The fire engine: once the fire's out.)
     const out = h.kind === 'fire' ? HOSE : 0;
-    this.later = { t: this.t + (h.kind === 'mail' || h.kind === 'money' || h.kind === 'food' ? 1.6 : 0.9) + out, line: { garbage: 'You picked up all the garbage! Great job!', mail: 'You delivered all the mail! Great job!', walker: 'You took the dog for a walk! Great job!', mixer: 'You built a house! Great job!', bus: 'You took the kids to school! Great job!', money: 'You took the money to the bank! Great job!', food: 'You brought food to the store! Great job!', taxi: 'You took them shopping! Great job!', ambulance: 'You took them to the hospital! Great job!', heli: 'You flew them to the hospital! Great job!', digger: 'You dug the hole! Great job!', steel: this.towerNow >= TOWER ? 'You finished the tower! Great job!' : 'You built a floor of the tower! Great job!', fire: 'You put out the fire, great job!', police: 'You took the robber to jail! Great job!' }[h.kind] };
+    this.later = { t: this.t + (h.kind === 'mail' || h.kind === 'money' || h.kind === 'food' ? 1.6 : 0.9) + out, line: { garbage: 'You picked up all the garbage! Great job!', mail: 'You delivered all the mail! Great job!', walker: 'You took the dog for a walk! Great job!', mixer: 'You built a house! Great job!', bus: 'You took the kids to school! Great job!', money: 'You took the money to the bank! Great job!', food: 'You brought food to the store! Great job!', taxi: 'You took them shopping! Great job!', ambulance: 'You took them to the hospital! Great job!', heli: 'You flew them to the hospital! Great job!', digger: 'You dug the hole! Great job!', plane: 'You flew to Island City! Great job!', steel: this.towerNow >= TOWER ? 'You finished the tower! Great job!' : 'You built a floor of the tower! Great job!', fire: 'You put out the fire, great job!', police: 'You took the robber to jail! Great job!' }[h.kind] };
     if (this.done.size === this.town.jobs.length) {
       if (out) this.winAt = this.t + out;
       else this.win();
@@ -1029,7 +1121,7 @@ export class Play {
     const kind = j.kind === 'build' ? `${h.loaded ? 'build' : 'load'}${j.stage}` : j.kind;
     if (kind === 'catch') return 'Time to catch the robber!';
     if (kind === 'jail') return 'Time to take the robber to jail!';
-    return ({ bin: 'The garbage needs to be picked up!', recycle: 'The recycling needs to be picked up!', dump: 'Time to take the garbage to the dump!', letter: 'Time to deliver the mail!', parcel: 'Time to deliver the mail!', walk: 'Time to take the dog for a walk!', home: 'Time to take the dog home!', load1: 'Time to build a house! Get some concrete for the foundation.', build1: 'Now build the foundation!', load2: 'Get more concrete for the walls!', build2: 'Now build the walls!', load3: 'Get wood and tiles for the roof!', build3: 'Now put the roof on!', kid: 'The kids need a ride to school!', school: 'Time to take the kids to school!', cash: 'The money needs to go to the bank!', bank: 'Time to take the money to the bank!', crate: 'The store needs food from the farm!', store: 'Time to take the food to the store!', fare: 'Someone needs a ride to the store!', shop: 'Time to go to the store!', back: 'Time to take them home!', patient: 'Someone is sick! Call the ambulance!', lift: 'Someone is hurt! Call the helicopter!', ward: 'Time to go to the hospital!', dig: j.stage === 2 ? 'Dig some more!' : 'Time to dig a hole for the tower!', girders: 'Get steel for the tower!', storey: 'Time to build the next floor!', topping: 'Time to put the roof on the tower!', fire: 'Time to put out the fire!' }[kind]);
+    return ({ bin: 'The garbage needs to be picked up!', recycle: 'The recycling needs to be picked up!', dump: 'Time to take the garbage to the dump!', letter: 'Time to deliver the mail!', parcel: 'Time to deliver the mail!', walk: 'Time to take the dog for a walk!', home: 'Time to take the dog home!', load1: 'Time to build a house! Get some concrete for the foundation.', build1: 'Now build the foundation!', load2: 'Get more concrete for the walls!', build2: 'Now build the walls!', load3: 'Get wood and tiles for the roof!', build3: 'Now put the roof on!', kid: 'The kids need a ride to school!', school: 'Time to take the kids to school!', cash: 'The money needs to go to the bank!', bank: 'Time to take the money to the bank!', crate: 'The store needs food from the farm!', store: 'Time to take the food to the store!', fare: 'Someone needs a ride to the store!', shop: 'Time to go to the store!', back: 'Time to take them home!', patient: 'Someone is sick! Call the ambulance!', lift: 'Someone is hurt! Call the helicopter!', ward: 'Time to go to the hospital!', dig: j.stage === 2 ? 'Dig some more!' : 'Time to dig a hole for the tower!', trip: 'Time to fly to Island City!', girders: 'Get steel for the tower!', storey: 'Time to build the next floor!', topping: 'Time to put the roof on the tower!', fire: 'Time to put out the fire!' }[kind]);
   }
 
   // Night falls: everyone home to bed.
@@ -1068,7 +1160,7 @@ export class Play {
       return o && o.home === h.home ? Object.assign(o, { color: h.color, loaded: o.kind !== 'mixer', cargo: null, load: 0, chosen: null }) : this.newHelper(h);
     });
     const movers = [...this.helpers, ...this.ambient];
-    this.traffic.cars = movers.filter((m) => m.kind !== 'walker' && m.kind !== 'person' && m.kind !== 'heli');
+    this.traffic.cars = movers.filter((m) => m.kind !== 'walker' && m.kind !== 'person' && m.kind !== 'heli' && m.kind !== 'plane');
     this.traffic.people = movers.filter((m) => m.kind === 'walker' || m.kind === 'person');
     this.focus = null;
     this.clock = 0;
@@ -1191,8 +1283,8 @@ export class Play {
       }
       this.zoomBy((this.pinch.zoom * d) / this.pinch.d / this.zoom);
       const shift = this.view.shift(mid.sx - this.pinch.mid.sx, mid.sy - this.pinch.mid.sy);
-      this.cam.x = clamp(this.pinch.x - shift.x, 0, SIZE);
-      this.cam.y = clamp(this.pinch.y - shift.y, 0, SIZE);
+      this.cam.x = clamp(this.pinch.x - shift.x, VIEW.x0, VIEW.x1);
+      this.cam.y = clamp(this.pinch.y - shift.y, VIEW.y0, VIEW.y1);
       return;
     }
     if (this.pinch) {
@@ -1274,8 +1366,8 @@ export class Play {
         if (Math.hypot(sx - this.pan.sx, sy - this.pan.sy) > 8) this.manual = 8;
         if (this.manual > 0) {
           const d = this.view.shift(sx - this.pan.sx, sy - this.pan.sy);
-          this.cam.x = clamp(this.pan.x - d.x, 0, SIZE);
-          this.cam.y = clamp(this.pan.y - d.y, 0, SIZE);
+          this.cam.x = clamp(this.pan.x - d.x, VIEW.x0, VIEW.x1);
+          this.cam.y = clamp(this.pan.y - d.y, VIEW.y0, VIEW.y1);
         }
       } else this.pan = null;
     }
@@ -1852,7 +1944,7 @@ export class Play {
     if (this.hint?.h === h) this.hint = null;
     this.idle = 0;
     this.prompt = 6;
-    if (this.drive && h.kind !== 'heli') this.enter(h);
+    if (this.drive && h.kind !== 'heli' && h.kind !== 'plane') this.enter(h);
     else {
       this.send(h);
       this.focus = h;
@@ -1997,7 +2089,7 @@ export class Play {
       return;
     }
     if (this.fp || this.won || this.night) return;
-    const works = (h) => !!h && this.helpers.includes(h) && h.kind !== 'heli' && !!this.targetPlace(h);
+    const works = (h) => !!h && this.helpers.includes(h) && h.kind !== 'heli' && h.kind !== 'plane' && !!this.targetPlace(h);
     const h = [this.lastFp, this.hint?.h, this.focus, ...this.helpers.filter((x) => this.ready(x)), ...this.helpers].find(works);
     if (!h) return;
     if (this.hint?.h === h) this.hint = null;
@@ -2304,13 +2396,15 @@ export class Play {
     if (f) {
       this.focus = f;
       this.calm = 0;
-      return this.manual > 0 ? null : { x: f.x, y: f.y, k: this.kIn };
+      return this.manual > 0 ? null : { x: f.x, y: f.y, k: f.kind === 'plane' ? this.kFit * 1.5 : this.kIn };
     }
     this.calm += dt;
     if (this.manual > 0 || this.calm < 0.9) return null;
     if (this.intro > 0) return { x: SIZE / 2, y: SIZE / 2, k: this.kFit };
     const pts = [];
     for (const h of this.helpers) {
+      // (Not the airplane, waiting out at the airport.)
+      if (h.kind === 'plane') continue;
       pts.push([h.x, h.y]);
       const p = this.targetPlace(h);
       if (p) pts.push([p.x + (p.w || 1) / 2, p.y + (p.h || 1) / 2]);
@@ -2345,8 +2439,8 @@ export class Play {
       c.y += (goal.y - c.y) * a;
       c.k += (this.fitK(goal.k * this.zoom) - c.k) * (1 - Math.exp(-dt * 1.8));
     }
-    c.x = clamp(c.x, 0, SIZE);
-    c.y = clamp(c.y, 0, SIZE);
+    c.x = clamp(c.x, VIEW.x0, VIEW.x1);
+    c.y = clamp(c.y, VIEW.y0, VIEW.y1);
     Object.assign(this.view, { x: c.x, y: c.y, k: c.k });
   }
 
@@ -2399,6 +2493,10 @@ export class Play {
       } else if (!this.helpers.some((o) => o.urgent && !o.spray)) this.sirenAt = this.t + 2.6; // (after the siren it starts with)
     }
     const move = (m) => {
+      if (m.kind === 'plane') {
+        this.planeFly(m, dt);
+        return;
+      }
       if (m.pause > 0) {
         m.pause -= dt;
         // (Stopped, on a job: pulls over for the fire engine all the same.)
@@ -2650,7 +2748,9 @@ export class Play {
     g.beginPath();
     g.rect(0, 0, this.W, this.viewH);
     g.clip();
+    this.drawSea(view);
     I.paint(g, view, I.slab(SIZE).parts);
+    this.drawAway(view);
     this.drawGround(view);
     // Everything standing up, back to front -- see-through when it's in
     // front of a helper.
@@ -3129,6 +3229,27 @@ export class Play {
 
   // The ground: the places' yards, the sidewalks and streets, the middle
   // lines, crosswalks and stop lines.
+  // The sea, west of town (with Island City out in it).
+  drawSea(view) {
+    I.rect(this.g, view, -20, -10, -0.3, SIZE + 10, '#4ea8de', -0.15);
+  }
+
+  // Out past the edge of town: the island (its beach, its grass, its
+  // airstrip), and the airport (its grass, its runway).
+  drawAway(view) {
+    const { g } = this;
+    const S = ISLAND;
+    const ring = (r) => Array.from({ length: 28 }, (_, k) => [S.x + Math.cos((k / 28) * Math.PI * 2) * r, S.y + Math.sin((k / 28) * Math.PI * 2) * r * 0.95]);
+    I.flat(g, view, ring(S.r), '#e9d8a6', -0.04);
+    I.flat(g, view, ring(S.r - 0.45), '#8fd16a', -0.02);
+    I.rect(g, view, S.x - 1.9, S.y - 0.32, S.x + 2.9, S.y + 0.32, '#5d6470');
+    for (let x = S.x - 1.6; x < S.x + 2.6; x += 0.6) I.rect(g, view, x, S.y - 0.03, x + 0.3, S.y + 0.03, '#f8f9fa');
+    const R = RUNWAY;
+    I.rect(g, view, SIZE - 0.02, 3.4, R.x1 + 0.8, 7.6, '#8fd16a');
+    I.rect(g, view, SIZE - 0.02, R.y - 0.4, R.x1 + 0.4, R.y + 0.4, '#5d6470');
+    for (let x = R.x0; x < R.x1; x += 0.7) I.rect(g, view, x, R.y - 0.03, x + 0.35, R.y + 0.03, '#f8f9fa');
+  }
+
   drawGround(view) {
     const { g } = this;
     const R = (x0, y0, x1, y1, c) => I.rect(g, view, x0, y0, x1, y1, c);
@@ -3216,6 +3337,14 @@ export class Play {
       g.textBaseline = 'middle';
       emoji(g, icon, at[0], at[1]);
     };
+    // Island City: tall bright buildings and palm trees.
+    for (const [bx, by, tall, c] of [[-10.6, 7.0, 1.4, '#ff8fab'], [-9.3, 6.5, 1.9, '#a0c4ff'], [-8.1, 7.1, 1.1, '#ffd166'], [-10.3, 10.1, 1.2, '#9bf6ff'], [-8.7, 10.3, 1.6, '#caffbf'], [-7.4, 10.0, 0.9, '#ffadad']]) {
+      const m = new I.Model(bx, by);
+      m.box(-0.3, -0.3, 0, 0.3, 0.3, tall, c);
+      m.box(-0.33, -0.33, tall, 0.33, 0.33, tall + 0.05, '#495057');
+      model(m, tall);
+    }
+    for (const [px, py] of [[-12.1, 8.0], [-11.8, 9.7], [-6.9, 9.6], [-7.1, 7.0], [-12.2, 6.9], [-6.6, 8.3]]) model(I.palm(px, py, 1.1), 0.6);
     const taken = new Set();
     for (const p of this.town.places) {
       for (let x = p.x; x < p.x + (p.w || 1); x++) for (let y = p.y; y < p.y + (p.h || 1); y++) taken.add(y * SIZE + x);
@@ -3239,6 +3368,14 @@ export class Play {
           sign(cx + Math.cos(h) * 0.42, cy + Math.sin(h) * 0.42, 0.54, SIGNS.police);
           g.globalAlpha = 1;
         }, 0.95);
+      } else if (p.kind === 'airport') {
+        const m = I.terminal(cx, cy, h);
+        add(cx, cy, (a) => {
+          I.paint(g, view, m.parts, a);
+          g.globalAlpha = a;
+          sign(cx, cy, 0.7, SIGNS.airport);
+          g.globalAlpha = 1;
+        }, 1);
       } else if (p.kind === 'tower') {
         const m = I.tower(cx, cy, h, this.towerNow, t);
         add(cx, cy, (a) => {

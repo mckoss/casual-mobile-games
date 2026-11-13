@@ -589,6 +589,33 @@ export function tower(x, y, h, step, t = 0) {
   return m;
 }
 
+// The airport's terminal at (x, y), its front toward h: low and glassy,
+// and beside it the control tower.
+export function terminal(x, y, h) {
+  const m = new Model(x, y, h);
+  m.box(-0.45, -0.45, 0, 0.45, 0.45, 0.02, '#ced4da');
+  const b = m.box(-0.38, -0.4, 0.02, 0.3, 0.4, 0.4, '#e9ecef');
+  m.decal(b.e, onX(0.302, -0.38, 0.38, 0.06, 0.34), GLASS);
+  m.decal(b.w, onX(-0.382, -0.38, 0.38, 0.06, 0.34), GLASS);
+  m.box(-0.42, -0.44, 0.4, 0.34, 0.44, 0.44, '#1d4e89');
+  m.box(-0.36, 0.22, 0.44, -0.2, 0.38, 0.95, '#dee2e6');
+  m.box(-0.42, 0.16, 0.95, -0.14, 0.44, 1.08, GLASS);
+  m.box(-0.44, 0.14, 1.08, -0.12, 0.46, 1.12, '#1d4e89');
+  return m;
+}
+
+// A palm tree (on the island).
+export function palm(x, y, size = 1) {
+  const m = new Model(x, y);
+  m.box(-0.03 * size, -0.03 * size, 0, 0.03 * size, 0.03 * size, 0.5 * size, '#a0785a');
+  for (let k = 0; k < 5; k++) {
+    const a = (k / 5) * Math.PI * 2;
+    const [c, s2] = [Math.cos(a) * 0.3 * size, Math.sin(a) * 0.3 * size];
+    m.face([[0, 0, 0.52 * size], [c - s2 * 0.25, s2 + c * 0.25, 0.42 * size], [c * 1.1, s2 * 1.1, 0.38 * size], [c + s2 * 0.25, s2 - c * 0.25, 0.42 * size]], [0, 0, 1], '#2d6a4f');
+  }
+  return m;
+}
+
 // The farm at (x, y), its front toward h: a little red barn with a white
 // trim, and rows of vegetables.
 export function farm(x, y, h) {
@@ -639,6 +666,24 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = f
     const red = Math.floor(t * 6) % 2 === 0;
     m.box(-0.04, -0.1, 0.29, 0.04, -0.005, 0.325, lights ? (red ? '#ff1f1f' : '#5c0a0a') : '#8a1c1c');
     m.box(-0.04, 0.005, 0.29, 0.04, 0.1, 0.325, lights ? (red ? '#0b1f4d' : '#3d8bff') : '#1d3557');
+    return m;
+  }
+  if (kind === 'plane') {
+    // The airplane: white with a blue stripe and a row of windows, swept
+    // wings with an engine under each, a tall tail.
+    for (const [wx, wy] of [[0.3, 0], [-0.08, -0.14], [-0.08, 0.14]]) m.box(wx - 0.03, wy - 0.02, 0, wx + 0.03, wy + 0.02, 0.1, '#343a40');
+    const b = m.box(-0.62, -0.09, 0.1, 0.55, 0.09, 0.28, '#f8f9fa');
+    m.box(0.55, -0.07, 0.12, 0.66, 0.07, 0.25, '#f8f9fa');
+    m.decal(b.e, onX(0.552, -0.06, 0.06, 0.2, 0.26), GLASS);
+    for (const [f, at] of [[b.s, 0.092], [b.n, -0.092]]) {
+      m.decal(f, onY(at, -0.55, 0.5, 0.13, 0.16), '#1d4e89');
+      for (let k = 0; k < 9; k++) m.decal(f, onY(at, -0.45 + k * 0.1, -0.41 + k * 0.1, 0.19, 0.23), '#457b9d');
+    }
+    m.face([[0.12, -0.09, 0.17], [0.12, 0.09, 0.17], [-0.22, 0.7, 0.17], [-0.36, 0.7, 0.17]], [0, 0, 1], '#dee2e6');
+    m.face([[0.12, 0.09, 0.17], [0.12, -0.09, 0.17], [-0.36, -0.7, 0.17], [-0.22, -0.7, 0.17]], [0, 0, 1], '#dee2e6');
+    for (const ey of [-0.36, 0.36]) m.box(-0.12, ey - 0.05, 0.08, 0.06, ey + 0.05, 0.16, '#adb5bd');
+    m.box(-0.62, -0.015, 0.28, -0.46, 0.015, 0.55, '#1d4e89');
+    m.face([[-0.48, -0.02, 0.28], [-0.48, 0.02, 0.28], [-0.62, 0.26, 0.28], [-0.62, -0.26, 0.28]], [0, 0, 1], '#dee2e6');
     return m;
   }
   if (kind === 'digger') {

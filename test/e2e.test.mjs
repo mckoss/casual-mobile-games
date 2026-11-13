@@ -1024,6 +1024,58 @@ test('benji’s town: the big building site -- the excavator digs, the steel tru
   }
 });
 
+test('benji’s town: the airplane flies over the town and the sea to Island City, lands, and flies home', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => {
+      localStorage.setItem('pocket-arcade:benji:day', '7');
+      localStorage.setItem('pocket-arcade:benji:drive', 'false');
+    });
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const r = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      const said = [];
+      p.hooks.say = (w) => w && said.push(w);
+      p.hooks.sfx = () => {};
+      for (let i = 0; i < 30 * 400 && p.part?.part !== 'midday'; i++) {
+        p.update(1 / 30);
+        for (const h of p.helpers) if (p.ready(h) && h.kind !== 'plane') p.start(h);
+      }
+      const plane = p.helpers.find((h) => h.kind === 'plane');
+      const home = { x: plane.x, y: plane.y };
+      const job = p.town.jobs.find((j) => j.helper === 'plane');
+      p.start(plane);
+      const out = { home, high: 0, west: plane.x, doneEarly: false, button: true };
+      for (let i = 0; i < 30 * 60 && plane.trip; i++) {
+        p.update(1 / 30);
+        out.high = Math.max(out.high, plane.z);
+        out.west = Math.min(out.west, plane.x);
+        out.doneEarly ||= p.done.has(job.i) && !!plane.trip;
+        if (i === 60) out.button = p.goButtons().some((b) => b.h === plane);
+      }
+      return { ...out, back: { x: plane.x, y: plane.y, z: plane.z }, done: p.done.has(job.i), said };
+    });
+    assert.ok(r.high > 2, 'high over the town');
+    assert.ok(r.west < -8, `out to the island (x ${r.west})`);
+    assert.deepEqual(r.back, { ...r.home, z: 0 }, 'home again, at the end of the runway');
+    assert.ok(r.done && !r.doneEarly, 'ticked off only once it\'s home');
+    assert.equal(r.button, false, 'no button while it\'s away');
+    for (const w of ['All aboard!', 'Up we go!', 'Welcome to Island City!', 'Home again!']) assert.ok(r.said.includes(w), w);
+    assert.equal(r.said.filter((w) => w === 'All aboard!').length, 1);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); held up behind a car, ▲ honks; the horn button always', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

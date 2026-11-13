@@ -190,6 +190,15 @@ pictures and a sound for every touch.
   steel frame, a yellow crane beside it -- six storeys, then the roof
   ("The tower is finished!"). Like the houses, it stays built: how far
   along it is comes from the days before (towerBefore).
+- The **airport** (a glassy terminal with its control tower, at the
+  east edge of town, its runway out past the edge) and its **airplane**
+  (white, a blue stripe, a row of windows): some middays a trip to
+  **Island City** -- an island out in the sea west of town, with its own
+  airstrip, tall bright buildings and palm trees. "All aboard!", along the
+  runway and "Up we go!", high over the whole town, out over the sea,
+  down onto the island ("Welcome to Island City!"), a while there, round,
+  and all the way back ("Home again!"), the camera following it. One tap
+  does the whole trip; it's ticked off once it's home.
 - **Any day again:** tap the day, top left ("Day 7 ▾"): a button for each
   day so far -- play an easier one again (the town as it was that day),
   or come back to where you'd got to. The furthest day is kept.

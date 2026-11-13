@@ -521,6 +521,21 @@ test('the big building site: the excavator digs the hole, then a storey a day wi
   assert.equal(girders.place, 'yard');
 });
 
+test('the airport: a trip to Island City some middays, the airplane waiting at the airport', () => {
+  let trips = 0;
+  for (let n = 1; n <= 30; n++) {
+    const town = makeTown(n);
+    for (const { jobs } of town.phases) {
+      const t = jobs.filter((j) => j.helper === 'plane');
+      if (!t.length) continue;
+      trips++;
+      assert.deepEqual(t.map((j) => `${j.kind}@${j.place}`), ['trip@airport']);
+      assert.ok(town.helpers.some((h) => h.kind === 'plane' && h.home === 'airport'));
+    }
+  }
+  assert.ok(trips >= 10, `${trips} trips`);
+});
+
 test('stuck behind a helper with nowhere to go (pulled over for the horn, or not): it counts as parked, so it is asked to move', () => {
   const tr = new Traffic(walkways());
   const me = { wait: 'car' };
