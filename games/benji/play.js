@@ -700,7 +700,11 @@ export class Play {
     if (this.town.jobs.some((j) => j.helper === h.id && !this.done.has(j.i))) return;
     // (The fire engine: once the fire's out.)
     const out = h.kind === 'fire' ? HOSE : 0;
-    this.later = { t: this.t + (h.kind === 'mail' || h.kind === 'money' || h.kind === 'food' ? 1.6 : 0.9) + out, line: { garbage: 'You picked up all the garbage! Great job!', mail: 'You delivered all the mail! Great job!', walker: 'You took the dog for a walk! Great job!', mixer: 'You built a house! Great job!', bus: 'You took the kids to school! Great job!', money: 'You took the money to the bank! Great job!', food: 'You brought food to the store! Great job!', taxi: 'You took them shopping! Great job!', ambulance: 'You took them to the hospital! Great job!', heli: 'You flew them to the hospital! Great job!', digger: 'You dug the hole! Great job!', plane: 'You flew to Island City! Great job!', steel: this.towerNow >= TOWER ? 'You finished the tower! Great job!' : 'You built a floor of the tower! Great job!', fire: 'You put out the fire, great job!', police: 'You took the robber to jail! Great job!' }[h.kind] };
+    // (Said a moment after -- in turn: two helpers done at once each get
+    // theirs said, not one in place of the other.)
+    this.later = this.later || [];
+    this.later.push({ t: this.t + (h.kind === 'mail' || h.kind === 'money' || h.kind === 'food' ? 1.6 : 0.9) + out, line: { garbage: 'You picked up all the garbage! Great job!', mail: 'You delivered all the mail! Great job!', walker: 'You took the dog for a walk! Great job!', mixer: 'You built a house! Great job!', bus: 'You took the kids to school! Great job!', money: 'You took the money to the bank! Great job!', food: 'You brought food to the store! Great job!', taxi: 'You took them shopping! Great job!', ambulance: 'You took them to the hospital! Great job!', heli: 'You flew them to the hospital! Great job!', digger: 'You dug the hole! Great job!', plane: 'You flew to Island City! Great job!', steel: this.towerNow >= TOWER ? 'You finished the tower! Great job!' : 'You built a floor of the tower! Great job!', fire: 'You put out the fire, great job!', police: 'You took the robber to jail! Great job!' }[h.kind] });
+    this.later.sort((p, q) => p.t - q.t);
     if (this.done.size === this.town.jobs.length) {
       if (out) this.winAt = this.t + out;
       else this.win();
@@ -1043,7 +1047,7 @@ export class Play {
     this.clock = tick(this.clock, dt, this.part?.part, !this.part || this.won);
     const next = this.town.phases[this.next];
     if (next && !this.night && (!this.part || this.won) && this.clock >= WINDOW[next.part][0]) this.begin(next);
-    if (!next && !this.night && (!this.part || this.won) && !this.later && this.clock >= NIGHT) this.nightfall();
+    if (!next && !this.night && (!this.part || this.won) && !this.later?.length && this.clock >= NIGHT) this.nightfall();
     if (this.clock >= 1) this.morning();
     // (The picture of the time of day, in the title.)
     const part = this.night ? 'night' : partAt(this.clock);
@@ -2467,10 +2471,7 @@ export class Play {
       this.win();
     }
     // (What was done, said a moment after.)
-    if (this.later && this.t >= this.later.t) {
-      this.hooks.say?.(this.later.line);
-      this.later = null;
-    }
+    while (this.later?.length && this.t >= this.later[0].t) this.hooks.say?.(this.later.shift().line);
     if (this.fp) this.fpSteer(dt);
     // The engine, driving: ticking over, and rising as you put your foot
     // down and speed up. (Off, out of the cab.)

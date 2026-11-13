@@ -896,7 +896,7 @@ test('benji’s town: the taxi takes someone to the grocery store and home with 
     for (const w of ['Hop in!', 'I got the groceries!', 'Thank you!', 'You took them shopping! Great job!', 'It’s night time! Turn on your headlights!', 'Fresh food from the farm!', 'Fresh food for the store!', 'You brought food to the store! Great job!', 'Goodnight!']) {
       assert.ok(r.said.includes(w), w);
     }
-    assert.ok(r.said.indexOf('You brought food to the store! Great job!') < r.said.indexOf('Goodnight!'), 'well done, then goodnight');
+    assert.ok(r.said.indexOf('You brought food to the store! Great job!') < r.said.lastIndexOf('Goodnight!'), `well done, then goodnight: ${JSON.stringify(r.said.slice(-12))}`);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

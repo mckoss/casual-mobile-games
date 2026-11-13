@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.113.1
+- Benji's Town: two helpers finishing their jobs at about the same time
+  each get their "Great job!" said (one used to be lost), and night falls
+  only after they've all been said.
+
 ## 1.113.0
 - Benji's Town: an airport and an airplane -- fly over the town and out
   over the sea to Island City, a little island with tall buildings and
