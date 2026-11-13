@@ -141,8 +141,11 @@ pictures and a sound for every touch.
   there a big tennis-ball button by the dog throws the ball ("Fetch!"): it flies
   across the park, the dog runs after it, picks it up and brings it back
   ("Good dog!"), as often as you like (walking the dog yourself, the
-  button's in the middle of the view once you've stopped there, and the
-  ball goes out ahead, the way you're looking, to watch the dog run) -- and home again; the **cement mixer** builds a house on an empty lot in three
+  button's in the middle of the view once you've stopped there: you turn
+  to look where it's going first, watch it fly, and watch the dog run for
+  it and bring it back -- the park's trees near you see-through
+  meanwhile -- then look ahead again; the ball lands where you can see it
+  if anywhere can, never in the pond or on a tree) -- and home again; the **cement mixer** builds a house on an empty lot in three
   trips (slab, walls, roof), going back to the yard to load up in between
   -- concrete for the slab and the walls; for the roof, wood and tiles,
   so the drum comes off and it's a flatbed stacked with timbers and roof

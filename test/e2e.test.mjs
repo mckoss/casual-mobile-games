@@ -857,8 +857,18 @@ test('benji’s town: fetch at the park -- throw the ball, the dog runs for it a
       const p = window.__benji;
       const w = p.helpers.find((h) => h.kind === 'walker');
       const f = w.fetch;
-      const out = { fetching: !!f, ahead: !!f && Math.cos(Math.atan2(f.to.y - f.from.y, f.to.x - f.from.x) - (p.fp.head + p.fp.look)) > 0.5 };
-      for (let i = 0; i < 30 * 10 && w.fetch; i++) p.update(1 / 30);
+      // (Turned to watch: the ball in front of you as it flies, and the
+      // dog as it runs for it and brings it back -- till it's by you.)
+      const ahead = (q) => Math.cos(Math.atan2(q.y - w.y, q.x - w.x) - (p.fp.head + p.fp.look));
+      let worst = 1;
+      for (let i = 0; i < 30 * 10 && w.fetch; i++) {
+        p.update(1 / 30);
+        if (!w.fetch || w.fetch.t < 0) continue;
+        const { dog, ball } = p.fetchAt(w.fetch);
+        if (Math.hypot(ball.x - w.x, ball.y - w.y) > 0.5) worst = Math.min(worst, ahead(ball));
+        if (Math.hypot(dog.x - w.x, dog.y - w.y) > 0.7) worst = Math.min(worst, ahead(dog));
+      }
+      const out = { fetching: !!f, ahead: worst > 0.8 };
       for (let i = 0; i < 3; i++) p.update(1 / 30);
       p.draw();
       return { ...out, back: !w.fetch, again: !!p.seatButtons().find((b) => b.act === 'ball') };

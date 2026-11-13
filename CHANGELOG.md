@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.115.1
+- Benji's Town: playing fetch while walking the dog yourself, you turn to
+  look where the ball's going and watch the dog run after it and bring it
+  back (the park's trees nearby go see-through so they don't hide it).
+
 ## 1.115.0
 - Benji's Town: in the taxi, once someone's in, the driver turns round to
   the back seat and asks "Where would you like to go?" -- "To the store,

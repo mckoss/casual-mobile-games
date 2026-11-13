@@ -36,7 +36,11 @@ const BOX = 40; // the tray's pictures (and the gap between them: 5)
 // The taxi driver asking the fare where to (seconds into it): turning round,
 // asking, the answer, and all of it.
 const ASK = { turn: 0.5, where: 1.3, answer: 3.3, total: 6 };
-const LOOK = 1.75; // how far round you can look (radians, either way)
+const LOOK = 1.75;
+// The park's trees (x, y in it, and size) and its pond.
+const PARK_TREES = [[0.45, 0.5, 1.1], [1.5, 0.45, 0.95], [0.5, 1.5, 0.9]];
+const PARK_POND = { x: 1.25, y: 1.2, r: 0.42 };
+const FETCH_AIM = 0.45; // walking the dog yourself: time to turn to the throw // how far round you can look (radians, either way)
 const HOSE = 3.2; // seconds of the fire engine's hose to put a fire out
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
@@ -1995,21 +1999,33 @@ export class Play {
   throwBall(h) {
     const park = this.place('park');
     const from = Play.dogSpot(h.x, h.y, h.head ?? 0);
-    // (A good long throw: the furthest of a few spots in the park -- walking
-    // the dog yourself, one out ahead, the way you're looking, to watch the
-    // dog run after it.)
+    // (A good long throw: the furthest of a few spots in the park -- not in
+    // the pond. Walking the dog yourself, one you can see from where you
+    // are: no tree in the way.)
     const spot = () => ({ x: park.x + 0.3 + Math.random() * ((park.w || 1) - 0.6), y: park.y + 0.3 + Math.random() * ((park.h || 1) - 0.6) });
     const far = (q) => Math.hypot(q.x - from.x, q.y - from.y);
-    const spots = Array.from({ length: 12 }, spot);
-    const f = this.fp?.h === h ? this.fp : null;
-    const ahead = f ? spots.filter((q) => far(q) > 0.8 && Math.cos(Math.atan2(q.y - from.y, q.x - from.x) - (f.head + f.look)) > 0.6) : [];
-    const to = (ahead.length ? ahead : spots.slice(0, 5)).reduce((p, q) => (far(q) > far(p) ? q : p));
+    const dry = (q) => Math.hypot(q.x - park.x - PARK_POND.x, q.y - park.y - PARK_POND.y) > PARK_POND.r + 0.15 && PARK_TREES.every(([tx, ty]) => Math.hypot(q.x - park.x - tx, q.y - park.y - ty) > 0.3);
+    const eye = { x: h.x - Math.cos(h.head ?? 0) * 0.14, y: h.y - Math.sin(h.head ?? 0) * 0.14 };
+    const clear = (q) => PARK_TREES.every(([tx, ty, size]) => {
+      // (How near the line from your eye to it the tree is.)
+      const [ax, ay] = [q.x - eye.x, q.y - eye.y];
+      const [bx, by] = [park.x + tx - eye.x, park.y + ty - eye.y];
+      const u = clamp((ax * bx + ay * by) / (ax * ax + ay * ay || 1), 0, 1);
+      return Math.hypot(bx - ax * u, by - ay * u) > 0.32 * size;
+    });
+    const spots = Array.from({ length: 30 }, spot).filter(dry);
+    const seen = this.fp?.h === h ? spots.filter(clear) : [];
+    const pool = seen.length ? seen : spots.slice(0, 5);
+    const to = pool.length ? pool.reduce((p, q) => (far(q) > far(p) ? q : p)) : spot();
     const run = Math.hypot(to.x - from.x, to.y - from.y) / 2.4;
     const fly = 0.9;
     const out = Math.max(fly + 0.15, run);
-    h.fetch = { t: 0, from, to, fly, out, grab: 0.35, back: Math.max(0.5, run) };
+    // (Walking the dog yourself: a moment first to turn and look where
+    // it's going -- then you watch it fly, and the dog run for it.)
+    const aim = this.fp?.h === h ? FETCH_AIM : 0;
+    h.fetch = { t: -aim, from, to, fly, out, grab: 0.35, back: Math.max(0.5, run) };
     h.fetch.total = out + h.fetch.grab + h.fetch.back;
-    h.pause = h.fetch.total;
+    h.pause = h.fetch.total + aim;
     this.hooks.sfx?.('pop');
     this.hooks.haptic?.(15);
     this.hooks.say?.('Fetch!');
@@ -2019,7 +2035,7 @@ export class Play {
   fetchAt(f) {
     const lerp = (a, b, u) => ({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u });
     const face = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
-    const t = f.t;
+    const t = Math.max(0, f.t);
     let dog;
     if (t < f.out) dog = { ...lerp(f.from, f.to, Math.min(1, t / f.out)), head: face(f.from, f.to), walking: true };
     else if (t < f.out + f.grab) dog = { ...f.to, head: face(f.from, f.to), walking: false };
@@ -2160,6 +2176,20 @@ export class Play {
     const round = h.kind !== 'walker' && !!n && atEdge(n.x, n.y) && (n.x !== h.tile.x || n.y !== h.tile.y);
     if (round && !f.round && f.v > 0.1) this.tell('Turn around!');
     f.round = round && f.v > 0.1;
+    // Playing fetch: looking where the ball's going -- turning that way
+    // before it's thrown -- and then at the dog, out after it and back
+    // (till it's right by you). Back to ahead after, as for a look round.
+    if (h.kind === 'walker' && h.fetch) {
+      const q = h.fetch;
+      const at = q.t < q.fly ? q.to : this.fetchAt(q).dog;
+      if (q.t < q.fly || Math.hypot(at.x - h.x, at.y - h.y) > 0.6) {
+        const want = Math.atan2(at.y - h.y, at.x - h.x) - f.head;
+        const turn = Math.atan2(Math.sin(want - f.look), Math.cos(want - f.look));
+        f.look += turn * Math.min(1, dt * 7);
+      }
+      f.lookT = 0;
+    }
+    f.see = clamp((f.see || 0) + (h.kind === 'walker' && h.fetch ? dt : -dt) * 3, 0, 1);
     // Looked round: back to looking ahead, a moment after letting go.
     if (!f.drag && f.look) {
       f.lookT += dt;
@@ -3038,7 +3068,7 @@ export class Play {
     // The way you'll go: little arrows along it (through the corner coming
     // up the way you chose, and on to the job).
     if (!d) this.dots(eye, f.route || [], eye, 0.6);
-    for (const o of this.things(eye).sort((a, b) => a.d - b.d)) o.draw(1);
+    for (const o of this.things(eye).sort((a, b) => a.d - b.d)) o.draw(o.fade);
     this.flames(eye);
     this.nightLights(eye, this.seatH);
     this.overlays(eye, d ? [] : [h]);
@@ -3645,7 +3675,7 @@ export class Play {
     for (const p of this.town.places) {
       const c = { park: '#6cc04a', lot: '#c8a27a', dump: '#a98467', yard: '#e9c46a' }[p.kind];
       if (c) R(p.x + 0.06, p.y + 0.06, p.x + (p.w || 1) - 0.06, p.y + (p.h || 1) - 0.06, c);
-      if (p.kind === 'park') I.disc(g, view, p.x + 1.25, p.y + 1.2, 0.42, 0.3, '#4cc9f0');
+      if (p.kind === 'park') I.disc(g, view, p.x + PARK_POND.x, p.y + PARK_POND.y, PARK_POND.r, 0.3, '#4cc9f0');
     }
     const roads = [];
     for (let x = 0; x < SIZE; x++) for (let y = 0; y < SIZE; y++) if (isRoad(x, y) && this.seen(view, x + 0.5, y + 0.5)) roads.push([x, y]);
@@ -3711,13 +3741,17 @@ export class Play {
   things(view) {
     const { g, t } = this;
     const list = [];
-    const add = (x, y, draw, tall = 0, close = 0.2) => {
+    const add = (x, y, draw, tall = 0, close = 0.2, fade = 1) => {
       if (!this.seen(view, x, y)) return;
       // (Not anyone right on top of you, filling the view.)
       if (view instanceof I.Eye && Math.hypot(x - view.x, y - view.y) < close) return;
-      list.push({ x, y, d: view.depth(x, y), tall, draw });
+      list.push({ x, y, d: view.depth(x, y), tall, draw, fade });
     };
-    const model = (m, tall, close) => add(m.x, m.y, (a) => I.paint(g, view, m.parts, a), tall, close);
+    const model = (m, tall, close, fade) => add(m.x, m.y, (a) => I.paint(g, view, m.parts, a), tall, close, fade);
+    // (Playing fetch, walking the dog yourself: the park's trees near you
+    // see-through, so as not to hide the ball and the dog.)
+    const see = view instanceof I.Eye ? this.fp?.see || 0 : 0;
+    const thin = (x, y) => 1 - 0.75 * see * clamp((1.6 - Math.hypot(x - view.x, y - view.y)) / 0.5, 0, 1);
     const sign = (x, y, z, icon) => {
       const at = view.at(x, y, z);
       if (!at) return;
@@ -3820,7 +3854,7 @@ export class Play {
           sign(cx, cy, 0.6, SIGNS[p.kind]);
         });
       } else if (p.kind === 'park') {
-        for (const [tx, ty, size] of [[0.45, 0.5, 1.1], [1.5, 0.45, 0.95], [0.5, 1.5, 0.9]]) model(I.tree(p.x + tx, p.y + ty, size), 0.75);
+        for (const [tx, ty, size] of PARK_TREES) model(I.tree(p.x + tx, p.y + ty, size), 0.75, 0.2, see ? thin(p.x + tx, p.y + ty) : 1);
         model(I.bench(p.x + 0.95, p.y + 0.9));
       }
       // A bin out by the door, waiting for the truck: trash (green) or
