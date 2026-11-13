@@ -1016,6 +1016,16 @@ export class Play {
     const r = this.canvas.getBoundingClientRect();
     const sx = e.clientX - r.left;
     const sy = e.clientY - r.top;
+    // (A finger lifted anywhere -- in the driver's seat too -- is off the
+    // town. And a first finger down means no other's still down: any we
+    // didn't hear lift -- say, one that tapped a helper and put you in its
+    // driver's seat before it lifted -- forgotten. Otherwise the next tap
+    // looks like the second finger of a pinch, and does nothing.)
+    if (type === 'up') this.touches.delete(e.pointerId);
+    if (type === 'down' && e.isPrimary !== false) {
+      this.touches.clear();
+      this.pinch = null;
+    }
     if (this.fp) {
       this.seat(e, type, sx, sy);
       return;
@@ -1024,7 +1034,6 @@ export class Play {
     // together to move it about).
     if (type === 'down' && sy < this.viewH) this.touches.set(e.pointerId, { sx, sy });
     else if (type === 'move' && this.touches.has(e.pointerId)) this.touches.set(e.pointerId, { sx, sy });
-    else if (type === 'up') this.touches.delete(e.pointerId);
     if (this.touches.size >= 2) {
       const [a, b] = [...this.touches.values()];
       const d = Math.max(10, Math.hypot(a.sx - b.sx, a.sy - b.sy));
@@ -1061,6 +1070,12 @@ export class Play {
         // goes to the helper, and its button bounces (press it to go).
         const box = (this.trayBoxes || []).find((q) => sx >= q.x - 3 && sx <= q.x + q.box + 3 && sy >= q.y - 3 && sy <= q.y + q.box + 3);
         if (box) this.pick(box.j);
+        return;
+      }
+      // The ball, at the park: fetch!
+      const fb = this.fetchButton();
+      if (fb && Math.hypot(fb.x - sx, fb.y - sy) < fb.r + 10) {
+        this.throwBall(fb.h);
         return;
       }
       // A helper's button, over it: off it goes on its next job.
@@ -1171,7 +1186,8 @@ export class Play {
       return;
     }
     const b = this.seatButtons().find((q) => this.onPad(q, sx, sy));
-    if (b?.act === 'lamp') {
+    if (b?.act === 'ball') this.throwBall(f.h);
+    else if (b?.act === 'lamp') {
       // (The headlights: on, or off.)
       this.headlights = !this.headlights;
       this.hooks.sfx?.('tap');
@@ -1300,6 +1316,8 @@ export class Play {
   // windshield.
   seatButtons() {
     const list = this.padList();
+    // (Walking the dog, at the park: the ball, big, in the middle.)
+    if (this.fp?.h.kind === 'walker') return this.canFetch(this.fp.h) ? [{ act: 'ball', x: this.W / 2, y: this.seatH * 0.6, r: 48 }, ...list] : list;
     return this.usePedals() || this.fp?.h.kind === 'walker' ? list : [this.lampButton(), this.hornButton(), ...list];
   }
 
@@ -1660,7 +1678,7 @@ export class Play {
 
   // Is a helper waiting to be started on its next job (its button showing)?
   ready(h) {
-    return !this.won && !this.fp && !h.path.length && h.pause <= 0 && !h.deliver && !!this.targetPlace(h);
+    return !this.won && !this.fp && !h.path.length && h.pause <= 0 && !h.deliver && !h.fetch && !!this.targetPlace(h);
   }
 
   // Has a helper started on its job (so where it's going shows)?
@@ -1672,7 +1690,7 @@ export class Play {
   // driver.
   start(h) {
     h.hop = 1;
-    if ((h.kind === 'fire' || h.kind === 'police') && !this.drive) this.hooks.sfx?.('siren');
+    if ((h.kind === 'fire' || h.kind === 'police') && !this.drive) this.hooks.sfx?.('siren', h.kind);
     if (this.hint?.h === h) this.hint = null;
     this.idle = 0;
     this.prompt = 6;
@@ -1707,6 +1725,67 @@ export class Play {
     }).filter(Boolean);
   }
 
+  // ------------------------------------------------------------- fetch
+
+  // At the park with the dog, the walk done (waiting to go home): throw the
+  // ball? (As often as you like -- then home.)
+  canFetch(h) {
+    return h.kind === 'walker' && !!h.atPark && !h.path.length && h.pause <= 0 && !h.deliver && !h.fetch && !this.won && !this.night;
+  }
+
+  // The ball button, from above: beside the dog walker in the park.
+  fetchButton() {
+    if (this.fp) return null;
+    const h = this.helpers.find((m) => this.canFetch(m));
+    const at = h && this.view.at(h.x, h.y, 0.2);
+    if (!at) return null;
+    const r = clamp(this.view.k * 0.3, 22, 32);
+    return { h, x: clamp(at[0] + r * 2.3, r + 8, this.W - r - 8), y: clamp(at[1] + r * 0.4, r + 8, this.viewH - r - 18), r };
+  }
+
+  // Where the dog is beside its walker (at the walker's right, as drawn),
+  // and the model origin that puts a dog's middle at (x, y), heading a.
+  static dogSpot(x, y, a) {
+    return { x: x + Math.cos(a) * 0.24 - Math.sin(a) * 0.14, y: y + Math.sin(a) * 0.24 + Math.cos(a) * 0.14 };
+  }
+
+  static dogOrigin(x, y, a) {
+    return { x: x - (Math.cos(a) * 0.24 - Math.sin(a) * 0.14), y: y - (Math.sin(a) * 0.24 + Math.cos(a) * 0.14) };
+  }
+
+  // Throw! The ball flies off across the park; the dog runs after it,
+  // picks it up, and brings it back.
+  throwBall(h) {
+    const park = this.place('park');
+    const to = { x: park.x + 0.3 + Math.random() * ((park.w || 1) - 0.6), y: park.y + 0.3 + Math.random() * ((park.h || 1) - 0.6) };
+    const from = Play.dogSpot(h.x, h.y, h.head ?? 0);
+    const run = Math.hypot(to.x - from.x, to.y - from.y) / 2.4;
+    const fly = 0.9;
+    const out = Math.max(fly + 0.15, run);
+    h.fetch = { t: 0, from, to, fly, out, grab: 0.35, back: Math.max(0.5, run) };
+    h.fetch.total = out + h.fetch.grab + h.fetch.back;
+    h.pause = h.fetch.total;
+    this.hooks.sfx?.('pop');
+    this.hooks.haptic?.(15);
+    this.hooks.say?.('Fetch!');
+  }
+
+  // Where the ball and the dog are, playing fetch.
+  fetchAt(f) {
+    const lerp = (a, b, u) => ({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u });
+    const face = (a, b) => Math.atan2(b.y - a.y, b.x - a.x);
+    const t = f.t;
+    let dog;
+    if (t < f.out) dog = { ...lerp(f.from, f.to, Math.min(1, t / f.out)), head: face(f.from, f.to), walking: true };
+    else if (t < f.out + f.grab) dog = { ...f.to, head: face(f.from, f.to), walking: false };
+    else dog = { ...lerp(f.to, f.from, Math.min(1, (t - f.out - f.grab) / f.back)), head: face(f.to, f.from), walking: true };
+    let ball;
+    if (t < f.fly) ball = { ...lerp(f.from, f.to, t / f.fly), z: 0.25 + Math.sin(Math.PI * (t / f.fly)) * 0.7 - 0.22 * (t / f.fly) };
+    else if (t < f.out + f.grab * 0.5) ball = { ...f.to, z: 0 };
+    else ball = { x: dog.x + Math.cos(dog.head) * 0.12, y: dog.y + Math.sin(dog.head) * 0.12, z: 0.1 };
+    return { dog, ball };
+  }
+
   // Is the mixer's next load for a roof (wood and tiles, not concrete)?
   forRoof(h) {
     const j = this.nextOf(h);
@@ -1730,12 +1809,15 @@ export class Play {
 
   // Into the driver's seat of a helper (or the dog walker's shoes).
   enter(h) {
+    this.touches.clear();
+    this.pinch = null;
     h.path = [];
     h.budging = false;
     h.atPark = false;
     this.fp = { h, go: false, v: 0, intent: null, hint: null, head: h.head, look: 0, lookT: 0, drag: null, away: 0, out: null, wheel: 0, done: 0, wait: null, held: null, waited: 0, last: h.kind === 'walker' ? h.node : h.tile };
     this.focus = h;
-    this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : h.kind === 'fire' || h.kind === 'police' ? 'siren' : 'honk');
+    if (h.kind === 'fire' || h.kind === 'police') this.hooks.sfx?.('siren', h.kind);
+    else this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : 'honk', h.kind);
     this.hooks.say?.('Let’s go!');
     // Already there (the mixer parked at the yard, say): the job's done
     // here and now -- not off round the block and back to do it.
@@ -1768,6 +1850,8 @@ export class Play {
   // Back out to the town (the helper stops at the next street tile).
   leave() {
     const h = this.fp.h;
+    this.touches.clear();
+    this.pinch = null;
     this.lastFp = h;
     this.fp = null;
     if (h.kind === 'walker') h.path = h.path.slice(0, 1);
@@ -2144,8 +2228,9 @@ export class Play {
         || (h.kind === 'police' && !!this.robber && !this.robber.caught && (this.started(h) || !!h.deliver));
       if (h.urgent && !h.spray) {
         if (this.t >= this.sirenAt) {
-          this.hooks.sfx?.('wail');
-          this.sirenAt = this.t + 0.84;
+          this.hooks.sfx?.('wail', h.kind);
+          // (Round after round, on the beat: no gap between them.)
+          this.sirenAt = this.sirenAt + 0.84 > this.t ? this.sirenAt + 0.84 : this.t + 0.84;
         }
       } else if (!this.helpers.some((o) => o.urgent && !o.spray)) this.sirenAt = this.t + 2.6; // (after the siren it starts with)
     }
@@ -2184,9 +2269,15 @@ export class Play {
         this.tellNext(h);
       }
       // (A ball thrown for the dog, now and then, while it plays.)
-      if (h.atPark && !h.path.length && h.pause <= 0 && this.t - (h.ball || 0) > 3) {
-        h.ball = this.t;
-        this.pop('🎾', { x: h.x - 0.5, y: h.y - 0.7 }, 0.5);
+      // (Fetch: the dog back with the ball -- good dog!)
+      if (h.fetch) {
+        h.fetch.t += dt;
+        if (h.fetch.t >= h.fetch.total) {
+          h.fetch = null;
+          this.pop('❤️', { x: h.x - 0.5, y: h.y - 0.6 }, 0.6);
+          this.hooks.sfx?.('ding');
+          this.hooks.say?.('Good dog!');
+        }
       }
       h.hop = Math.max(0, h.hop - dt * 2.5);
       if (h.deliver) {
@@ -2409,6 +2500,7 @@ export class Play {
     this.overlays(view, this.helpers.filter((h) => h.path.length > 0 && !h.budging));
     this.drawZoom();
     this.drawGo();
+    this.drawFetch(this.fetchButton());
     g.restore();
     this.drawTray(false);
   }
@@ -2461,6 +2553,9 @@ export class Play {
     // crossing, a car.
     if (f.wait) this.waitSign(f.wait);
     this.drawEmergencies();
+    // (Walking the dog, at the park: the ball.)
+    const ball = this.fp?.h.kind === 'walker' && this.seatButtons().find((q) => q.act === 'ball');
+    if (ball) this.drawFetch(ball);
     // (The simple buttons: the headlights and the horn up on the windshield.)
     if (this.fp && this.fp.h.kind !== 'walker' && !this.pedal) {
       this.drawLamp(this.lampButton());
@@ -2575,6 +2670,28 @@ export class Play {
     g.arc(0, 0, r * 0.28, 0, Math.PI * 2);
     g.fill();
     g.restore();
+  }
+
+  // The ball button: white, a tennis ball on it, bouncing gently.
+  drawFetch(q) {
+    if (!q) return;
+    const { g } = this;
+    const y = q.y - Math.abs(Math.sin(this.t * 4)) * 4;
+    g.fillStyle = 'rgba(255,200,0,0.35)';
+    g.beginPath();
+    g.arc(q.x, y, q.r + 7, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#ffffff';
+    g.strokeStyle = COLORS.walker;
+    g.lineWidth = 4;
+    g.beginPath();
+    g.arc(q.x, y, q.r, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.font = `${Math.round(q.r * 1.15)}px system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    emoji(g, '🎾', q.x, y + 2);
   }
 
   // The buttons over the helpers waiting to start: a round button in the
@@ -3071,7 +3188,15 @@ export class Play {
       const lift = Math.sin(m.hop * Math.PI) * 0.35 + (idle && !this.fp ? Math.max(0, Math.sin(t * 4)) * 0.15 : 0);
       const going = m.path.length > 0 && !m.wait;
       const me = this.fp?.h === m;
-      if (m.kind === 'person' || m.kind === 'walker') {
+      if (m.kind === 'walker' && m.fetch) {
+        // Fetch: the walker (if it's not you) standing, the dog running for
+        // the ball and back, and the ball.
+        const q = this.fetchAt(m.fetch);
+        if (!me) model(I.person(m.x, m.y, m.head, t, COLORS.walker, { z: lift }), 0, 0.45);
+        const o = Play.dogOrigin(q.dog.x, q.dog.y, q.dog.head);
+        model(I.dog(o.x, o.y, q.dog.head, t, q.dog.walking), 0, 0);
+        model(I.ball(q.ball.x, q.ball.y, q.ball.z), 0, 0);
+      } else if (m.kind === 'person' || m.kind === 'walker') {
         const dog = m.kind === 'walker';
         if (me || (dog && m.deliver)) model(I.dog(m.x, m.y, m.head, t, going), 0, 0);
         else model(I.person(m.x, m.y, m.head, t, dog ? COLORS.walker : m.color, { walking: going || m.playing > 0, dog, z: lift }), 0, 0.45);

@@ -785,6 +785,70 @@ test('benji’s town: the school bus picks up the children and takes them to sch
   }
 });
 
+test('benji’s town: fetch at the park -- throw the ball, the dog runs for it and brings it back, as often as you like', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => {
+      localStorage.setItem('pocket-arcade:benji:day', '1');
+      localStorage.setItem('pocket-arcade:benji:drive', 'false');
+    });
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const at = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      window.__said = [];
+      p.hooks.say = (w) => w && window.__said.push(w);
+      p.hooks.sfx = () => {};
+      p.fireAt = null;
+      // (On to the evening, and the dog walked to the park.)
+      for (let i = 0; i < 30 * 300 && p.part?.part !== 'evening'; i++) {
+        p.update(1 / 30);
+        p.fireAt = null;
+        for (const h of p.helpers) if (p.ready(h) && h.kind !== 'walker') p.start(h);
+      }
+      const w = p.helpers.find((h) => h.kind === 'walker');
+      for (let i = 0; i < 30 * 90 && !p.canFetch(w); i++) {
+        p.update(1 / 30);
+        if (p.ready(w) && !w.atPark) p.start(w);
+      }
+      p.draw();
+      const q = p.fetchButton();
+      const r = p.canvas.getBoundingClientRect();
+      return q && [r.left + q.x, r.top + q.y];
+    });
+    assert.ok(at, 'the ball button, at the park');
+    for (let k = 0; k < 2; k++) {
+      await page.mouse.click(...at);
+      const r = await page.evaluate(() => {
+        const p = window.__benji;
+        const w = p.helpers.find((h) => h.kind === 'walker');
+        const out = { fetching: !!w.fetch, ready: p.ready(w), button: !!p.fetchButton(), far: 0 };
+        for (let i = 0; i < 30 * 10 && w.fetch; i++) {
+          const q = p.fetchAt(w.fetch);
+          out.far = Math.max(out.far, Math.hypot(q.dog.x - w.x, q.dog.y - w.y));
+          p.update(1 / 30);
+        }
+        for (let i = 0; i < 3; i++) p.update(1 / 30);
+        return { ...out, back: !w.fetch, again: p.canFetch(w), home: p.ready(w) };
+      });
+      assert.deepEqual({ ...r, far: r.far > 0.5 }, { fetching: true, ready: false, button: false, far: true, back: true, again: true, home: true });
+    }
+    const said = await page.evaluate(() => window.__said);
+    assert.equal(said.filter((w) => w === 'Fetch!').length, 2);
+    assert.equal(said.filter((w) => w === 'Good dog!').length, 2);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); held up behind a car, ▲ honks; the horn button always', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
@@ -989,6 +1053,36 @@ test('benji’s town, from above: zoom in and out (the buttons, a pinch, a mouse
     const after = await page.evaluate(() => ({ cam: { ...window.__benji.cam }, manual: window.__benji.manual }));
     assert.ok(Math.hypot(after.cam.x - cam.x, after.cam.y - cam.y) > 0.5, 'moved');
     assert.ok(after.manual > 5, 'and stays put for a look round');
+    // On a touchscreen (every finger a new pointer): a tap on a helper's
+    // button that puts you in its driver's seat -- the finger lifting in the
+    // seat, not on the town -- then back out: the helpers' buttons still
+    // work (that finger isn't still "down", making every tap after it the
+    // second finger of a pinch).
+    const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    phone.on('pageerror', (e) => errors.push(e.message));
+    await phone.goto(`http://localhost:${server.address().port}/#/benji`);
+    await phone.waitForFunction(() => window.__benji);
+    await phone.evaluate(() => {
+      window.__benji.drive = true;
+    });
+    const go = () => phone.evaluate(() => {
+      const p = window.__benji;
+      const r = p.canvas.getBoundingClientRect();
+      const b = p.goButtons()[0];
+      return b && { id: b.h.id, x: r.left + b.x, y: r.top + b.y };
+    });
+    await phone.waitForFunction(() => window.__benji.goButtons().length > 0, null, { timeout: 15000 });
+    const first = await go();
+    await phone.touchscreen.tap(first.x, first.y);
+    assert.equal(await phone.evaluate(() => window.__benji.fp?.h.id), first.id, 'in its driver\'s seat');
+    await phone.evaluate(() => window.__benji.setDrive(false));
+    await phone.waitForFunction(() => window.__benji.goButtons().length > 0, null, { timeout: 15000 });
+    const next = await go();
+    await phone.touchscreen.tap(next.x, next.y);
+    assert.ok(await phone.evaluate((id) => {
+      const h = window.__benji.helpers.find((m) => m.id === id);
+      return h.path.length > 0 || h.pause > 0 || !!h.deliver;
+    }, next.id), 'the next tap starts a helper');
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

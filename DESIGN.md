@@ -137,8 +137,11 @@ pictures and a sound for every touch.
   out, step by step and slowly enough to follow: round to the back of the
   van, the back doors swing open and out comes the letter or parcel, up to
   the house with it ("Here's your letter!", "A package for you!"), and
-  back to hop in again (about seven seconds); the **dog walker** takes the dog to the park to play, and
-  home again; the **cement mixer** builds a house on an empty lot in three
+  back to hop in again (about seven seconds); the **dog walker** takes the dog to the park to play -- and
+  there a big 🎾 button by the dog throws the ball ("Fetch!"): it flies
+  across the park, the dog runs after it, picks it up and brings it back
+  ("Good dog!"), as often as you like (walking the dog yourself, the
+  button's in the middle of the view) -- and home again; the **cement mixer** builds a house on an empty lot in three
   trips (slab, walls, roof), going back to the yard to load up in between
   -- concrete for the slab and the walls; for the roof, wood and tiles,
   so the drum comes off and it's a flatbed stacked with timbers and roof
@@ -167,7 +170,10 @@ pictures and a sound for every touch.
   Off it goes with its siren -- driven by you, or by itself -- lights
   flashing red and blue (a glow round each end of the light bar; from the
   driver's seat, in the top corners of the windshield), and the siren
-  going round, quieter, all the way there. It doesn't stop for red
+  going round, quieter, all the way there -- a real siren's sound: one
+  buzzy tone that never stops, sliding up and down (the fire engine's a
+  slow, deep wail; the police car's a quicker, higher wee-woo, wee-woo),
+  each round of it running straight on into the next. It doesn't stop for red
   lights, and drives down the middle of the street; every car within
   earshot (three tiles) pulls over to the curb and stops
   till it's gone by -- even a helper stopped on a job -- then eases back

@@ -678,6 +678,13 @@ function addDog(m, t, walking) {
   m.box(0.06, 0.13, 0.12 + b, 0.13, 0.15, 0.14 + b, '#a0522d');
 }
 
+// A tennis ball (for fetch), at height z.
+export function ball(x, y, z = 0) {
+  const m = new Model(x, y, 0, z);
+  m.ball(0, 0, 0.04, 0.04, '#d4e157');
+  return m;
+}
+
 // Just the dog (seen by its walker).
 export function dog(x, y, h, t, walking) {
   const m = new Model(x, y, h);

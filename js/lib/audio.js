@@ -202,6 +202,58 @@ function horn({ pitch, dur, vol }, at = 0) {
   }
 }
 
+// A siren, as a real one sounds: one tone, never stopping, sliding up and
+// down -- wee-ooo -- buzzy (a sawtooth and a square, a little distorted,
+// the top taken off). The fire engine's wails, slow and deep, up and down
+// once a cycle; the police car's goes wee-woo, wee-woo, twice as quick and
+// higher. n cycles of 0.84 s; vol: how loud (1 the full siren).
+const SIRENS = { fire: { lo: 620, hi: 1250, per: 1 }, police: { lo: 760, hi: 1480, per: 2 } };
+function siren(kind, n = 1, vol = 1) {
+  const spec = SIRENS[kind] || SIRENS.fire;
+  const t = ac.currentTime;
+  const dur = n * 0.84;
+  const shape = ac.createWaveShaper();
+  const curve = new Float32Array(512);
+  for (let i = 0; i < curve.length; i++) curve[i] = Math.tanh(1.8 * ((i / (curve.length - 1)) * 2 - 1));
+  shape.curve = curve;
+  const top = ac.createBiquadFilter();
+  top.type = 'lowpass';
+  top.frequency.value = 3200;
+  // (And no low rumble: the two buzzes beating together, distorted.)
+  const low = ac.createBiquadFilter();
+  low.type = 'highpass';
+  low.frequency.value = 380;
+  const g = ac.createGain();
+  const peak = 0.09 * vol;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(peak, t + 0.03);
+  g.gain.setValueAtTime(peak, t + dur - 0.03);
+  g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.01);
+  shape.connect(low);
+  low.connect(top);
+  top.connect(g);
+  g.connect(master);
+  for (const [type, level, ratio] of [['sawtooth', 0.5, 1], ['square', 0.25, 1]]) {
+    const o = ac.createOscillator();
+    const lv = ac.createGain();
+    o.type = type;
+    lv.gain.value = level;
+    // (Up, then down, each half of a cycle: a smooth swell, not a jump.)
+    const half = 0.84 / spec.per / 2;
+    o.frequency.setValueAtTime(spec.lo * ratio, t);
+    for (let k = 0; k < n * spec.per; k++) {
+      const at = t + k * half * 2;
+      o.frequency.setValueAtTime(spec.lo * ratio, at);
+      o.frequency.exponentialRampToValueAtTime(spec.hi * ratio, at + half);
+      o.frequency.exponentialRampToValueAtTime(spec.lo * ratio, at + half * 2);
+    }
+    o.connect(lv);
+    lv.connect(shape);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+}
+
 const SFX = {
   tap: () => tone('sine', 660, 880, 0.08, 0.15),
   // (Pitched high enough for phone speakers, which can't play deep bass.)
@@ -359,21 +411,12 @@ const SFX = {
   // cleared.
   tile: () => thump(0.18, 0.06, 900),
   // A fire engine's siren: two tones, high and low, round a few times.
-  siren: (n = 3) => {
-    for (let k = 0; k < n * 2; k++) {
-      const f = k % 2 ? 740 : 960;
-      tone('square', f, f, 0.4, 0.045, k * 0.42, 2600);
-      tone('sine', f, f, 0.4, 0.06, k * 0.42);
-    }
-  },
-  // The siren as it goes along: once round, high and low, and quieter.
-  wail: () => {
-    for (let k = 0; k < 2; k++) {
-      const f = k % 2 ? 740 : 960;
-      tone('square', f, f, 0.4, 0.02, k * 0.42, 2600);
-      tone('sine', f, f, 0.4, 0.03, k * 0.42);
-    }
-  },
+  // A siren starting up: three times round, loud (kind 'police': its
+  // quicker wee-woo; anything else, the fire engine's long wail).
+  siren: (kind) => siren(kind, 3, 1),
+  // The siren as it goes along: once round (0.84 s, so one call after
+  // another runs on without a break), quieter.
+  wail: (kind) => siren(kind, 1, 0.55),
   // The hose: a rush of water, swelling and dying away.
   spray: (dur = 3) => {
     const t = ac.currentTime;

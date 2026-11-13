@@ -6,6 +6,17 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.109.0
+- Benji's Town: fixed taps on the helpers' buttons doing nothing (on a
+  phone, after a tap had put you in a driver's seat and you came back out
+  -- the town thought a finger was still down, and took every tap for
+  half a pinch).
+- Benji's Town: real sirens -- the fire engine's long wail and the police
+  car's wee-woo, rising and falling, instead of a beep-beep.
+- Benji's Town: play fetch at the park. When the dog's had its walk, tap
+  the ball: the dog runs after it and brings it back. Again and again,
+  then home.
+
 ## 1.108.0
 - Benji's Town: a bigger town -- four streets each way instead of three,
   with more houses -- and you can zoom in and out (the ＋ and － buttons,
