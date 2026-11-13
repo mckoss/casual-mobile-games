@@ -99,7 +99,7 @@ test('the days: bins in the morning, the dog in the evening; the town grows as h
   assert.equal(makeTown(3).places.find((p) => p.id === LOTS[0]).kind, 'home');
   assert.equal(makeTown(2).places.find((p) => p.id === LOTS[0]).kind, 'lot');
   // Every house built, there are still jobs at midday.
-  for (let n = 20; n < 30; n++) assert.ok(makeTown(n).phases.length === 3, `day ${n}`);
+  for (let n = 20; n < 30; n++) assert.deepEqual(makeTown(n).phases.map((p) => p.part), ['morning', 'midday', 'evening', 'night'], `day ${n}`);
   // A day is the same every time.
   assert.deepEqual(makeTown(7), makeTown(7));
   // Any order: the recycling before the trash, the dump whenever (the truck
@@ -444,6 +444,34 @@ test('the school bus and the money truck: children to pick up from their houses 
     const { door } = town.places.find((p) => p.id === id);
     assert.ok(door.x < 2 || door.y < 2 || door.x > SIZE - 3 || door.y > SIZE - 3, `${id} parks at the end of a street`);
   }
+});
+
+test('the grocery store: the food truck brings food from the farm at night; the taxi takes someone shopping and home, in that order', () => {
+  let nights = 0;
+  let trips = 0;
+  for (let n = 3; n <= 30; n++) {
+    const town = makeTown(n);
+    for (const { part, jobs } of town.phases) {
+      if (jobs.some((j) => j.kind === 'crate')) {
+        assert.deepEqual(jobs.filter((j) => j.helper === 'food').map((j) => `${j.kind}@${j.place}`), ['crate@farm', 'store@grocery']);
+        if (part === 'night') nights++;
+      }
+      const taxi = jobs.filter((j) => j.helper === 'taxi');
+      if (taxi.length) {
+        trips++;
+        assert.deepEqual(taxi.map((j) => j.kind), ['fare', 'shop', 'back']);
+        assert.equal(taxi[0].place, taxi[2].place, 'home to where they were picked up');
+        assert.equal(taxi[1].place, 'grocery');
+        const cab = town.helpers.find((h) => h.kind === 'taxi');
+        const t = { ...town, jobs };
+        assert.ok(canDo(t, cab, taxi[0], new Set()));
+        assert.ok(!canDo(t, cab, taxi[1], new Set()) && !canDo(t, cab, taxi[2], new Set([taxi[0].i])), 'one step after another');
+        assert.ok(canDo(t, cab, taxi[2], new Set([taxi[0].i, taxi[1].i])));
+      }
+    }
+  }
+  assert.ok(nights >= 20, `food deliveries at night (${nights})`);
+  assert.ok(trips >= 10, `taxi trips (${trips})`);
 });
 
 test('stuck behind a helper with nowhere to go (pulled over for the horn, or not): it counts as parked, so it is asked to move', () => {

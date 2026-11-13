@@ -159,7 +159,21 @@ pictures and a sound for every touch.
   ("Here's the money!") -- then to the bank (white stone, columns, a
   pointed roof), the bags out of the back and into the bank ("The money
   is safe in the bank!"). Both work like the garbage truck: pick-ups in
-  any order, the drop-off whenever there's something on board.
+  any order, the drop-off whenever there's something on board. The
+  **food truck** (a white refrigerated box painted with fruit and
+  vegetables) brings food from the **farm** (a little red barn and rows
+  of vegetables, 🥕 waiting) to the **grocery store** (a big low shop,
+  glass all along the front under a green awning) -- at night. And the
+  **taxi** (yellow, checked, a sign on the roof; it waits at the taxi
+  stand) takes someone waiting outside their house, waving 🙋, to the
+  grocery store ("Hop in!"), waits while they shop ("I got the
+  groceries!"), and takes them home with their bag ("Thank you!") -- in
+  that order.
+- The night has jobs too: after the evening, a night part ("It's night
+  time! Turn on your headlights!") with the food truck's run, in the
+  dark -- driving, the headlight switch glows till you turn them on, and
+  it's said once a drive -- then, its job done and well-done said,
+  everyone home to bed ("Goodnight!").
 - **Fire!** Once a day, a little while into one part of it (which part,
   which house and when come from the day's seed), a fire breaks out at a
   house: flames licking up from the roof and smoke rising, a crackle, and

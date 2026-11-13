@@ -496,13 +496,55 @@ export function bank(x, y, h) {
   return m;
 }
 
+// The grocery store (two tiles each way) at (x, y), its front toward h: a
+// big low shop, glass all along the front under a green awning, a stack
+// of trolleys by the door.
+export function grocery(x, y, h) {
+  const m = new Model(x, y, h);
+  m.box(-0.9, -0.9, 0, 0.9, 0.9, 0.03, '#a9a9a9');
+  const b = m.box(-0.75, -0.82, 0.03, 0.55, 0.82, 0.62, '#f1faee');
+  m.box(-0.78, -0.86, 0.62, 0.58, 0.86, 0.68, '#2d6a4f');
+  m.decal(b.e, onX(0.552, -0.76, 0.76, 0.06, 0.42), GLASS);
+  m.decal(b.e, onX(0.554, -0.14, 0.14, 0.03, 0.4), '#adb5bd');
+  m.decal(b.e, onX(0.552, -0.8, 0.8, 0.46, 0.58), '#52b788');
+  // (The awning, out over the windows.)
+  m.box(0.55, -0.8, 0.44, 0.72, 0.8, 0.47, '#40916c');
+  for (const [f, at] of [[b.s, 0.822], [b.n, -0.822]]) for (const x0 of [-0.6, -0.2, 0.15]) m.decal(f, onY(at, x0, x0 + 0.2, 0.24, 0.44), GLASS);
+  for (let k = 0; k < 3; k++) m.box(0.62, 0.48 + k * 0.06, 0.03, 0.74, 0.52 + k * 0.06, 0.13, '#adb5bd');
+  return m;
+}
+
+// The farm at (x, y), its front toward h: a little red barn with a white
+// trim, and rows of vegetables.
+export function farm(x, y, h) {
+  const m = new Model(x, y, h);
+  m.box(-0.45, -0.45, 0, 0.45, 0.45, 0.02, '#8d6e4f');
+  for (const y0 of [-0.38, -0.22, -0.06]) m.box(-0.4, y0, 0.02, 0.4, y0 + 0.08, 0.08, '#52b788');
+  const b = m.box(-0.3, 0.04, 0.02, 0.3, 0.42, 0.34, '#bc4749');
+  m.decal(b.e, onX(0.302, 0.12, 0.34, 0.02, 0.26), '#f1faee');
+  m.decal(b.e, onX(0.304, 0.15, 0.31, 0.05, 0.23), '#8d2b2b');
+  m.roof(-0.34, 0.0, 0.34, 0.46, 0.34, 0.5, '#6d2e2e', '#bc4749');
+  return m;
+}
+
+// The taxi stand at (x, y): a little kiosk with a checked band.
+export function taxiStand(x, y, h) {
+  const m = new Model(x, y, h);
+  m.box(-0.4, -0.4, 0, 0.4, 0.4, 0.02, '#ced4da');
+  const b = m.box(-0.18, -0.2, 0.02, 0.18, 0.2, 0.36, '#ffd60a');
+  for (let k = 0; k < 4; k++) m.decal(b.e, onX(0.182, -0.2 + k * 0.1, -0.15 + k * 0.1, 0.28, 0.32), '#1b1b1b');
+  m.decal(b.e, onX(0.182, -0.12, 0.12, 0.08, 0.24), GLASS);
+  m.box(-0.22, -0.24, 0.36, 0.22, 0.24, 0.4, '#1b1b1b');
+  return m;
+}
+
 // A vehicle at (x, y), heading h: the garbage truck, the mail van, the
 // cement mixer (its drum turning with t -- or, with cargo 'roof', a flatbed
 // of timbers and tiles), the fire engine, the police car, or a little car
 // (in color).
 export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = false, lights = false, cargo = null) {
   const m = new Model(x, y, h, z);
-  const L = kind === 'car' || kind === 'police' ? 0.29 : 0.38;
+  const L = kind === 'car' || kind === 'police' || kind === 'taxi' ? 0.29 : 0.38;
   for (const wx of [-L + 0.11, L - 0.11]) for (const wy of [-0.15, 0.13]) m.box(wx - 0.065, wy, 0, wx + 0.065, wy + 0.02, 0.13, '#222222');
   if (kind === 'car') {
     const b = m.box(-0.29, -0.13, 0.05, 0.29, 0.13, 0.17, color);
@@ -522,6 +564,31 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = f
     const red = Math.floor(t * 6) % 2 === 0;
     m.box(-0.04, -0.1, 0.29, 0.04, -0.005, 0.325, lights ? (red ? '#ff1f1f' : '#5c0a0a') : '#8a1c1c');
     m.box(-0.04, 0.005, 0.29, 0.04, 0.1, 0.325, lights ? (red ? '#0b1f4d' : '#3d8bff') : '#1d3557');
+    return m;
+  }
+  if (kind === 'taxi') {
+    // The taxi: yellow, a checked band down each side, a sign on the roof.
+    const b = m.box(-0.29, -0.13, 0.05, 0.29, 0.13, 0.17, '#ffd60a');
+    for (const [f, at] of [[b.s, 0.132], [b.n, -0.132]]) for (let k = 0; k < 6; k++) m.decal(f, onY(at, -0.27 + k * 0.09, -0.225 + k * 0.09, 0.1, 0.13), '#1b1b1b');
+    m.decal(b.e, onX(0.292, -0.1, -0.05, 0.1, 0.14), '#fff3b0');
+    m.decal(b.e, onX(0.292, 0.05, 0.1, 0.1, 0.14), '#fff3b0');
+    m.box(-0.14, -0.11, 0.17, 0.12, 0.11, 0.29, GLASS, '#ffd60a');
+    m.box(-0.05, -0.06, 0.29, 0.04, 0.06, 0.34, '#f8f9fa');
+    return m;
+  }
+  if (kind === 'food') {
+    // The food truck: a white refrigerated box with fruit and vegetables
+    // painted along it, and a green cab.
+    m.box(-0.38, -0.14, 0.05, 0.38, 0.14, 0.11, '#555555');
+    const cab = m.box(0.13, -0.14, 0.11, 0.38, 0.14, 0.4, '#52b788');
+    m.decal(cab.e, onX(0.382, -0.11, 0.11, 0.24, 0.36), GLASS);
+    m.decal(cab.s, onY(0.142, 0.2, 0.35, 0.24, 0.36), GLASS);
+    m.decal(cab.n, onY(-0.142, 0.2, 0.35, 0.24, 0.36), GLASS);
+    const body = m.box(-0.38, -0.15, 0.11, 0.12, 0.15, 0.46, '#f8f9fa');
+    for (const [f, at] of [[body.s, 0.152], [body.n, -0.152]]) {
+      for (const [x0, c] of [[-0.33, '#f77f00'], [-0.21, '#e63946'], [-0.09, '#52b788'], [0.01, '#ffd60a']]) m.decal(f, onY(at, x0, x0 + 0.08, 0.22, 0.32), c);
+      m.decal(f, onY(at, -0.36, 0.1, 0.15, 0.18), '#2d6a4f');
+    }
     return m;
   }
   if (kind === 'bus') {
@@ -660,6 +727,16 @@ export function person(x, y, h, t, color, opts = {}) {
     m.ball(0.078, 0, 0.3, 0.032, '#ffafcc');
   }
   if (opts.carry === 'apple') m.ball(0.08, 0, 0.27, 0.035, '#e63946');
+  // (Shopping: a paper bag with greens on top; for the store: a crate of
+  // vegetables.)
+  if (opts.carry === 'shop') {
+    m.box(0.05, -0.05, 0.18, 0.15, 0.05, 0.3, '#c9a77c');
+    m.ball(0.1, 0, 0.31, 0.035, '#52b788');
+  }
+  if (opts.carry === 'store') {
+    m.box(0.04, -0.08, 0.2, 0.2, 0.08, 0.28, '#b08968');
+    for (const [y, c] of [[-0.04, '#f77f00'], [0.0, '#e63946'], [0.04, '#52b788']]) m.ball(0.12, y, 0.3, 0.03, c);
+  }
   // (A bag of money, for the bank.)
   if (opts.carry === 'cash' || opts.carry === 'bank') {
     m.ball(0.085, 0, 0.25, 0.055, '#c9a227');

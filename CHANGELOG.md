@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.110.0
+- Benji's Town: a grocery store, a farm and a food truck -- bring fresh
+  food from the farm to the store.
+- Benji's Town: a taxi -- pick up someone waiting outside their house,
+  take them to the grocery store to shop, and take them home.
+- Benji's Town: things to do at night: the food truck's run in the dark
+  (turn on your headlights!), before everyone goes to bed.
+
 ## 1.109.0
 - Benji's Town: fixed taps on the helpers' buttons doing nothing (on a
   phone, after a tap had put you in a driver's seat and you came back out

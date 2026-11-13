@@ -8,7 +8,7 @@
 
 export const DAY = 240; // seconds a whole day would take, at an easy pace
 export const QUICK = 40; // ... and with nothing to do
-export const WINDOW = { morning: [0.06, 0.3], midday: [0.3, 0.54], evening: [0.54, 0.72] };
+export const WINDOW = { morning: [0.06, 0.3], midday: [0.3, 0.54], evening: [0.54, 0.72], night: [0.78, 0.95] };
 export const NIGHT = 0.76; // night falls: everyone home to bed
 
 // The clock dt seconds on: busy with a part's jobs (part, not done yet), or

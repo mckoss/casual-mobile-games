@@ -38,6 +38,9 @@ const PLACES = [
   { id: 'police', kind: 'police', x: 15, y: 7, stub: true },
   { id: 'school', kind: 'school', x: 12, y: 15, w: 2, h: 2, stub: true },
   { id: 'bank', kind: 'bank', x: 15, y: 3, stub: true },
+  { id: 'grocery', kind: 'grocery', x: 7, y: 12, w: 2, h: 2 },
+  { id: 'farm', kind: 'farm', x: 15, y: 1, stub: true },
+  { id: 'taxi', kind: 'taxi', x: 3, y: 15, stub: true },
   { id: 'h1', kind: 'home', x: 1, y: 1, color: '#ff6b6b' },
   { id: 'h2', kind: 'home', x: 7, y: 1, color: '#ffd166' },
   { id: 'h3', kind: 'home', x: 11, y: 3, color: '#4cc9f0' },
@@ -171,19 +174,23 @@ export function nearestRoad(px, py) {
 //            order, and take to school
 //   money:   that many shops (the shop, the café, the post office) with
 //            money to collect, in any order, and take to the bank
+//   food:    the food truck: food from the farm, to the grocery store
+//   taxi:    someone at a house to take to the grocery store, and home
+//            again with their shopping
+// The night has jobs too (the food truck, with its headlights on).
 // And once a day, a little while into one part of it, a fire breaks out at
 // a house: the fire engine to the rescue (play.js lights it, and adds the
 // job). In another part of the day, a robber turns up at the shop, the
 // café or the bank: the police car to catch them and take them to jail. (Whether you
 // drive them yourself or watch them go is yours to choose.)
-export const PARTS = ['morning', 'midday', 'evening'];
+export const PARTS = ['morning', 'midday', 'evening', 'night'];
 const DAYS = [
   { morning: { garbage: 2 }, evening: { dog: 1 } },
   { morning: { mail: 3 }, midday: { build: 1 } },
-  { morning: { garbage: 2, bus: 2 }, midday: { mail: 2 }, evening: { dog: 1 } },
-  { morning: { garbage: 2 }, midday: { build: 1, money: 2 }, evening: { dog: 1 } },
-  { morning: { garbage: 3, mail: 2 }, midday: { mail: 2 }, evening: { dog: 1 } },
-  { morning: { mail: 3 }, midday: { build: 1 }, evening: { dog: 1 } },
+  { morning: { garbage: 2, bus: 2 }, midday: { mail: 2 }, evening: { dog: 1 }, night: { food: 1 } },
+  { morning: { garbage: 2 }, midday: { build: 1, money: 2 }, evening: { dog: 1, taxi: 1 } },
+  { morning: { garbage: 3, mail: 2 }, midday: { mail: 2 }, evening: { dog: 1 }, night: { food: 1 } },
+  { morning: { mail: 3 }, midday: { build: 1 }, evening: { dog: 1, taxi: 1 }, night: { food: 1 } },
 ];
 export function dayPlan(day) {
   if (day <= DAYS.length) return DAYS[day - 1];
@@ -192,7 +199,8 @@ export function dayPlan(day) {
   return {
     morning: { garbage: 2 + (k % 2), bus: 2 + ((k >> 1) % 2) },
     midday: k % 3 === 0 ? { build: 1, money: 2 } : { mail: 2 + ((k >> 1) % 2), money: 2 + (k % 2) },
-    evening: { dog: 1 },
+    evening: k % 2 ? { dog: 1, taxi: 1 } : { dog: 1 },
+    night: { food: 1 },
   };
 }
 
@@ -263,6 +271,16 @@ export function makeTown(n) {
       pick(['shop', 'cafe', 'post'], p.money).forEach((id) => jobs.push({ helper: 'money', kind: 'cash', place: id }));
       jobs.push({ helper: 'money', kind: 'bank', place: 'bank' });
     }
+    if (p.food) {
+      helper({ id: 'food', kind: 'food', at: by('farm').door, home: 'farm' });
+      jobs.push({ helper: 'food', kind: 'crate', place: 'farm' }, { helper: 'food', kind: 'store', place: 'grocery' });
+    }
+    if (p.taxi) {
+      // (A ride to the store, the shopping, and home: in that order.)
+      helper({ id: 'taxi', kind: 'taxi', at: by('taxi').door, home: 'taxi' });
+      const fare = pick(homes, 1)[0];
+      jobs.push({ helper: 'taxi', kind: 'fare', place: fare.id, seq: 1 }, { helper: 'taxi', kind: 'shop', place: 'grocery', seq: 2 }, { helper: 'taxi', kind: 'back', place: fare.id, seq: 3 });
+    }
     if (p.dog) {
       helper({ id: 'dog0', kind: 'walker', at: walker.door, home: walker.id, color: walker.color });
       jobs.push({ helper: 'dog0', kind: 'walk', place: 'park' }, { helper: 'dog0', kind: 'home', place: walker.id, last: true });
@@ -296,7 +314,7 @@ export function makeTown(n) {
 
 // Picked up along the way, in any order (a bin, a child, money), and then
 // dropped off all together: kind -> where it goes.
-export const COLLECT = { bin: 'dump', recycle: 'dump', kid: 'school', cash: 'bank' };
+export const COLLECT = { bin: 'dump', recycle: 'dump', kid: 'school', cash: 'bank', crate: 'store' };
 export const DROP = new Set(Object.values(COLLECT));
 
 // Can a helper do this job now (wherever it is)? Its own, not done: any
@@ -309,6 +327,8 @@ export function canDo(town, helper, job, done) {
   if (job.last && mine.some((o) => !o.last)) return false;
   if (job.kind === 'build' && mine.some((o) => o.kind === 'build' && o.place === job.place && o.stage < job.stage)) return false;
   if (job.kind === 'home' && mine.some((o) => o.kind === 'walk')) return false;
+  // (One step after another: the taxi's fare, the shop, home.)
+  if (job.seq && mine.some((o) => o.seq && o.seq < job.seq)) return false;
   return true;
 }
 

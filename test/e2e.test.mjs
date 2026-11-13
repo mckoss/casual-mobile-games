@@ -849,6 +849,61 @@ test('benji’s town: fetch at the park -- throw the ball, the dog runs for it a
   }
 });
 
+test('benji’s town: the taxi takes someone to the grocery store and home with their shopping; at night, the food truck brings food from the farm', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => {
+      localStorage.setItem('pocket-arcade:benji:day', '7');
+      localStorage.setItem('pocket-arcade:benji:drive', 'false');
+    });
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const r = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      const said = [];
+      p.hooks.say = (w) => w && said.push(w);
+      p.hooks.sfx = () => {};
+      const run = (secs, until) => {
+        for (let i = 0; i < secs * 30 && !until(); i++) {
+          p.update(1 / 30);
+          for (const h of p.helpers) if (p.ready(h)) p.start(h);
+        }
+      };
+      const done = (id) => p.town.jobs.filter((j) => j.helper === id).every((j) => p.done.has(j.i));
+      run(400, () => p.part?.part === 'evening');
+      const order = [];
+      const taxi = p.helpers.find((h) => h.kind === 'taxi');
+      run(200, () => {
+        const j = p.town.jobs.filter((q) => q.helper === 'taxi' && p.done.has(q.i)).map((q) => q.kind);
+        if (j.length > order.length) order.push(j[j.length - 1]);
+        return done('taxi') && !taxi.deliver;
+      });
+      run(400, () => p.part?.part === 'night');
+      const night = { part: p.part?.part, dark: p.dark(), jobs: p.town.jobs.map((j) => j.kind).join() };
+      run(200, () => done('food') && !p.helpers.find((h) => h.kind === 'food').deliver);
+      run(5, () => false);
+      return { order, night, food: done('food'), said, asleep: p.night };
+    });
+    assert.deepEqual(r.order, ['fare', 'shop', 'back'], 'picked up, shopping, home');
+    assert.deepEqual(r.night, { part: 'night', dark: true, jobs: 'crate,store' });
+    assert.ok(r.food, 'the food at the store');
+    for (const w of ['Hop in!', 'I got the groceries!', 'Thank you!', 'You took them shopping! Great job!', 'It’s night time! Turn on your headlights!', 'Fresh food from the farm!', 'Fresh food for the store!', 'You brought food to the store! Great job!', 'Goodnight!']) {
+      assert.ok(r.said.includes(w), w);
+    }
+    assert.ok(r.said.indexOf('You brought food to the store! Great job!') < r.said.indexOf('Goodnight!'), 'well done, then goodnight');
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); held up behind a car, ▲ honks; the horn button always', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
@@ -1217,7 +1272,7 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
       const st = await page.evaluate(() => {
         const p = window.__benji;
         const h = p.fp?.h || p.helpers.find((m) => p.targetPlace(m));
-        return h && { fp: !!p.fp, go: p.fp?.go, hint: p.fp?.hint, walker: h.kind === 'walker', live: p.fp && ['left', 'go', 'right'].filter((a) => p.can(a)), busy: h.pause > 0 || !!h.deliver, stale: !!p.fp && !p.fp.go && p.fp.intent !== null, at: p.screenOf(h.x, h.y, 0.25) };
+        return h && { fp: !!p.fp, go: p.fp?.go, honk: !!p.fp && h.kind !== 'walker' && p.honkable(h), hint: p.fp?.hint, walker: h.kind === 'walker', live: p.fp && ['left', 'go', 'right'].filter((a) => p.can(a)), busy: h.pause > 0 || !!h.deliver, stale: !!p.fp && !p.fp.go && p.fp.intent !== null, at: p.screenOf(h.x, h.y, 0.25) };
       });
       if (!st) {
         await page.waitForTimeout(300);
@@ -1247,8 +1302,9 @@ test('benji’s town: tap the helpers and they do their jobs, morning to evening
         await page.mouse.click(b.x, b.y);
         faded = await page.evaluate(() => !window.__benji.fp || window.__benji.fp.intent === null);
       } else if (st.go && !st.walker) {
-        // (Driving along: nothing to press till you stop.)
-        assert.deepEqual(st.live, [], 'no buttons while driving along');
+        // (Driving along: nothing to press till you stop -- but ▲, the horn,
+        // held up behind a car.)
+        assert.deepEqual(st.live, st.honk ? ['go'] : [], 'no buttons while driving along');
       } else if (!st.go) {
         // (Stopped -- at a corner, one block at a time: the way to the job;
         // the way through it shows on the road at once, and it's said.)
