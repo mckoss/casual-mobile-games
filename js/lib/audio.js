@@ -207,7 +207,7 @@ function horn({ pitch, dur, vol }, at = 0) {
 // the top taken off). The fire engine's wails, slow and deep, up and down
 // once a cycle; the police car's goes wee-woo, wee-woo, twice as quick and
 // higher. n cycles of 0.84 s; vol: how loud (1 the full siren).
-const SIRENS = { fire: { lo: 620, hi: 1250, per: 1 }, police: { lo: 760, hi: 1480, per: 2 } };
+const SIRENS = { fire: { lo: 620, hi: 1250, per: 1 }, police: { lo: 760, hi: 1480, per: 2 }, ambulance: { lo: 680, hi: 1380, per: 3 } };
 function siren(kind, n = 1, vol = 1) {
   const spec = SIRENS[kind] || SIRENS.fire;
   const t = ac.currentTime;

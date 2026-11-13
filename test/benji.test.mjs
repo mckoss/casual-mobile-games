@@ -474,6 +474,29 @@ test('the grocery store: the food truck brings food from the farm at night; the 
   assert.ok(trips >= 10, `taxi trips (${trips})`);
 });
 
+test('the hospital: the ambulance takes someone sick from their house, the helicopter someone hurt at the park or the farm -- each then to the hospital', () => {
+  let amb = 0;
+  let heli = 0;
+  for (let n = 1; n <= 30; n++) {
+    for (const { jobs } of makeTown(n).phases) {
+      const a = jobs.filter((j) => j.helper === 'ambulance');
+      const h = jobs.filter((j) => j.helper === 'heli');
+      if (a.length) {
+        amb++;
+        assert.deepEqual(a.map((j) => j.kind), ['patient', 'ward']);
+        assert.equal(a[1].place, 'hospital');
+        assert.equal(makeTown(n).places.find((p) => p.id === a[0].place).kind, 'home');
+      }
+      if (h.length) {
+        heli++;
+        assert.deepEqual(h.map((j) => j.kind), ['lift', 'ward']);
+        assert.ok(['park', 'farm'].includes(h[0].place));
+      }
+    }
+  }
+  assert.ok(amb >= 10 && heli >= 8, `${amb} ambulance calls, ${heli} helicopter rescues`);
+});
+
 test('stuck behind a helper with nowhere to go (pulled over for the horn, or not): it counts as parked, so it is asked to move', () => {
   const tr = new Traffic(walkways());
   const me = { wait: 'car' };
@@ -695,7 +718,7 @@ test('robbers! a police station with its jail and police car, and once a day a r
     const car = town.helpers.find((h) => h.kind === 'police');
     assert.ok(car && car.home === station.id && station.doors.includes(car.at), 'its police car, parked outside');
     // (Every helper parked on a tile of its own: none in another's way.)
-    const spots = town.helpers.filter((h) => h.kind !== 'walker').map((h) => `${h.at.x},${h.at.y}`);
+    const spots = town.helpers.filter((h) => h.kind !== 'walker' && h.kind !== 'heli').map((h) => `${h.at.x},${h.at.y}`); // (the helicopter: up on the hospital roof)
     assert.equal(new Set(spots).size, spots.length, `day ${day}: two helpers parked on one tile (${spots})`);
     const robs = town.phases.filter((p) => p.rob);
     assert.equal(robs.length, 1, `day ${day}: one robbery`);

@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.111.0
+- Benji's Town: a hospital and an ambulance -- someone's feeling poorly
+  at home; race them to the hospital with the siren on.
+- Benji's Town: a medevac helicopter on the hospital roof -- it flies
+  over the town to pick up someone hurt at the park or the farm, and
+  flies them to the hospital.
+
 ## 1.110.0
 - Benji's Town: a grocery store, a farm and a food truck -- bring fresh
   food from the farm to the store.

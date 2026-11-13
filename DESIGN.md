@@ -169,6 +169,17 @@ pictures and a sound for every touch.
   grocery store ("Hop in!"), waits while they shop ("I got the
   groceries!"), and takes them home with their bag ("Thank you!") -- in
   that order.
+- The **hospital** (tall and white, a red cross over the door, a helipad
+  on the roof) and its **ambulance** (white, a red stripe and cross, a
+  light bar): someone poorly waits outside their house 🤒; the ambulance
+  goes for them like the fire engine -- lights, its own quick siren,
+  through red lights, everyone pulling over -- they're helped in ("Into
+  the ambulance!"), and taken in to the doctors ("The doctors will help
+  you feel better!"). And the **helicopter** (red and white, its rotor
+  spinning) waits on the hospital roof: someone hurt out at the park or
+  the farm 🤕, and it flies -- up off the roof, straight across town high
+  over the houses, down on the street beside them -- picks them up and
+  flies them back to the roof. (It flies itself; driving, you watch.)
 - The night has jobs too: after the evening, a night part ("It's night
   time! Turn on your headlights!") with the food truck's run, in the
   dark -- driving, the headlight switch glows till you turn them on, and

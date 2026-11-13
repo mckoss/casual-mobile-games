@@ -904,6 +904,68 @@ test('benji’s town: the taxi takes someone to the grocery store and home with 
   }
 });
 
+test('benji’s town: the helicopter flies over the town to someone hurt and flies them to the hospital roof; the ambulance takes someone sick to the hospital', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => {
+      localStorage.setItem('pocket-arcade:benji:day', '8');
+      localStorage.setItem('pocket-arcade:benji:drive', 'false');
+    });
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const r = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      const said = [];
+      const sounds = [];
+      p.hooks.say = (w) => w && said.push(w);
+      p.hooks.sfx = (n, k) => sounds.push(`${n}:${k}`);
+      const done = (id) => p.town.jobs.filter((j) => j.helper === id).every((j) => p.done.has(j.i));
+      const run = (secs, kind, until) => {
+        for (let i = 0; i < secs * 30 && !until(); i++) {
+          p.update(1 / 30);
+          for (const h of p.helpers) if ((kind === '*' ? h.kind !== 'ambulance' : h.kind === kind) && p.ready(h)) p.start(h);
+        }
+      };
+      run(30, null, () => p.part);
+      p.robAt = null;
+      p.fireAt = null;
+      const heli = p.helpers.find((h) => h.kind === 'heli');
+      const roof = heli.z;
+      let high = 0;
+      let streets = true;
+      run(120, 'heli', () => {
+        high = Math.max(high, heli.z);
+        return done('heli') && !heli.deliver;
+      });
+      const flew = { roof, high, back: heli.z, done: done('heli') };
+      run(300, '*', () => p.part?.part === 'midday');
+      p.robAt = null;
+      p.fireAt = null;
+      const amb = p.helpers.find((h) => h.kind === 'ambulance');
+      let urgent = false;
+      run(150, 'ambulance', () => {
+        urgent ||= amb.urgent;
+        return done('ambulance') && !amb.deliver;
+      });
+      run(3, null, () => false);
+      return { flew, drove: { urgent, done: done('ambulance'), sirens: sounds.filter((x) => x.endsWith(':ambulance')).length }, said };
+    });
+    assert.ok(r.flew.roof > 0.9 && r.flew.high > 1.5 && r.flew.back > 0.9 && r.flew.done, `up, high over the town, and back on the roof: ${JSON.stringify(r.flew)}`);
+    assert.ok(r.drove.urgent && r.drove.done && r.drove.sirens > 2, JSON.stringify(r.drove));
+    for (const w of ['Up into the helicopter!', 'You flew them to the hospital! Great job!', 'Into the ambulance!', 'The doctors will help you feel better!', 'You took them to the hospital! Great job!']) assert.ok(r.said.includes(w), w);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); held up behind a car, ▲ honks; the horn button always', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

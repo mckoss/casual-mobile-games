@@ -41,6 +41,7 @@ const PLACES = [
   { id: 'grocery', kind: 'grocery', x: 7, y: 12, w: 2, h: 2 },
   { id: 'farm', kind: 'farm', x: 15, y: 1, stub: true },
   { id: 'taxi', kind: 'taxi', x: 3, y: 15, stub: true },
+  { id: 'hospital', kind: 'hospital', x: 8, y: 15, w: 2, h: 2, stub: true },
   { id: 'h1', kind: 'home', x: 1, y: 1, color: '#ff6b6b' },
   { id: 'h2', kind: 'home', x: 7, y: 1, color: '#ffd166' },
   { id: 'h3', kind: 'home', x: 11, y: 3, color: '#4cc9f0' },
@@ -177,6 +178,9 @@ export function nearestRoad(px, py) {
 //   food:    the food truck: food from the farm, to the grocery store
 //   taxi:    someone at a house to take to the grocery store, and home
 //            again with their shopping
+//   ambulance: someone sick at a house, to take to the hospital (siren on)
+//   heli:    someone hurt out at the park or the farm: the helicopter
+//            flies there, over the town, and flies them to the hospital
 // The night has jobs too (the food truck, with its headlights on).
 // And once a day, a little while into one part of it, a fire breaks out at
 // a house: the fire engine to the rescue (play.js lights it, and adds the
@@ -189,17 +193,17 @@ const DAYS = [
   { morning: { mail: 3 }, midday: { build: 1 } },
   { morning: { garbage: 2, bus: 2 }, midday: { mail: 2 }, evening: { dog: 1 }, night: { food: 1 } },
   { morning: { garbage: 2 }, midday: { build: 1, money: 2 }, evening: { dog: 1, taxi: 1 } },
-  { morning: { garbage: 3, mail: 2 }, midday: { mail: 2 }, evening: { dog: 1 }, night: { food: 1 } },
-  { morning: { mail: 3 }, midday: { build: 1 }, evening: { dog: 1, taxi: 1 }, night: { food: 1 } },
+  { morning: { garbage: 3, mail: 2 }, midday: { mail: 2, ambulance: 1 }, evening: { dog: 1 }, night: { food: 1 } },
+  { morning: { mail: 3, heli: 1 }, midday: { build: 1 }, evening: { dog: 1, taxi: 1 }, night: { food: 1 } },
 ];
 export function dayPlan(day) {
   if (day <= DAYS.length) return DAYS[day - 1];
   // After those, a bit of everything.
   const k = day - DAYS.length;
   return {
-    morning: { garbage: 2 + (k % 2), bus: 2 + ((k >> 1) % 2) },
-    midday: k % 3 === 0 ? { build: 1, money: 2 } : { mail: 2 + ((k >> 1) % 2), money: 2 + (k % 2) },
-    evening: k % 2 ? { dog: 1, taxi: 1 } : { dog: 1 },
+    morning: { garbage: 2 + (k % 2), bus: 2 + ((k >> 1) % 2), ...(k % 3 === 2 ? { heli: 1 } : {}) },
+    midday: { ...(k % 3 === 0 ? { build: 1, money: 2 } : { mail: 2 + ((k >> 1) % 2), money: 2 + (k % 2) }), ...(k % 2 ? {} : { ambulance: 1 }) },
+    evening: k % 2 ? { dog: 1, taxi: 1 } : { dog: 1, ...(k % 3 === 1 ? { heli: 1 } : {}) },
     night: { food: 1 },
   };
 }
@@ -280,6 +284,16 @@ export function makeTown(n) {
       helper({ id: 'taxi', kind: 'taxi', at: by('taxi').door, home: 'taxi' });
       const fare = pick(homes, 1)[0];
       jobs.push({ helper: 'taxi', kind: 'fare', place: fare.id, seq: 1 }, { helper: 'taxi', kind: 'shop', place: 'grocery', seq: 2 }, { helper: 'taxi', kind: 'back', place: fare.id, seq: 3 });
+    }
+    if (p.ambulance) {
+      helper({ id: 'ambulance', kind: 'ambulance', at: by('hospital').door, home: 'hospital' });
+      const sick = pick(homes, 1)[0];
+      jobs.push({ helper: 'ambulance', kind: 'patient', place: sick.id, seq: 1 }, { helper: 'ambulance', kind: 'ward', place: 'hospital', seq: 2 });
+    }
+    if (p.heli) {
+      // (It waits on the hospital roof.)
+      helper({ id: 'heli', kind: 'heli', at: by('hospital').door, home: 'hospital' });
+      jobs.push({ helper: 'heli', kind: 'lift', place: r() < 0.5 ? 'park' : 'farm', seq: 1 }, { helper: 'heli', kind: 'ward', place: 'hospital', seq: 2 });
     }
     if (p.dog) {
       helper({ id: 'dog0', kind: 'walker', at: walker.door, home: walker.id, color: walker.color });

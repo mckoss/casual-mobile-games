@@ -514,6 +514,28 @@ export function grocery(x, y, h) {
   return m;
 }
 
+// The hospital (two tiles each way) at (x, y), its front toward h: tall and
+// white, a red cross over the door, rows of windows -- and a helipad on
+// the roof (the H in a circle) where the helicopter waits.
+export const ROOF = 1.02; // how high the hospital's roof is
+export function hospital(x, y, h) {
+  const m = new Model(x, y, h);
+  m.box(-0.9, -0.9, 0, 0.9, 0.9, 0.03, '#a9a9a9');
+  const b = m.box(-0.75, -0.8, 0.03, 0.7, 0.8, ROOF, '#f8f9fa');
+  m.box(-0.78, -0.83, ROOF, 0.73, 0.83, ROOF + 0.03, '#dee2e6');
+  m.decal(b.e, onX(0.702, -0.16, 0.16, 0.03, 0.34), GLASS);
+  m.decal(b.e, onX(0.704, -0.06, 0.06, 0.48, 0.74), '#e63946');
+  m.decal(b.e, onX(0.704, -0.16, 0.16, 0.56, 0.66), '#e63946');
+  for (const z0 of [0.42, 0.8]) for (const y0 of [-0.66, -0.4, 0.24, 0.5]) m.decal(b.e, onX(0.702, y0, y0 + 0.16, z0, z0 + 0.14), GLASS);
+  for (const [f, at] of [[b.s, 0.802], [b.n, -0.802]]) for (const z0 of [0.2, 0.5, 0.8]) for (const x0 of [-0.6, -0.25, 0.1, 0.42]) m.decal(f, onY(at, x0, x0 + 0.16, z0, z0 + 0.14), GLASS);
+  // (The helipad.)
+  const pad = m.box(-0.45, -0.45, ROOF + 0.03, 0.45, 0.45, ROOF + 0.04, '#495057');
+  m.decal(pad.top, [[-0.3, -0.04, ROOF + 0.041], [0.3, -0.04, ROOF + 0.041], [0.3, 0.04, ROOF + 0.041], [-0.3, 0.04, ROOF + 0.041]], '#ffd166');
+  m.decal(pad.top, [[-0.3, -0.25, ROOF + 0.041], [-0.22, -0.25, ROOF + 0.041], [-0.22, 0.25, ROOF + 0.041], [-0.3, 0.25, ROOF + 0.041]], '#ffd166');
+  m.decal(pad.top, [[0.22, -0.25, ROOF + 0.041], [0.3, -0.25, ROOF + 0.041], [0.3, 0.25, ROOF + 0.041], [0.22, 0.25, ROOF + 0.041]], '#ffd166');
+  return m;
+}
+
 // The farm at (x, y), its front toward h: a little red barn with a white
 // trim, and rows of vegetables.
 export function farm(x, y, h) {
@@ -564,6 +586,50 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = f
     const red = Math.floor(t * 6) % 2 === 0;
     m.box(-0.04, -0.1, 0.29, 0.04, -0.005, 0.325, lights ? (red ? '#ff1f1f' : '#5c0a0a') : '#8a1c1c');
     m.box(-0.04, 0.005, 0.29, 0.04, 0.1, 0.325, lights ? (red ? '#0b1f4d' : '#3d8bff') : '#1d3557');
+    return m;
+  }
+  if (kind === 'heli') {
+    // The helicopter: red and white, a bubble of a window at the front, a
+    // tail with its little rotor, skids -- and the big rotor on top,
+    // spinning (faster, flying: lights).
+    for (const sy of [-0.13, 0.11]) m.box(-0.2, sy, 0, 0.22, sy + 0.02, 0.03, '#343a40');
+    const b = m.box(-0.2, -0.12, 0.06, 0.18, 0.12, 0.3, '#e63946');
+    m.decal(b.s, onY(0.122, -0.16, 0.12, 0.15, 0.18), '#f8f9fa');
+    m.decal(b.n, onY(-0.122, -0.16, 0.12, 0.15, 0.18), '#f8f9fa');
+    m.box(0.18, -0.1, 0.08, 0.3, 0.1, 0.26, GLASS);
+    m.box(-0.56, -0.025, 0.2, -0.2, 0.025, 0.25, '#e63946');
+    m.box(-0.58, -0.01, 0.2, -0.54, 0.01, 0.36, '#f8f9fa');
+    m.box(-0.03, -0.03, 0.3, 0.03, 0.03, 0.35, '#343a40');
+    const a = t * (lights ? 26 : 4);
+    for (const k of [0, 1]) {
+      const c = Math.cos(a + (k * Math.PI) / 2);
+      const s2 = Math.sin(a + (k * Math.PI) / 2);
+      const L2 = 0.42;
+      const w = 0.025;
+      m.face([
+        [c * L2 - s2 * w, s2 * L2 + c * w, 0.352], [c * L2 + s2 * w, s2 * L2 - c * w, 0.352],
+        [-c * L2 + s2 * w, -s2 * L2 - c * w, 0.352], [-c * L2 - s2 * w, -s2 * L2 + c * w, 0.352],
+      ], [0, 0, 1], '#343a40');
+    }
+    return m;
+  }
+  if (kind === 'ambulance') {
+    // The ambulance: a white van, a red stripe and a red cross down each
+    // side, and a light bar -- flashing on its way (lights).
+    m.box(-0.38, -0.14, 0.05, 0.38, 0.14, 0.11, '#555555');
+    const cab = m.box(0.13, -0.14, 0.11, 0.38, 0.14, 0.4, '#f8f9fa');
+    m.decal(cab.e, onX(0.382, -0.11, 0.11, 0.24, 0.36), GLASS);
+    m.decal(cab.s, onY(0.142, 0.2, 0.35, 0.24, 0.36), GLASS);
+    m.decal(cab.n, onY(-0.142, 0.2, 0.35, 0.24, 0.36), GLASS);
+    const body = m.box(-0.38, -0.15, 0.11, 0.12, 0.15, 0.46, '#f8f9fa');
+    for (const [f, at] of [[body.s, 0.152], [body.n, -0.152]]) {
+      m.decal(f, onY(at, -0.36, 0.1, 0.16, 0.2), '#e63946');
+      m.decal(f, onY(at, -0.18, -0.1, 0.24, 0.42), '#e63946');
+      m.decal(f, onY(at, -0.24, -0.04, 0.3, 0.36), '#e63946');
+    }
+    const red = Math.floor(t * 6) % 2 === 0;
+    m.box(0.2, -0.12, 0.4, 0.29, -0.005, 0.45, lights ? (red ? '#ff1f1f' : '#5c0a0a') : '#8a1c1c');
+    m.box(0.2, 0.005, 0.4, 0.29, 0.12, 0.45, lights ? (red ? '#0b1f4d' : '#3d8bff') : '#1d3557');
     return m;
   }
   if (kind === 'taxi') {
