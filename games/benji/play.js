@@ -705,10 +705,9 @@ export class Play {
     this.later = this.later || [];
     this.later.push({ t: this.t + (h.kind === 'mail' || h.kind === 'money' || h.kind === 'food' ? 1.6 : 0.9) + out, line: { garbage: 'You picked up all the garbage! Great job!', mail: 'You delivered all the mail! Great job!', walker: 'You took the dog for a walk! Great job!', mixer: 'You built a house! Great job!', bus: 'You took the kids to school! Great job!', money: 'You took the money to the bank! Great job!', food: 'You brought food to the store! Great job!', taxi: 'You took them shopping! Great job!', ambulance: 'You took them to the hospital! Great job!', heli: 'You flew them to the hospital! Great job!', digger: 'You dug the hole! Great job!', plane: 'You flew to Island City! Great job!', steel: this.towerNow >= TOWER ? 'You finished the tower! Great job!' : 'You built a floor of the tower! Great job!', fire: 'You put out the fire, great job!', police: 'You took the robber to jail! Great job!' }[h.kind] });
     this.later.sort((p, q) => p.t - q.t);
-    if (this.done.size === this.town.jobs.length) {
-      if (out) this.winAt = this.t + out;
-      else this.win();
-    }
+    // (Hooray once everything's done -- the fire out first, and nobody
+    // still out on a delivery or a flight: see update.)
+    if (this.done.size === this.town.jobs.length) this.winAt = Math.max(this.winAt ?? 0, this.t + out);
   }
 
   // ------------------------------------------------------------- fire!
@@ -1612,38 +1611,6 @@ export class Play {
     }
   }
 
-  // Your headlights, on: the road lit up ahead (faintly by day, brightly
-  // at night).
-  beams(view) {
-    const f = this.fp;
-    if (!this.headlights || !f || f.h.kind === 'walker' || f.away > 0.25) return;
-    const { g } = this;
-    const { bright } = light(this.clock);
-    const k = 0.25 + 0.75 * (1 - bright);
-    const h = f.h;
-    const fx = Math.cos(f.head);
-    const fy = Math.sin(f.head);
-    g.save();
-    g.globalCompositeOperation = 'lighter';
-    for (const [d, size, a] of [[0.7, 0.8, 0.5], [1.4, 1.0, 0.42], [2.2, 1.2, 0.32], [3.1, 1.4, 0.22]]) {
-      for (const side of [-1, 1]) {
-        const x = h.x + fx * d - fy * side * 0.11;
-        const y = h.y + fy * d + fx * side * 0.11;
-        const at = view.at(x, y, 0.02);
-        if (!at) continue;
-        const r = Math.min(240, view.scale(x, y, 0.02) * size * 0.5);
-        const grad = g.createRadialGradient(at[0], at[1], 0, at[0], at[1], r);
-        grad.addColorStop(0, `rgba(255,245,200,${a * k})`);
-        grad.addColorStop(1, 'rgba(255,245,200,0)');
-        g.fillStyle = grad;
-        g.beginPath();
-        g.arc(at[0], at[1], r, 0, Math.PI * 2);
-        g.fill();
-      }
-    }
-    g.restore();
-  }
-
   // The headlight switch: a lamp with its beams -- lit, and glowing, when on.
   // The horn button: round, white, the horn on it -- flashing yellow as it
   // honks, and glowing when you're held up behind a car (press me!).
@@ -2011,8 +1978,10 @@ export class Play {
   // picks it up, and brings it back.
   throwBall(h) {
     const park = this.place('park');
-    const to = { x: park.x + 0.3 + Math.random() * ((park.w || 1) - 0.6), y: park.y + 0.3 + Math.random() * ((park.h || 1) - 0.6) };
     const from = Play.dogSpot(h.x, h.y, h.head ?? 0);
+    // (A good long throw: the furthest of a few spots in the park.)
+    const spot = () => ({ x: park.x + 0.3 + Math.random() * ((park.w || 1) - 0.6), y: park.y + 0.3 + Math.random() * ((park.h || 1) - 0.6) });
+    const to = Array.from({ length: 5 }, spot).reduce((p, q) => (Math.hypot(q.x - from.x, q.y - from.y) > Math.hypot(p.x - from.x, p.y - from.y) ? q : p));
     const run = Math.hypot(to.x - from.x, to.y - from.y) / 2.4;
     const fly = 0.9;
     const out = Math.max(fly + 0.15, run);
@@ -2466,9 +2435,10 @@ export class Play {
       if (this.part && !this.won && !this.night) this.robbery(this.part.rob.place);
     }
     // (Hooray -- once the fire's out.)
-    if (this.winAt != null && this.t >= this.winAt) {
+    if (this.winAt != null && this.t >= this.winAt && !this.helpers.some((h) => h.deliver || h.trip)) {
       this.winAt = null;
-      this.win();
+      // (A job added since -- a fire, a robber -- and it's not over yet.)
+      if (this.done.size === this.town.jobs.length) this.win();
     }
     // (What was done, said a moment after.)
     while (this.later?.length && this.t >= this.later[0].t) this.hooks.say?.(this.later.shift().line);
@@ -2698,6 +2668,144 @@ export class Play {
   // Dusk and night over the town (in the view h high): darker and bluer,
   // a glow of gold at sunset -- and the lights coming on: the houses'
   // windows, the streetlamps on the corners, the cars' headlights.
+  // A place's building, as a model (for the headlights to light), or null.
+  placeModel(p) {
+    const cx = p.x + (p.w || 1) / 2;
+    const cy = p.y + (p.h || 1) / 2;
+    const h = Math.atan2(p.door.y - p.y, p.door.x - p.x);
+    switch (p.kind) {
+      case 'home': return I.house(cx, cy, h, p.color);
+      case 'lot': return this.stage[p.id] ? I.house(cx, cy, h, p.color, this.stage[p.id]) : null;
+      case 'police': return I.policeStation(cx, cy, h);
+      case 'firehouse': return I.firehouse(cx, cy, h);
+      case 'school': return I.school(cx, cy, h, this.t);
+      case 'bank': return I.bank(cx, cy, h);
+      case 'grocery': return I.grocery(cx, cy, h);
+      case 'farm': return I.farm(cx, cy, h);
+      case 'taxi': return I.taxiStand(cx, cy, h);
+      case 'hospital': return I.hospital(cx, cy, h);
+      case 'airport': return I.terminal(cx, cy, h);
+      case 'tower': return I.tower(cx, cy, h, this.towerNow, this.t);
+      default: return BUILDINGS[p.kind] ? I.building(cx, cy, h, ...BUILDINGS[p.kind]) : null;
+    }
+  }
+
+  // Night from the driver's seat (or walking the dog), as it really looks:
+  // dark all over -- and lit only where light falls. Your headlights: a
+  // wedge of light on the road ahead, fading with distance, and the fronts
+  // of the buildings in the beam (their own outlines -- nothing glows in
+  // the air); with them off, only the pools of light under the street
+  // lamps. (Other cars: their headlights, small and bright, and the patch
+  // of road they light.) A darkness drawn over the view with the light cut
+  // out of it.
+  nightLights(view, H) {
+    const { g } = this;
+    const { bright, warm } = light(this.clock);
+    const dark = 1 - bright;
+    if (warm > 0.05) {
+      g.fillStyle = `rgba(255,140,60,${0.12 * warm})`;
+      g.fillRect(0, 0, this.W, H);
+    }
+    if (dark < 0.05) return;
+    const layer = (this.nightLayer ||= document.createElement('canvas'));
+    if (layer.width !== this.canvas.width || layer.height !== this.canvas.height) {
+      layer.width = this.canvas.width;
+      layer.height = this.canvas.height;
+    }
+    const l = layer.getContext('2d');
+    l.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    l.globalCompositeOperation = 'source-over';
+    l.clearRect(0, 0, this.W, H);
+    l.fillStyle = `rgba(6,9,30,${0.88 * dark})`;
+    l.fillRect(0, 0, this.W, H);
+    l.globalCompositeOperation = 'destination-out';
+    const cut = (pts, a) => {
+      if (!pts || pts.length < 3 || pts.some((q) => !q) || a <= 0.01) return;
+      l.fillStyle = `rgba(0,0,0,${Math.min(1, a)})`;
+      l.beginPath();
+      pts.forEach(([x, y], k) => (k ? l.lineTo(x, y) : l.moveTo(x, y)));
+      l.closePath();
+      l.fill();
+    };
+    // A patch of light on the ground: a wedge from (x, y) along heading a.
+    const wedge = (x, y, a, reach, w0, w1, strength) => {
+      const [fx, fy] = [Math.cos(a), Math.sin(a)];
+      const N = 12;
+      for (let k = 0; k < N; k++) {
+        const [d0, d1] = [(reach * k) / N, (reach * (k + 1)) / N];
+        const [s0, s1] = [w0 + (w1 - w0) * (d0 / reach), w0 + (w1 - w0) * (d1 / reach)];
+        const p = (d, s) => [x + fx * d - fy * s, y + fy * d + fx * s, 0.01];
+        cut(view.poly([p(d0, -s0), p(d1, -s1), p(d1, s1), p(d0, s0)]), strength * (1 - (k + 0.5) / N) ** 1.3);
+      }
+    };
+    const f = this.fp;
+    const lamps = Math.min(1, Math.max(0, (dark - 0.35) * 2.5));
+    // The street lamps at the corners: a pool of light under each.
+    for (const { x, y } of this.junctions) {
+      if (!this.seen(view, x + 0.5, y + 0.5)) continue;
+      // (Soft at the edge: brightest under the lamp.)
+      for (const [r, a] of [[0.75, 0.2], [0.55, 0.25], [0.32, 0.25]]) {
+        const ring = Array.from({ length: 16 }, (_, k) => [x + 0.5 + Math.cos((k / 16) * Math.PI * 2) * r, y + 0.5 + Math.sin((k / 16) * Math.PI * 2) * r, 0.01]);
+        cut(view.poly(ring), a * lamps);
+      }
+    }
+    // Other cars' headlights: the road just ahead of them.
+    for (const c of this.traffic.cars) {
+      if (f?.h === c || !this.seen(view, c.x, c.y)) continue;
+      const len = c.len || 0.38;
+      wedge(c.x + Math.cos(c.head) * len, c.y + Math.sin(c.head) * len, c.head, 1.6, 0.14, 0.5, 0.5 * lamps);
+    }
+    // Your headlights: the road ahead, and the buildings in the beam.
+    if (this.headlights && f && f.h.kind !== 'walker' && !(f.away > 0.25)) {
+      const h = f.h;
+      const a = f.head;
+      const [fx, fy] = [Math.cos(a), Math.sin(a)];
+      const len = h.len || 0.38;
+      const [x0, y0] = [h.x + fx * len, h.y + fy * len];
+      const REACH = 5.5;
+      // (Soft at the edges: a wider, fainter wedge under the beam.)
+      wedge(x0, y0, a, REACH, 0.3, 2.3, 0.45);
+      wedge(x0, y0, a, REACH * 0.92, 0.18, 1.5, 0.85);
+      for (const p of this.town.places) {
+        const px = p.x + (p.w || 1) / 2;
+        const py = p.y + (p.h || 1) / 2;
+        const ahead = (px - x0) * fx + (py - y0) * fy;
+        const side = Math.abs((px - x0) * -fy + (py - y0) * fx);
+        if (ahead < -0.5 || ahead > REACH + 1 || side > 0.4 + ahead * 0.45) continue;
+        const m = this.placeModel(p);
+        if (!m) continue;
+        for (const face of m.parts) {
+          const [cx, cy] = face.pts.reduce((s2, q) => [s2[0] + q[0] / face.pts.length, s2[1] + q[1] / face.pts.length], [0, 0]);
+          const d = Math.hypot(cx - x0, cy - y0);
+          // (Lit as it faces the light, and less the further it is.)
+          const facing = -(face.n[0] * (cx - x0) + face.n[1] * (cy - y0)) / (d || 1);
+          const reach = (cx - x0) * fx + (cy - y0) * fy;
+          if (facing <= 0.05 || reach <= 0 || d > REACH) continue;
+          cut(view.poly(face.pts), 0.85 * facing * (1 - d / REACH) ** 1.2);
+        }
+      }
+    }
+    g.save();
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.drawImage(layer, 0, 0);
+    g.restore();
+    // (Other cars' headlamps themselves: two small bright dots each.)
+    for (const c of this.traffic.cars) {
+      if (f?.h === c || !this.seen(view, c.x, c.y)) continue;
+      const [fx, fy] = [Math.cos(c.head), Math.sin(c.head)];
+      const len = (c.len || 0.38) + 0.01;
+      for (const s2 of [-0.1, 0.1]) {
+        const at = view.at(c.x + fx * len - fy * s2, c.y + fy * len + fx * s2, 0.12);
+        if (!at) continue;
+        const r = Math.max(1.2, Math.min(5, view.scale(c.x, c.y, 0.12) * 0.03));
+        g.fillStyle = `rgba(255,247,214,${0.9 * lamps})`;
+        g.beginPath();
+        g.arc(at[0], at[1], r, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  }
+
   dusk(view, h) {
     const { g } = this;
     const { bright, warm } = light(this.clock);
@@ -2811,8 +2919,7 @@ export class Play {
     if (!d) this.dots(eye, f.route || [], eye, 0.6);
     for (const o of this.things(eye).sort((a, b) => a.d - b.d)) o.draw(1);
     this.flames(eye);
-    this.dusk(eye, this.seatH);
-    this.beams(eye);
+    this.nightLights(eye, this.seatH);
     this.overlays(eye, d ? [] : [h]);
     // In the cab: the dashboard and the wheel, turning as you turn (going
     // as the camera floats out).

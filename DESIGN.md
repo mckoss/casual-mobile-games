@@ -258,9 +258,15 @@ pictures and a sound for every touch.
 - The fire engine, once the fire's out, and the police car, once the
   robber's in jail, drive back to where they park by themselves -- not
   left standing in the road.
-- Driving, a headlight switch at the top left of the windshield (a lamp
-  and its beams): on, the road ahead lights up -- faintly by day, brightly
-  in the evening and at night.
+- Driving, a headlight switch (a lamp and its beams). At night, from the
+  driver's seat, it's properly dark -- a darkness over the view with the
+  light cut out of it only where light falls: with the headlights off,
+  just the pools of light under the street lamps (soft at the edges) and
+  other cars' small headlamps and the patch of road ahead of them; with
+  them on, a wedge of light on the road ahead, widening and fading with
+  distance, and the fronts of the buildings in the beam lit (their own
+  outlines, as they face the light and less the further off) -- nothing
+  glowing in the air. (It once added big glowing blobs on top: glare.)
 - Each helper that can be sent on a job has a big round button over it,
   in its colour, with a picture of its next job (a bin, a letter, the dog,
   a brick) and a little green "go" -- kept in view at the edge of the

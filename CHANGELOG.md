@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.114.0
+- Benji's Town: real headlights at night. From the driver's seat it's
+  dark, and your headlights light the road ahead and the buildings in
+  their beam -- no more big glare. With them off you see only by the
+  street lamps (and other cars' lights).
+- Benji's Town: the hooray (and goodnight) waits till everyone's back
+  from what they're doing -- no more "Goodnight!" in the middle of a
+  delivery. And every throw at the park is a good long one.
+
 ## 1.113.1
 - Benji's Town: two helpers finishing their jobs at about the same time
   each get their "Great job!" said (one used to be lost), and night falls
