@@ -719,6 +719,72 @@ test('benji’s town: a robber at the shop, and the police car catches them and 
   }
 });
 
+test('benji’s town: the school bus picks up the children and takes them to school; the money truck takes the shops’ money to the bank', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => {
+      localStorage.setItem('pocket-arcade:benji:day', '7');
+      localStorage.setItem('pocket-arcade:benji:drive', 'false');
+    });
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const r = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      const said = [];
+      p.hooks.say = (w) => w && said.push(w);
+      p.hooks.sfx = () => {};
+      const run = (secs, kind, until) => {
+        for (let i = 0; i < secs * 30 && !until(); i++) {
+          p.update(1 / 30);
+          const h = p.helpers.find((m) => m.kind === kind);
+          if (h && p.ready(h)) p.start(h);
+        }
+      };
+      run(30, null, () => p.part);
+      p.robAt = null;
+      const mine = (kind) => p.town.jobs.filter((j) => j.helper === kind);
+      const kids = mine('bus').filter((j) => j.kind === 'kid').length;
+      const bus = p.helpers.find((h) => h.kind === 'bus');
+      let aboard = 0;
+      run(120, 'bus', () => {
+        aboard = Math.max(aboard, bus.load);
+        return mine('bus').every((j) => p.done.has(j.i)) && !bus.deliver;
+      });
+      const school = { kids, aboard, done: mine('bus').every((j) => p.done.has(j.i)), load: bus.load };
+      // On to midday: the money truck.
+      run(120, 'garbage', () => p.part?.part === 'midday');
+      p.robAt = null;
+      const truck = p.helpers.find((h) => h.kind === 'money');
+      const stops = mine('money').filter((j) => j.kind === 'cash').length;
+      let bags = 0;
+      run(160, 'money', () => {
+        bags = Math.max(bags, truck.load);
+        return mine('money').every((j) => p.done.has(j.i)) && !truck.deliver;
+      });
+      const bank = { stops, bags, done: mine('money').every((j) => p.done.has(j.i)), load: truck.load };
+      run(3, null, () => false); // (what was done, said a moment after)
+      return { school, bank, said };
+    });
+    assert.ok(r.school.kids >= 2, 'children to pick up');
+    assert.equal(r.school.aboard, r.school.kids, 'all on the bus at once');
+    assert.ok(r.school.done && r.school.load === 0, 'and off at school');
+    assert.ok(r.bank.stops >= 2 && r.bank.bags === r.bank.stops && r.bank.done && r.bank.load === 0);
+    for (const w of ['Hop on the bus!', 'Time to take the kids to school!', 'Have a great day at school!', 'You took the kids to school! Great job!', 'Here’s the money!', 'Time to take the money to the bank!', 'The money is safe in the bank!', 'You took the money to the bank! Great job!']) {
+      assert.ok(r.said.includes(w), w);
+    }
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); held up behind a car, ▲ honks; the horn button always', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();
@@ -861,6 +927,68 @@ test('benji’s town, driving with the pedals: the switch in the top bar; a stee
     await page.locator('[data-act=mode]').click();
     assert.equal(await page.evaluate(() => window.__benji.padList().map((q) => q.act).join()), 'left,go,right');
     assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:benji:pedal')), 'false');
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
+test('benji’s town, from above: zoom in and out (the buttons, a pinch, a mouse wheel), and drag to look round', { skip: !chromium, timeout: 60000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:drive', 'false'));
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const zoomAt = (act) => page.evaluate((act) => {
+      const p = window.__benji;
+      const r = p.canvas.getBoundingClientRect();
+      const q = p.zoomButtons().find((b) => b.act === act);
+      return [r.left + q.x, r.top + q.y];
+    }, act);
+    const zoom = () => page.evaluate(() => window.__benji.zoom);
+    await page.mouse.click(...(await zoomAt('in')));
+    assert.ok((await zoom()) > 1.3, 'zoomed in');
+    // (All the way in: ＋ faded, and does nothing.)
+    for (let i = 0; i < 6; i++) await page.mouse.click(...(await zoomAt('in')));
+    const most = await zoom();
+    assert.equal(await page.evaluate(() => window.__benji.canZoom('in')), false);
+    await page.mouse.click(...(await zoomAt('in')));
+    assert.equal(await zoom(), most);
+    // A pinch: fingers together, zoomed out.
+    const ev = (type, id, x, y) => page.evaluate(([type, id, x, y]) => {
+      const c = window.__benji.canvas;
+      const r = c.getBoundingClientRect();
+      c.dispatchEvent(new PointerEvent(type, { pointerId: id, clientX: r.left + x, clientY: r.top + y, bubbles: true }));
+    }, [type, id, x, y]);
+    await ev('pointerdown', 11, 135, 400);
+    await ev('pointerdown', 12, 255, 400);
+    for (let i = 1; i <= 5; i++) {
+      await ev('pointermove', 11, 135 + i * 10, 400);
+      await ev('pointermove', 12, 255 - i * 10, 400);
+    }
+    await ev('pointerup', 11, 185, 400);
+    await ev('pointerup', 12, 205, 400);
+    assert.ok((await zoom()) < most / 2, 'pinched: zoomed out');
+    // A mouse wheel, rolled away from you: in again.
+    const before = await zoom();
+    await page.mouse.move(195, 400);
+    await page.mouse.wheel(0, -400);
+    await page.waitForFunction((b) => window.__benji.zoom > b, before, { timeout: 5000 });
+    // Dragged: the town moves with the finger, and stays a while.
+    const cam = await page.evaluate(() => ({ ...window.__benji.cam }));
+    await page.mouse.move(100, 300);
+    await page.mouse.down();
+    for (let i = 1; i <= 8; i++) await page.mouse.move(100 + i * 20, 300);
+    await page.mouse.up();
+    const after = await page.evaluate(() => ({ cam: { ...window.__benji.cam }, manual: window.__benji.manual }));
+    assert.ok(Math.hypot(after.cam.x - cam.x, after.cam.y - cam.y) > 0.5, 'moved');
+    assert.ok(after.manual > 5, 'and stays put for a look round');
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

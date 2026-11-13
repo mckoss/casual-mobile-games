@@ -13,8 +13,8 @@ the whole arcade.
 ## Games
 
 - **Benji's Town** -- for little ones: tap the garbage truck, the postal worker's van,
-  the dog walker and the cement mixer to send them off to work around a
-  little town in 3D -- with sidewalks, crosswalks and traffic lights; later,
+  the dog walker, the cement mixer, the school bus and the money truck to
+  send them off to work around a town in 3D -- with sidewalks, crosswalks and traffic lights; later,
   be the driver (or walk the dog), from the driver's seat.
 - **The Chopping Game** -- for little ones: something's frozen in a block of
   ice; tap to chop the ice away, chunk by chunk, and out comes the surprise.

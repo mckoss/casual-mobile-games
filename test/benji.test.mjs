@@ -410,6 +410,42 @@ test('honk: a car stopped in the way pulls over, and the one honking goes by it 
   assert.ok(Math.abs(stuck.y - (2.5 + 0.34)) < 0.02, 'it pulled over to the curb');
 });
 
+test('the school bus and the money truck: children to pick up from their houses and take to school, money from the shops to take to the bank -- and robbers at the bank too', () => {
+  let bus = 0;
+  let money = 0;
+  const robbed = new Set();
+  for (let n = 1; n <= 30; n++) {
+    const town = makeTown(n);
+    for (const { jobs, rob } of town.phases) {
+      if (rob) robbed.add(rob.place);
+      const kids = jobs.filter((j) => j.kind === 'kid');
+      const cash = jobs.filter((j) => j.kind === 'cash');
+      if (kids.length) {
+        bus++;
+        assert.ok(kids.every((j) => j.helper === 'bus' && town.places.find((p) => p.id === j.place).kind === 'home'), 'children at houses');
+        assert.equal(new Set(kids.map((j) => j.place)).size, kids.length, 'one stop a house');
+        assert.equal(jobs.filter((j) => j.kind === 'school').length, 1);
+        assert.ok(town.helpers.some((h) => h.kind === 'bus' && h.home === 'school'));
+      }
+      if (cash.length) {
+        money++;
+        assert.ok(cash.every((j) => j.helper === 'money' && ['shop', 'cafe', 'post'].includes(j.place)));
+        assert.equal(jobs.filter((j) => j.kind === 'bank').length, 1);
+        assert.ok(town.helpers.some((h) => h.kind === 'money' && h.home === 'bank'));
+      }
+    }
+  }
+  assert.ok(bus >= 20 && money >= 20, `most days (${bus} school runs, ${money} money runs)`);
+  assert.ok(robbed.has('bank') && robbed.has('shop') && robbed.has('cafe'));
+  // (The school and the bank park their trucks down the end of a street,
+  // out of the traffic.)
+  const town = makeTown(7);
+  for (const id of ['school', 'bank', 'dump', 'police']) {
+    const { door } = town.places.find((p) => p.id === id);
+    assert.ok(door.x < 2 || door.y < 2 || door.x > SIZE - 3 || door.y > SIZE - 3, `${id} parks at the end of a street`);
+  }
+});
+
 test('stuck behind a helper with nowhere to go (pulled over for the horn, or not): it counts as parked, so it is asked to move', () => {
   const tr = new Traffic(walkways());
   const me = { wait: 'car' };
@@ -498,11 +534,11 @@ test('the fire engine always gets there: in sixty towns busy with traffic, nobod
 test('the end of a street: round the turning circle (the island on the left), and back the other way; no car goes down one unless it is going there', async () => {
   const { circleAt, CIRCLE, atEdge } = await import('../games/benji/streets.js');
   const tr = new Traffic(walkways());
-  for (const [from, out] of [[{ x: 2, y: 3 }, { x: 0, y: -1 }], [{ x: 9, y: 10 }, { x: 1, y: 0 }]]) {
+  for (const [from, out] of [[{ x: 2, y: 3 }, { x: 0, y: -1 }], [{ x: SIZE - 4, y: 10 }, { x: 1, y: 0 }]]) {
     const dir = out;
     const car = { tile: from, dir, ...lanePoint(from, dir), path: [], len: 0.38 };
     tr.cars = [car];
-    const edge = { x: out.x ? 12 : from.x, y: out.y ? 0 : from.y };
+    const edge = { x: out.x ? SIZE - 1 : from.x, y: out.y ? 0 : from.y };
     assert.ok(atEdge(edge.x, edge.y));
     car.path = drivePath(from, dir, edge).slice(1);
     let left = 0;
@@ -623,7 +659,7 @@ test('the pictures: every emoji the town draws has its picture with the game (so
   for (const ch of used) assert.ok(existsSync(new URL(emojiURL(ch))), `${ch}: run tools/benji-emoji.py`);
 });
 
-test('robbers! a police station with its jail and police car, and once a day a robber at the shop or the cafe -- caught, then taken to jail', () => {
+test('robbers! a police station with its jail and police car, and once a day a robber at the shop, the cafe or the bank -- caught, then taken to jail', () => {
   for (let day = 1; day <= 12; day++) {
     const town = makeTown(day);
     const station = town.places.find((p) => p.kind === 'police');
@@ -637,7 +673,7 @@ test('robbers! a police station with its jail and police car, and once a day a r
     assert.equal(robs.length, 1, `day ${day}: one robbery`);
     if (town.phases.length > 1) assert.ok(!robs[0].fire, `day ${day}: not in the same part of the day as the fire`);
     const { place, after } = robs[0].rob;
-    assert.ok(['shop', 'cafe'].includes(place));
+    assert.ok(['shop', 'cafe', 'bank'].includes(place));
     assert.ok(after >= 8 && after <= 16);
     // (The jobs, as play.js adds them: catch the robber, then -- and only
     // then -- to jail.)

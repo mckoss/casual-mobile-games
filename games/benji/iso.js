@@ -453,6 +453,49 @@ export function policeStation(x, y, h) {
   return m;
 }
 
+// The school (two tiles each way) at (x, y), its front toward h: red brick,
+// two storeys of windows, white trim, a big front door under a little bell
+// tower, and a flag on top.
+export function school(x, y, h, t = 0) {
+  const m = new Model(x, y, h);
+  m.box(-0.9, -0.9, 0, 0.9, 0.9, 0.03, '#a9a9a9');
+  const b = m.box(-0.7, -0.82, 0.03, 0.7, 0.82, 0.86, '#c0583b');
+  m.box(-0.74, -0.86, 0.86, 0.74, 0.86, 0.92, '#f1faee');
+  m.decal(b.e, onX(0.702, -0.14, 0.14, 0.03, 0.36), '#6b4226');
+  for (const z0 of [0.14, 0.52]) {
+    for (const y0 of [-0.66, -0.4, 0.22, 0.48]) m.decal(b.e, onX(0.702, y0, y0 + 0.18, z0, z0 + 0.22), GLASS);
+    for (const y0 of [-0.6, -0.2, 0.2, 0.6]) m.decal(b.w, onX(-0.702, y0 - 0.09, y0 + 0.09, z0, z0 + 0.22), GLASS);
+    for (const x0 of [-0.5, -0.1, 0.3]) {
+      m.decal(b.s, onY(0.822, x0, x0 + 0.18, z0, z0 + 0.22), GLASS);
+      m.decal(b.n, onY(-0.822, x0, x0 + 0.18, z0, z0 + 0.22), GLASS);
+    }
+  }
+  // (The bell tower over the door, and the flag.)
+  const tw = m.box(0.38, -0.16, 0.92, 0.66, 0.16, 1.16, '#f1faee');
+  m.decal(tw.e, onX(0.662, -0.07, 0.07, 1.0, 1.1), '#ffd166');
+  m.roof(0.34, -0.2, 0.7, 0.2, 1.16, 1.3, '#c0392b', '#f1faee');
+  m.box(-0.4, -0.012, 0.92, -0.376, 0.012, 1.42, '#6c757d');
+  const wave = Math.sin(t * 4) * 0.02;
+  m.box(-0.376, -0.01, 1.28 + wave, -0.376 + 0.005, 0.2, 1.4 + wave, '#3a86ff');
+  return m;
+}
+
+// The bank at (x, y), its front toward h: white stone, columns along the
+// front under a pointed roof, and heavy green doors.
+export function bank(x, y, h) {
+  const m = new Model(x, y, h);
+  m.box(-0.42, -0.44, 0, 0.42, 0.44, 0.05, '#ced4da');
+  const b = m.box(-0.36, -0.38, 0.05, 0.26, 0.38, 0.56, '#f1f3f5');
+  m.decal(b.e, onX(0.262, -0.09, 0.09, 0.05, 0.36), '#2d6a4f');
+  for (const y0 of [-0.3, 0.06]) m.decal(b.w, onX(-0.362, y0, y0 + 0.24, 0.24, 0.42), GLASS);
+  m.decal(b.s, onY(0.382, -0.12, 0.12, 0.24, 0.42), GLASS);
+  m.decal(b.n, onY(-0.382, -0.12, 0.12, 0.24, 0.42), GLASS);
+  for (const cy of [-0.32, -0.16, 0.16, 0.32]) m.box(0.31, cy - 0.03, 0.05, 0.37, cy + 0.03, 0.56, '#ffffff');
+  m.box(0.24, -0.42, 0.56, 0.41, 0.42, 0.6, '#dee2e6');
+  m.roof(-0.4, -0.42, 0.41, 0.42, 0.6, 0.78, '#adb5bd', '#f1f3f5');
+  return m;
+}
+
 // A vehicle at (x, y), heading h: the garbage truck, the mail van, the
 // cement mixer (its drum turning with t -- or, with cargo 'roof', a flatbed
 // of timbers and tiles), the fire engine, the police car, or a little car
@@ -479,6 +522,40 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = f
     const red = Math.floor(t * 6) % 2 === 0;
     m.box(-0.04, -0.1, 0.29, 0.04, -0.005, 0.325, lights ? (red ? '#ff1f1f' : '#5c0a0a') : '#8a1c1c');
     m.box(-0.04, 0.005, 0.29, 0.04, 0.1, 0.325, lights ? (red ? '#0b1f4d' : '#3d8bff') : '#1d3557');
+    return m;
+  }
+  if (kind === 'bus') {
+    // The school bus: long and yellow, a black stripe down each side, a row
+    // of windows -- and a head in a window for each child on board
+    // (cargo: how many).
+    const b = m.box(-0.38, -0.15, 0.05, 0.38, 0.15, 0.42, '#ffb703');
+    for (const [f, at] of [[b.s, 0.152], [b.n, -0.152]]) {
+      m.decal(f, onY(at, -0.36, 0.36, 0.17, 0.19), '#1b1b1b');
+      for (let k = 0; k < 5; k++) m.decal(f, onY(at, -0.33 + k * 0.13, -0.23 + k * 0.13, 0.24, 0.36), GLASS);
+    }
+    m.decal(b.e, onX(0.382, -0.12, 0.12, 0.22, 0.38), GLASS);
+    m.decal(b.e, onX(0.382, -0.13, -0.08, 0.1, 0.14), '#fff3b0');
+    m.decal(b.e, onX(0.382, 0.08, 0.13, 0.1, 0.14), '#fff3b0');
+    m.decal(b.w, onX(-0.382, -0.1, 0.1, 0.12, 0.32), '#e85d04');
+    const kids = Math.min(4, cargo || 0);
+    for (let k = 0; k < kids; k++) m.ball(0.17 - k * 0.13, k % 2 ? 0.07 : -0.07, 0.36, 0.045, '#f1c27d');
+    return m;
+  }
+  if (kind === 'money') {
+    // The money truck: armoured, dark green, small barred windows, and a
+    // gold stripe -- strong enough for all the town's money.
+    m.box(-0.38, -0.14, 0.05, 0.38, 0.14, 0.11, '#3d405b');
+    const cab = m.box(0.13, -0.14, 0.11, 0.38, 0.14, 0.38, '#2d6a4f');
+    m.decal(cab.e, onX(0.382, -0.11, 0.11, 0.24, 0.34), GLASS);
+    m.decal(cab.s, onY(0.142, 0.2, 0.33, 0.24, 0.34), GLASS);
+    m.decal(cab.n, onY(-0.142, 0.2, 0.33, 0.24, 0.34), GLASS);
+    const body = m.box(-0.38, -0.15, 0.11, 0.12, 0.15, 0.44, '#2d6a4f');
+    for (const [f, at] of [[body.s, 0.152], [body.n, -0.152]]) {
+      m.decal(f, onY(at, -0.36, 0.1, 0.17, 0.2), '#ffd166');
+      m.decal(f, onY(at, -0.2, -0.08, 0.3, 0.36), '#1b4332');
+      m.decal(f, onY(at, -0.17, -0.11, 0.24, 0.38), '#ffd166');
+    }
+    m.decal(body.w, onX(-0.382, -0.12, 0.12, 0.13, 0.42), '#1b4332');
     return m;
   }
   m.box(-0.38, -0.14, 0.05, 0.38, 0.14, 0.11, '#555555');
@@ -543,6 +620,15 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = f
 export function person(x, y, h, t, color, opts = {}) {
   const m = new Model(x, y, h, opts.z || 0);
   const sw = opts.walking ? Math.sin(t * 10) * 0.04 : 0;
+  if (opts.kid) {
+    // A child, off to school: smaller, with a backpack.
+    m.box(-0.02 + sw * 0.7, 0.01, 0, 0.02 + sw * 0.7, 0.04, 0.1, '#3d405b');
+    m.box(-0.02 - sw * 0.7, -0.04, 0, 0.02 - sw * 0.7, -0.01, 0.1, '#3d405b');
+    m.box(-0.035, -0.05, 0.1, 0.035, 0.05, 0.22, color);
+    m.box(-0.075, -0.04, 0.11, -0.035, 0.04, 0.2, '#e85d04');
+    m.ball(0, 0, 0.27, 0.05, '#f1c27d');
+    return m;
+  }
   m.box(-0.025 + sw, 0.012, 0, 0.025 + sw, 0.05, 0.16, '#3d405b');
   m.box(-0.025 - sw, -0.05, 0, 0.025 - sw, -0.012, 0.16, '#3d405b');
   if (opts.robber) {
@@ -574,6 +660,11 @@ export function person(x, y, h, t, color, opts = {}) {
     m.ball(0.078, 0, 0.3, 0.032, '#ffafcc');
   }
   if (opts.carry === 'apple') m.ball(0.08, 0, 0.27, 0.035, '#e63946');
+  // (A bag of money, for the bank.)
+  if (opts.carry === 'cash' || opts.carry === 'bank') {
+    m.ball(0.085, 0, 0.25, 0.055, '#c9a227');
+    m.box(0.07, -0.015, 0.29, 0.1, 0.015, 0.31, '#8d6e1f');
+  }
   if (opts.dog) addDog(m, t, opts.walking);
   return m;
 }

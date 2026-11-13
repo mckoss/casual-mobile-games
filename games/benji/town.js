@@ -1,17 +1,18 @@
 // Benji's Town: the town and its jobs. (No DOM: tested in Node.)
 //
-// The town is a 13 x 13 grid of tiles: three streets each way, three tiles
+// The town is a 17 x 17 grid of tiles: four streets each way, three tiles
 // apart (room to queue between the corners), each running on two tiles past
 // its last corner to a turning circle at the edge of town; and between them
 // blocks of places -- houses, the post office, the dump, the builders'
-// yard, the firehouse, the police station (with its jail), the park and
-// lots to build on. Every place has a door on a street. Helpers (the
-// garbage truck, the postal worker's van, a dog walker, the cement mixer,
-// the fire engine, the police car) drive or walk along the streets to do
-// the day's jobs.
+// yard, the firehouse, the police station (with its jail), the school, the
+// bank, the shop, the café, the park and lots to build on. Every place has
+// a door on a street. Helpers (the garbage truck, the postal worker's van, a
+// dog walker, the cement mixer, the school bus, the money truck, the fire
+// engine, the police car) drive or walk along the streets to do the day's
+// jobs.
 
-export const SIZE = 13;
-export const ROADS = [2, 6, 10]; // the rows and columns that are streets
+export const SIZE = 17;
+export const ROADS = [2, 6, 10, 14]; // the rows and columns that are streets
 
 export const isRoad = (x, y) => x >= 0 && y >= 0 && x < SIZE && y < SIZE && (ROADS.includes(x) || ROADS.includes(y));
 
@@ -25,14 +26,18 @@ export function stubOf(x, y) {
   return null;
 }
 
-// The places, by tile, each with its door: the street tile next to it.
+// The places, by tile, each with its door: the street tile next to it --
+// or, for a place whose truck parks there (stub), the one at the end of a
+// street past its last corner, out of the traffic.
 const PLACES = [
   { id: 'post', kind: 'post', x: 3, y: 1 },
-  { id: 'dump', kind: 'dump', x: 11, y: 11 },
+  { id: 'dump', kind: 'dump', x: 15, y: 11, stub: true },
   { id: 'yard', kind: 'yard', x: 1, y: 11 },
   { id: 'park', kind: 'park', x: 7, y: 7, w: 2, h: 2 },
   { id: 'fire', kind: 'firehouse', x: 5, y: 1 },
-  { id: 'police', kind: 'police', x: 11, y: 9 },
+  { id: 'police', kind: 'police', x: 15, y: 7, stub: true },
+  { id: 'school', kind: 'school', x: 12, y: 15, w: 2, h: 2, stub: true },
+  { id: 'bank', kind: 'bank', x: 15, y: 3, stub: true },
   { id: 'h1', kind: 'home', x: 1, y: 1, color: '#ff6b6b' },
   { id: 'h2', kind: 'home', x: 7, y: 1, color: '#ffd166' },
   { id: 'h3', kind: 'home', x: 11, y: 3, color: '#4cc9f0' },
@@ -43,6 +48,14 @@ const PLACES = [
   { id: 'h8', kind: 'home', x: 11, y: 7, color: '#ffd166' },
   { id: 'h9', kind: 'home', x: 9, y: 9, color: '#a0c4ff' },
   { id: 'h10', kind: 'home', x: 3, y: 3, color: '#ffadad' },
+  { id: 'h11', kind: 'home', x: 11, y: 9, color: '#caffbf' },
+  { id: 'h12', kind: 'home', x: 11, y: 13, color: '#ffc6ff' },
+  { id: 'h13', kind: 'home', x: 13, y: 7, color: '#9bf6ff' },
+  { id: 'h14', kind: 'home', x: 3, y: 13, color: '#fdffb6' },
+  { id: 'h15', kind: 'home', x: 7, y: 15, color: '#ff9b85' },
+  { id: 'h16', kind: 'home', x: 9, y: 11, color: '#bdb2ff' },
+  { id: 'h17', kind: 'home', x: 15, y: 13, color: '#ffd6a5' },
+  { id: 'h18', kind: 'home', x: 1, y: 15, color: '#a8dadc' },
   { id: 'shop', kind: 'shop', x: 9, y: 3 },
   { id: 'cafe', kind: 'cafe', x: 3, y: 9 },
   // Lots to build on: each becomes a house, in turn, as the town grows.
@@ -50,6 +63,8 @@ const PLACES = [
   { id: 'lot2', kind: 'lot', x: 7, y: 11, color: '#f9c74f' },
   { id: 'lot3', kind: 'lot', x: 11, y: 1, color: '#577590' },
   { id: 'lot4', kind: 'lot', x: 9, y: 5, color: '#f3722c' },
+  { id: 'lot5', kind: 'lot', x: 13, y: 11, color: '#43aa8b' },
+  { id: 'lot6', kind: 'lot', x: 5, y: 15, color: '#f94144' },
 ];
 export const LOTS = PLACES.filter((p) => p.kind === 'lot').map((p) => p.id);
 
@@ -152,17 +167,21 @@ export function nearestRoad(px, py) {
 //            package)
 //   dog:     a walk to the park and home
 //   build:   a house to build on the next lot (three trips)
+//   bus:     that many children to pick up from their houses, in any
+//            order, and take to school
+//   money:   that many shops (the shop, the café, the post office) with
+//            money to collect, in any order, and take to the bank
 // And once a day, a little while into one part of it, a fire breaks out at
 // a house: the fire engine to the rescue (play.js lights it, and adds the
-// job). In another part of the day, a robber turns up at the shop or the
-// café: the police car to catch them and take them to jail. (Whether you
+// job). In another part of the day, a robber turns up at the shop, the
+// café or the bank: the police car to catch them and take them to jail. (Whether you
 // drive them yourself or watch them go is yours to choose.)
 export const PARTS = ['morning', 'midday', 'evening'];
 const DAYS = [
   { morning: { garbage: 2 }, evening: { dog: 1 } },
   { morning: { mail: 3 }, midday: { build: 1 } },
-  { morning: { garbage: 3 }, midday: { mail: 2 }, evening: { dog: 1 } },
-  { morning: { garbage: 2 }, midday: { build: 1 }, evening: { dog: 1 } },
+  { morning: { garbage: 2, bus: 2 }, midday: { mail: 2 }, evening: { dog: 1 } },
+  { morning: { garbage: 2 }, midday: { build: 1, money: 2 }, evening: { dog: 1 } },
   { morning: { garbage: 3, mail: 2 }, midday: { mail: 2 }, evening: { dog: 1 } },
   { morning: { mail: 3 }, midday: { build: 1 }, evening: { dog: 1 } },
 ];
@@ -171,8 +190,8 @@ export function dayPlan(day) {
   // After those, a bit of everything.
   const k = day - DAYS.length;
   return {
-    morning: { garbage: 2 + (k % 2), mail: 2 + ((k >> 1) % 2) },
-    midday: k % 3 === 0 ? { build: 1 } : { mail: 2 },
+    morning: { garbage: 2 + (k % 2), bus: 2 + ((k >> 1) % 2) },
+    midday: k % 3 === 0 ? { build: 1, money: 2 } : { mail: 2 + ((k >> 1) % 2), money: 2 + (k % 2) },
     evening: { dog: 1 },
   };
 }
@@ -198,7 +217,10 @@ export function makeTown(n) {
   const r = rng(n * 7919 + 17);
   let built = builtBefore(n);
   const places = PLACES.map((p) => {
-    const doors = doorsOf(p);
+    let doors = doorsOf(p);
+    // (Its truck parks down the end of the street, out of the traffic: that
+    // door first.)
+    if (p.stub) doors = [...doors.filter((d) => stubOf(d.x, d.y)), ...doors.filter((d) => !stubOf(d.x, d.y))];
     const q = { ...p, door: doors[0], doors };
     if (p.kind === 'lot' && LOTS.indexOf(p.id) < built) q.kind = 'home';
     return q;
@@ -231,6 +253,16 @@ export function makeTown(n) {
       helper({ id: 'mail', kind: 'mail', at: by('post').door, home: 'post' });
       pick(homes, p.mail).forEach((h, k) => jobs.push({ helper: 'mail', kind: k % 2 ? 'parcel' : 'letter', place: h.id }));
     }
+    if (p.bus) {
+      helper({ id: 'bus', kind: 'bus', at: by('school').door, home: 'school' });
+      pick(homes, p.bus).forEach((h) => jobs.push({ helper: 'bus', kind: 'kid', place: h.id }));
+      jobs.push({ helper: 'bus', kind: 'school', place: 'school' });
+    }
+    if (p.money) {
+      helper({ id: 'money', kind: 'money', at: by('bank').door, home: 'bank' });
+      pick(['shop', 'cafe', 'post'], p.money).forEach((id) => jobs.push({ helper: 'money', kind: 'cash', place: id }));
+      jobs.push({ helper: 'money', kind: 'bank', place: 'bank' });
+    }
     if (p.dog) {
       helper({ id: 'dog0', kind: 'walker', at: walker.door, home: walker.id, color: walker.color });
       jobs.push({ helper: 'dog0', kind: 'walk', place: 'park' }, { helper: 'dog0', kind: 'home', place: walker.id, last: true });
@@ -258,13 +290,18 @@ export function makeTown(n) {
   // shop or the café.
   const others = phases.filter((q) => q !== fire);
   const rob = others.length ? others[Math.floor(r() * others.length)] : fire;
-  rob.rob = { place: r() < 0.5 ? 'shop' : 'cafe', after: 8 + r() * 8 };
+  rob.rob = { place: ['shop', 'cafe', 'bank'][Math.floor(r() * 3)], after: 8 + r() * 8 };
   return { n, day: n, plan, places, helpers, phases, jobs: phases[0].jobs };
 }
 
+// Picked up along the way, in any order (a bin, a child, money), and then
+// dropped off all together: kind -> where it goes.
+export const COLLECT = { bin: 'dump', recycle: 'dump', kid: 'school', cash: 'bank' };
+export const DROP = new Set(Object.values(COLLECT));
+
 // Can a helper do this job now (wherever it is)? Its own, not done: any
-// bin, letter or parcel in any order (and the dump whenever the truck has
-// something on board -- see play.js); but home from the park only after the
+// bin, child, money, letter or parcel in any order (and the dump, the
+// school, the bank whenever there's something on board -- see play.js); but home from the park only after the
 // walk, and a house's stages in order.
 export function canDo(town, helper, job, done) {
   if (job.helper !== helper.id || done.has(job.i)) return false;

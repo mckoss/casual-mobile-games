@@ -6,6 +6,16 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.108.0
+- Benji's Town: a bigger town -- four streets each way instead of three,
+  with more houses -- and you can zoom in and out (the ＋ and － buttons,
+  or pinch) and drag the town about to look round.
+- Benji's Town: a school and a school bus. Children wait outside their
+  houses with their backpacks; drive the bus round to pick them up, then
+  take them all to school.
+- Benji's Town: a bank and a money truck. Collect the money from the
+  shop, the café and the post office, and take it to the bank -- and
+  watch out for bank robbers: the police car will catch them.
 ## 1.107.1
 - Anonymous play statistics now go to mckoss.com's own analytics (Umami)
   instead of Google Analytics. Still no accounts, and the games work

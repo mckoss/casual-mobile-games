@@ -58,12 +58,15 @@ pictures and a sound for every touch.
   to them too. (The button top right starts a new town, for a grown-up --
   it asks first.)
 
-- A little town on a 13 x 13 grid: three streets each way, three tiles
+- A town on a 17 x 17 grid (it was 13 x 13, three streets each way, till
+  it was found a little small): four streets each way, three tiles
   apart (room to queue between the corners), each running on two tiles
   past its last corner to a turning circle at the edge of town -- round an
   island with a little tree, keeping it on your left, instead of a U-turn.
-  Between them houses, the post office, the dump, the builders' yard, the park, a shop,
-  a café and empty lots (the post office's sign a red postbox 📮, so it
+  Between them houses, the post office, the dump, the builders' yard, the
+  park, a shop, a café, the school, the bank and empty lots (the dump,
+  the police station, the school and the bank each beside the end of a
+  street, where their trucks park out of the traffic) (the post office's sign a red postbox 📮, so it
   isn't mistaken for a house waiting for a letter ✉️). Cars and people
   potter about; tap one and it honks or hops. A job at a place is done
   by pulling up on any street beside it (a corner house has two), and a
@@ -80,10 +83,14 @@ pictures and a sound for every touch.
   park); a moment after it's done, it eases back out to show all the
   helpers. It starts on the whole town, and goes back to it with the
   confetti, and for the night. Dragging the ground looks round the town
-  for a few seconds.
+  (it stays where you left it for eight seconds). Zoom in and out with the
+  ＋ and － buttons top right (faded at either end), a pinch, or a mouse
+  wheel: the camera keeps on following the action, that much closer in or
+  further out -- from a little more than the whole town to a couple of
+  houses across.
 - Road safety, shown not told. Every street has a sidewalk down each side,
   and people (the dog walker too) keep to them, crossing only at the zebra
-  crossings by the intersections. Three intersections, corner to corner
+  crossings by the intersections. Four intersections, corner to corner
   across town, have traffic lights: east-west and north-south take turns
   (green, yellow, then a moment of all red). Each light stands on the far
   right-hand corner for the traffic it's for, facing it, as in a real
@@ -137,7 +144,19 @@ pictures and a sound for every touch.
   so the drum comes off and it's a flatbed stacked with timbers and roof
   tiles (🪵 on its button) -- and at each, a spell of hammering (synthesised, like every sound:
   for each hit, a crack, the knock of the wood and the ring of the nail).
-  Houses built stay built: the town grows from day to day.
+  Houses built stay built: the town grows from day to day. The **school
+  bus** (long and yellow, a head in a window for each child on board)
+  goes round the houses where a child is waiting out front with a
+  backpack 🎒 -- at each, the child walks out to the bus and hops on
+  ("Hop on the bus!") -- then to the school (red brick, a bell tower, a
+  flag), where they all get off and go in ("Have a great day at
+  school!"). The **money truck** (armoured, dark green, a gold stripe)
+  goes round the shops with money waiting (💰 by the door: the shop, the
+  café, the post office) -- the guard goes in and comes out with a bag
+  ("Here's the money!") -- then to the bank (white stone, columns, a
+  pointed roof), the bags out of the back and into the bank ("The money
+  is safe in the bank!"). Both work like the garbage truck: pick-ups in
+  any order, the drop-off whenever there's something on board.
 - **Fire!** Once a day, a little while into one part of it (which part,
   which house and when come from the day's seed), a fire breaks out at a
   house: flames licking up from the roof and smoke rising, a crackle, and
