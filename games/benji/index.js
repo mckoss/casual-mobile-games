@@ -101,6 +101,9 @@ export function mount(root, ctx, sub) {
   // levels it used to have: two levels a day.)
   const old = ctx.load('progress', null);
   let day = ctx.load('day', old?.unlocked > 1 ? Math.ceil((old.unlocked - 1) / 2) : 1);
+  // (The furthest day reached: any day up to it can be played again --
+  // tap the day, top left.)
+  let best = Math.max(day, ctx.load('best', 1));
   const PART = { dawn: '🌅', morning: '🌤️', midday: '☀️', evening: '🌇', night: '🌙' };
   // An emoji as its picture (some browsers have no emoji font).
   const pic = (ch) => `<img class="bt-emoji" src="${emojiURL(ch)}" alt="${ch}">`;
@@ -130,7 +133,7 @@ export function mount(root, ctx, sub) {
       <div class="screen play-screen bt-screen">
         <header class="bar">
           <button class="icon-btn" data-act="home" aria-label="Back">${ICON.back}</button>
-          <h2>Day ${day} <span class="bt-part">${pic(PART.dawn)}</span></h2>
+          <h2 class="bt-day" role="button" tabindex="0" aria-label="Choose a day">Day ${day} <span class="bt-part">${pic(PART.dawn)}</span><span class="bt-caret">▾</span></h2>
           <button class="icon-btn bt-drive bt-mode" data-act="mode" aria-label="${modeLabel()}"${drive ? '' : ' hidden'}>${modeIcon()}</button>
           <button class="icon-btn bt-drive" data-act="drive" aria-label="${switchLabel()}" aria-pressed="${drive}">${switchIcon()}</button>
           <button class="icon-btn" data-act="restart" aria-label="A new town">${ICON.restart}</button>
@@ -154,13 +157,15 @@ export function mount(root, ctx, sub) {
       },
       // A part of the day begins (or night falls): the picture in the title.
       onPart: (part) => {
-        title.innerHTML = `Day ${day} <span class="bt-part">${pic(PART[part])}</span>`;
+        title.innerHTML = `Day ${day} <span class="bt-part">${pic(PART[part])}</span><span class="bt-caret">▾</span>`;
       },
       // A new morning: the next day, kept.
       onDay: (n) => {
         ctx.track('level_complete', { level: day, stars: 3 });
         day = n;
+        best = Math.max(best, day);
         ctx.save('day', day);
+        ctx.save('best', best);
       },
     });
     play.drive = drive;
@@ -193,6 +198,25 @@ export function mount(root, ctx, sub) {
     onResize = () => play?.resize();
     window.addEventListener('resize', onResize);
     root.querySelector('[data-act=home]').onclick = () => ctx.back('#/');
+    // The day: tap it to play any day so far again (the easier ones too).
+    title.onclick = () => {
+      ctx.sfx('tap');
+      const dlg = root.querySelector('.dialog');
+      const days = Array.from({ length: best }, (_, k) => k + 1);
+      showDialog(dlg, ctx, {
+        title: 'Which day?',
+        text: '',
+        buttons: [
+          ...days.map((k) => ({ label: String(k), act: `day${k}`, primary: k === day, run: () => {
+            day = k;
+            ctx.save('day', day);
+            showTown();
+          } })),
+          { label: NO, act: 'keep', run: () => (dlg.hidden = true) },
+        ],
+      });
+      dlg.querySelector('.dialog-btns')?.classList.add('bt-days');
+    };
     // (For a grown-up: start again, with a new little town.)
     root.querySelector('[data-act=restart]').onclick = () => {
       ctx.sfx('tap');
@@ -203,7 +227,9 @@ export function mount(root, ctx, sub) {
           { label: NO, act: 'keep', run: () => (root.querySelector('.dialog').hidden = true) },
           { label: ICON.restart.replace('<svg ', '<svg class="bt-btn-icon" '), act: 'new', primary: true, run: () => {
             day = 1;
+            best = 1;
             ctx.save('day', day);
+            ctx.save('best', best);
             showTown();
           } },
         ],

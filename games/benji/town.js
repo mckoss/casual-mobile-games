@@ -42,6 +42,7 @@ const PLACES = [
   { id: 'farm', kind: 'farm', x: 15, y: 1, stub: true },
   { id: 'taxi', kind: 'taxi', x: 3, y: 15, stub: true },
   { id: 'hospital', kind: 'hospital', x: 8, y: 15, w: 2, h: 2, stub: true },
+  { id: 'tower', kind: 'tower', x: 11, y: 11, w: 2, h: 2 },
   { id: 'h1', kind: 'home', x: 1, y: 1, color: '#ff6b6b' },
   { id: 'h2', kind: 'home', x: 7, y: 1, color: '#ffd166' },
   { id: 'h3', kind: 'home', x: 11, y: 3, color: '#4cc9f0' },
@@ -181,6 +182,10 @@ export function nearestRoad(px, py) {
 //   ambulance: someone sick at a house, to take to the hospital (siren on)
 //   heli:    someone hurt out at the park or the farm: the helicopter
 //            flies there, over the town, and flies them to the hospital
+//   tower:   the big building site, a step a day: the excavator digs the
+//            hole (twice, deeper); then each day a storey -- the steel
+//            truck loads girders at the builders' yard and brings them to
+//            the site -- six of them; then the roof
 // The night has jobs too (the food truck, with its headlights on).
 // And once a day, a little while into one part of it, a fire breaks out at
 // a house: the fire engine to the rescue (play.js lights it, and adds the
@@ -193,8 +198,8 @@ const DAYS = [
   { morning: { mail: 3 }, midday: { build: 1 } },
   { morning: { garbage: 2, bus: 2 }, midday: { mail: 2 }, evening: { dog: 1 }, night: { food: 1 } },
   { morning: { garbage: 2 }, midday: { build: 1, money: 2 }, evening: { dog: 1, taxi: 1 } },
-  { morning: { garbage: 3, mail: 2 }, midday: { mail: 2, ambulance: 1 }, evening: { dog: 1 }, night: { food: 1 } },
-  { morning: { mail: 3, heli: 1 }, midday: { build: 1 }, evening: { dog: 1, taxi: 1 }, night: { food: 1 } },
+  { morning: { garbage: 3, mail: 2 }, midday: { mail: 2, ambulance: 1 }, evening: { dog: 1, tower: 1 }, night: { food: 1 } },
+  { morning: { mail: 3, heli: 1 }, midday: { build: 1 }, evening: { dog: 1, taxi: 1, tower: 1 }, night: { food: 1 } },
 ];
 export function dayPlan(day) {
   if (day <= DAYS.length) return DAYS[day - 1];
@@ -203,7 +208,7 @@ export function dayPlan(day) {
   return {
     morning: { garbage: 2 + (k % 2), bus: 2 + ((k >> 1) % 2), ...(k % 3 === 2 ? { heli: 1 } : {}) },
     midday: { ...(k % 3 === 0 ? { build: 1, money: 2 } : { mail: 2 + ((k >> 1) % 2), money: 2 + (k % 2) }), ...(k % 2 ? {} : { ambulance: 1 }) },
-    evening: k % 2 ? { dog: 1, taxi: 1 } : { dog: 1, ...(k % 3 === 1 ? { heli: 1 } : {}) },
+    evening: { ...(k % 2 ? { dog: 1, taxi: 1 } : { dog: 1, ...(k % 3 === 1 ? { heli: 1 } : {}) }), tower: 1 },
     night: { food: 1 },
   };
 }
@@ -213,6 +218,16 @@ export function builtBefore(n) {
   let b = 0;
   for (let k = 1; k < n; k++) for (const part of PARTS) b += dayPlan(k)[part]?.build || 0;
   return Math.min(LOTS.length, b);
+}
+
+// The big building site: how far along before day n -- 0 nothing yet, 1
+// the hole dug, 2 to 7 that many storeys less one, TOWER (8) the roof on:
+// done. (A step each day it's in the plan.)
+export const TOWER = 8;
+export function towerBefore(n) {
+  let b = 0;
+  for (let k = 1; k < n; k++) for (const part of PARTS) b += dayPlan(k)[part]?.tower || 0;
+  return Math.min(TOWER, b);
 }
 
 // A little pseudo-random sequence, the same every time for a day.
@@ -228,6 +243,8 @@ export function makeTown(n) {
   const plan = dayPlan(n);
   const r = rng(n * 7919 + 17);
   let built = builtBefore(n);
+  let tower = towerBefore(n);
+  const towerAt = tower;
   const places = PLACES.map((p) => {
     let doors = doorsOf(p);
     // (Its truck parks down the end of the street, out of the traffic: that
@@ -295,6 +312,18 @@ export function makeTown(n) {
       helper({ id: 'heli', kind: 'heli', at: by('hospital').door, home: 'hospital' });
       jobs.push({ helper: 'heli', kind: 'lift', place: r() < 0.5 ? 'park' : 'farm', seq: 1 }, { helper: 'heli', kind: 'ward', place: 'hospital', seq: 2 });
     }
+    if (p.tower && tower < TOWER) {
+      if (tower === 0) {
+        // The excavator digs the hole: once, and again deeper.
+        helper({ id: 'digger', kind: 'digger', at: by('tower').door, home: 'tower' });
+        jobs.push({ helper: 'digger', kind: 'dig', place: 'tower', seq: 1, stage: 1 }, { helper: 'digger', kind: 'dig', place: 'tower', seq: 2, stage: 2 });
+      } else {
+        // A storey (or the roof): steel from the yard, up on the tower.
+        helper({ id: 'steel', kind: 'steel', at: by('tower').door, home: 'tower' });
+        jobs.push({ helper: 'steel', kind: 'girders', place: 'yard', seq: 1 }, { helper: 'steel', kind: tower === TOWER - 1 ? 'topping' : 'storey', place: 'tower', seq: 2 });
+      }
+      tower++;
+    }
     if (p.dog) {
       helper({ id: 'dog0', kind: 'walker', at: walker.door, home: walker.id, color: walker.color });
       jobs.push({ helper: 'dog0', kind: 'walk', place: 'park' }, { helper: 'dog0', kind: 'home', place: walker.id, last: true });
@@ -323,7 +352,7 @@ export function makeTown(n) {
   const others = phases.filter((q) => q !== fire);
   const rob = others.length ? others[Math.floor(r() * others.length)] : fire;
   rob.rob = { place: ['shop', 'cafe', 'bank'][Math.floor(r() * 3)], after: 8 + r() * 8 };
-  return { n, day: n, plan, places, helpers, phases, jobs: phases[0].jobs };
+  return { n, day: n, plan, places, helpers, phases, jobs: phases[0].jobs, tower: towerAt };
 }
 
 // Picked up along the way, in any order (a bin, a child, money), and then

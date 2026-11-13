@@ -477,6 +477,10 @@ body:has(.update-bar) .hub { padding-bottom: calc(110px + var(--safe-b)); }
 .bt-drive svg { width: 26px; height: 26px; fill: none; }
 .bt-mode svg[fill="currentColor"] { fill: currentColor; }
 .bt-mode[hidden] { display: none; }
+.bt-day { cursor: pointer; user-select: none; }
+.bt-caret { font-size: 0.6em; margin-left: 4px; opacity: 0.7; vertical-align: middle; }
+.dialog-btns.bt-days { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; max-height: 50vh; overflow-y: auto; }
+.dialog-btns.bt-days .btn { min-width: 0; padding: 10px 0; font-size: 20px; }
 .bt-btn-icon { width: 26px; height: 26px; display: block; margin: 0 auto; }
 .bt-emoji { width: 1.15em; height: 1.15em; vertical-align: -0.2em; display: inline-block; }
 .el-screen .el-music.off { opacity: .4; }

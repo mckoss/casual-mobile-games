@@ -966,6 +966,64 @@ test('benji’s town: the helicopter flies over the town to someone hurt and fli
   }
 });
 
+test('benji’s town: the big building site -- the excavator digs, the steel truck brings a storey a day; and tap the day to play an easier one again', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    const evening = (day) => page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      const said = [];
+      p.hooks.say = (w) => w && said.push(w);
+      p.hooks.sfx = () => {};
+      const before = p.towerNow;
+      for (let i = 0; i < 30 * 500 && !(p.part?.part === 'night'); i++) {
+        p.update(1 / 30);
+        for (const h of p.helpers) if (p.ready(h)) p.start(h);
+      }
+      return { before, after: p.towerNow, said: said.filter((w) => /tower|dig|hole|floor|steel/i.test(w)) };
+    });
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => {
+      localStorage.setItem('pocket-arcade:benji:day', '5');
+      localStorage.setItem('pocket-arcade:benji:drive', 'false');
+    });
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const dug = await evening(5);
+    assert.deepEqual({ before: dug.before, after: dug.after }, { before: 0, after: 1 }, 'the hole dug');
+    assert.ok(dug.said.includes('Dig, dig, dig!') && dug.said.includes('The hole is dug!'));
+    await page.evaluate(() => localStorage.setItem('pocket-arcade:benji:day', '7'));
+    await page.reload();
+    await page.waitForFunction(() => window.__benji?.town.day === 7);
+    const up = await evening(7);
+    assert.deepEqual({ before: up.before, after: up.after }, { before: 2, after: 3 }, 'a storey up');
+    assert.ok(up.said.includes('Steel for the tower!') && up.said.includes('Another floor on the tower!'));
+    // Tap the day: any day so far, again -- an easier one.
+    await page.evaluate(() => {
+      localStorage.setItem('pocket-arcade:benji:day', '6');
+      localStorage.setItem('pocket-arcade:benji:best', '6');
+    });
+    await page.reload();
+    await page.waitForFunction(() => window.__benji?.town.day === 6);
+    await page.locator('.bt-screen h2').click();
+    await page.locator('.dialog:not([hidden])').waitFor();
+    assert.equal(await page.locator('.dialog .bt-days [data-act^=day]').count(), 6);
+    await page.locator('.dialog [data-act=day2]').click();
+    await page.waitForFunction(() => window.__benji?.town.day === 2);
+    assert.match(await page.locator('.bt-screen h2').textContent(), /^Day 2/);
+    assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:benji:day')), '2');
+    assert.equal(await page.evaluate(() => localStorage.getItem('pocket-arcade:benji:best')), '6', 'still up to day 6');
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town, driving: a big button to be the fire engine (or the police car) when there\'s a fire (or a robber); held up behind a car, ▲ honks; the horn button always', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

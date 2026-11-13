@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SIZE, isRoad, route, drivePath, nearestRoad, makeTown, dayPlan, jobAt, nextJob, canDo, builtBefore, LOTS, PARTS } from '../games/benji/town.js';
+import { SIZE, isRoad, route, drivePath, nearestRoad, makeTown, dayPlan, jobAt, nextJob, canDo, builtBefore, LOTS, PARTS, towerBefore, TOWER } from '../games/benji/town.js';
 import { tick, partAt, light, sky, WINDOW, NIGHT, DAY } from '../games/benji/clock.js';
 import { walkways, walkDoor, junctions, crossings, isJunction, isLit, lights, mayWalk, walkSignal, zebra, WALK_TIME } from '../games/benji/streets.js';
 import { Traffic, lanePoint, startDir, streetTiles, footprint, body, bump, alongStreet, HONK } from '../games/benji/traffic.js';
@@ -495,6 +495,30 @@ test('the hospital: the ambulance takes someone sick from their house, the helic
     }
   }
   assert.ok(amb >= 10 && heli >= 8, `${amb} ambulance calls, ${heli} helicopter rescues`);
+});
+
+test('the big building site: the excavator digs the hole, then a storey a day with steel from the yard, six of them, then the roof', () => {
+  const steps = [];
+  for (let n = 1; n <= 16; n++) {
+    const town = makeTown(n);
+    assert.equal(town.tower, towerBefore(n));
+    const jobs = town.phases.flatMap((q) => q.jobs).filter((j) => j.helper === 'digger' || j.helper === 'steel');
+    steps.push(`${town.tower}:${jobs.map((j) => j.kind).join('/')}`);
+  }
+  // (Day 5 the dig; then a storey an evening; the roof on the seventh after.)
+  assert.equal(steps[4], '0:dig/dig');
+  assert.equal(steps[5], '1:girders/storey');
+  assert.equal(steps[11], '7:girders/topping');
+  assert.equal(steps[12], `${TOWER}:`);
+  assert.ok(towerBefore(40) === TOWER, 'and it stays built');
+  // (One step after another: the girders before the storey.)
+  const town = makeTown(7);
+  const truck = town.helpers.find((h) => h.kind === 'steel');
+  const evening = town.phases.find((q) => q.part === 'evening');
+  const [girders, storey] = evening.jobs.filter((j) => j.helper === 'steel');
+  const t = { ...town, jobs: evening.jobs };
+  assert.ok(canDo(t, truck, girders, new Set()) && !canDo(t, truck, storey, new Set()));
+  assert.equal(girders.place, 'yard');
 });
 
 test('stuck behind a helper with nowhere to go (pulled over for the horn, or not): it counts as parked, so it is asked to move', () => {

@@ -180,6 +180,19 @@ pictures and a sound for every touch.
   the farm 🤕, and it flies -- up off the roof, straight across town high
   over the houses, down on the street beside them -- picks them up and
   flies them back to the roof. (It flies itself; driving, you watch.)
+- The **big building site** (2 x 2, behind an orange fence): a step a
+  day, in the evening, from day 5. First the **excavator** (yellow, on
+  tracks, its arm scooping) digs the hole -- once ("Dig, dig, dig!"), and
+  again deeper ("The hole is dug!"); then each day the **steel truck**
+  (an orange cab, a flatbed) loads girders at the builders' yard ("Steel
+  for the tower!") and brings them to the site: another storey ("Another
+  floor on the tower!") -- glass between steel bands, the newest a bare
+  steel frame, a yellow crane beside it -- six storeys, then the roof
+  ("The tower is finished!"). Like the houses, it stays built: how far
+  along it is comes from the days before (towerBefore).
+- **Any day again:** tap the day, top left ("Day 7 ▾"): a button for each
+  day so far -- play an easier one again (the town as it was that day),
+  or come back to where you'd got to. The furthest day is kept.
 - The night has jobs too: after the evening, a night part ("It's night
   time! Turn on your headlights!") with the food truck's run, in the
   dark -- driving, the headlight switch glows till you turn them on, and

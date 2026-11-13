@@ -6,6 +6,13 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.112.0
+- Benji's Town: a big building site -- an excavator digs the hole, then
+  a steel truck brings the girders for a tower, a storey a day, six
+  storeys high, then the roof.
+- Benji's Town: play any day again -- tap the day at the top to pick an
+  earlier, easier one (or go back to where you'd got to).
+
 ## 1.111.0
 - Benji's Town: a hospital and an ambulance -- someone's feeling poorly
   at home; race them to the hospital with the siren on.

@@ -536,6 +536,59 @@ export function hospital(x, y, h) {
   return m;
 }
 
+// The big building site (two tiles each way) at (x, y), step along (see
+// town.js's towerBefore): a fence round it; the hole (half dug, then dug);
+// a storey of the tower for each step after that -- glass, between steel
+// bands, the newest one a bare steel frame -- with a yellow crane beside it
+// while it goes up; and, at TOWER (8), the roof on and the crane gone.
+const STOREY = 0.36;
+export function tower(x, y, h, step, t = 0) {
+  const m = new Model(x, y, h);
+  const done = step >= 8;
+  if (!done) {
+    for (const k of [-0.86, -0.43, 0, 0.43, 0.86]) {
+      for (const [px, py] of [[k, -0.86], [k, 0.86], [-0.86, k], [0.86, k]]) m.box(px - 0.02, py - 0.02, 0, px + 0.02, py + 0.02, 0.16, '#f77f00');
+    }
+  }
+  if (step > 0 && step < 2) {
+    // (The hole: dark, and the dirt heaped up beside it.)
+    const r = step >= 1 ? 0.62 : 0.4;
+    m.box(-r, -r, 0, r, r, 0.004, step >= 1 ? '#3d2b1f' : '#6b4f3a');
+    m.box(-0.8, 0.66, 0, -0.4, 0.84, step >= 1 ? 0.2 : 0.1, '#8d6e4f');
+  }
+  const floors = Math.max(0, Math.min(6, Math.floor(step) - 1)) + (done ? 0 : 0);
+  for (let k = 0; k < floors; k++) {
+    const z0 = 0.02 + k * STOREY;
+    const top = k === floors - 1 && !done;
+    if (top) {
+      // (The newest storey: just its steel frame.)
+      for (const [px, py] of [[-0.6, -0.6], [0.6, -0.6], [-0.6, 0.6], [0.6, 0.6], [0, -0.6], [0, 0.6], [-0.6, 0], [0.6, 0]]) m.box(px - 0.03, py - 0.03, z0, px + 0.03, py + 0.03, z0 + STOREY, '#6c757d');
+      m.box(-0.63, -0.63, z0 + STOREY - 0.04, 0.63, 0.63, z0 + STOREY, '#6c757d');
+    } else {
+      const b = m.box(-0.6, -0.6, z0, 0.6, 0.6, z0 + STOREY, '#8ecae6', '#adb5bd');
+      for (const f of [b.e, b.w, b.s, b.n]) {
+        const ax = f === b.e ? 0.602 : f === b.w ? -0.602 : f === b.s ? 0.602 : -0.602;
+        const on = f === b.e || f === b.w ? onX : onY;
+        m.decal(f, on(ax, -0.6, 0.6, z0, z0 + 0.05), '#495057');
+      }
+    }
+  }
+  if (done) {
+    const z = 0.02 + 6 * STOREY;
+    m.box(-0.64, -0.64, z, 0.64, 0.64, z + 0.06, '#495057');
+    m.box(-0.2, -0.2, z + 0.06, 0.2, 0.2, z + 0.22, '#adb5bd');
+  } else if (step >= 1) {
+    // (The crane: a yellow mast, and its arm reaching out over the tower.)
+    const tall = 0.02 + 7 * STOREY + 0.2;
+    m.box(0.68, 0.68, 0, 0.8, 0.8, tall, '#ffb703');
+    const a = Math.sin(t * 0.5) * 0.4;
+    const L = 1.1;
+    m.face([[0.74, 0.74, tall], [0.74 + Math.cos(Math.PI + a) * L, 0.74 + Math.sin(Math.PI + a) * L, tall], [0.74 + Math.cos(Math.PI + a) * L, 0.74 + Math.sin(Math.PI + a) * L, tall + 0.06], [0.74, 0.74, tall + 0.06]], [0, 0, 1], '#ffb703');
+    m.box(0.64, 0.64, tall, 0.84, 0.84, tall + 0.1, '#e85d04');
+  }
+  return m;
+}
+
 // The farm at (x, y), its front toward h: a little red barn with a white
 // trim, and rows of vegetables.
 export function farm(x, y, h) {
@@ -586,6 +639,33 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = f
     const red = Math.floor(t * 6) % 2 === 0;
     m.box(-0.04, -0.1, 0.29, 0.04, -0.005, 0.325, lights ? (red ? '#ff1f1f' : '#5c0a0a') : '#8a1c1c');
     m.box(-0.04, 0.005, 0.29, 0.04, 0.1, 0.325, lights ? (red ? '#0b1f4d' : '#3d8bff') : '#1d3557');
+    return m;
+  }
+  if (kind === 'digger') {
+    // The excavator: yellow, on tracks, its cab to one side, and its arm --
+    // boom, stick and bucket -- scooping (cargo: 0 to 1, how far down).
+    for (const sy of [-0.15, 0.08]) m.box(-0.3, sy, 0, 0.3, sy + 0.07, 0.08, '#343a40');
+    m.box(-0.28, -0.13, 0.08, 0.2, 0.13, 0.22, '#ffb703');
+    const cab = m.box(-0.1, -0.13, 0.22, 0.12, 0.04, 0.4, '#ffb703');
+    m.decal(cab.e, onX(0.122, -0.11, 0.02, 0.26, 0.37), GLASS);
+    const u = cargo || 0;
+    const reach = 0.25 + u * 0.15;
+    const low = 0.42 - u * 0.36;
+    m.box(0.15, 0.05, 0.2, 0.15 + reach, 0.1, 0.25, '#f4a261');
+    m.box(0.12 + reach, 0.05, low, 0.18 + reach, 0.1, 0.45, '#f4a261');
+    m.box(0.1 + reach, 0.02, Math.max(0, low - 0.06), 0.22 + reach, 0.13, low + 0.02, '#495057');
+    return m;
+  }
+  if (kind === 'steel') {
+    // The steel truck: an orange cab and a long flatbed -- with girders on
+    // it, loaded (cargo 'steel').
+    m.box(-0.38, -0.14, 0.05, 0.38, 0.14, 0.11, '#555555');
+    const cab = m.box(0.13, -0.14, 0.11, 0.38, 0.14, 0.4, '#e85d04');
+    m.decal(cab.e, onX(0.382, -0.11, 0.11, 0.24, 0.36), GLASS);
+    m.decal(cab.s, onY(0.142, 0.2, 0.35, 0.24, 0.36), GLASS);
+    m.decal(cab.n, onY(-0.142, 0.2, 0.35, 0.24, 0.36), GLASS);
+    m.box(-0.38, -0.15, 0.11, 0.12, 0.15, 0.14, '#6c757d');
+    if (cargo === 'steel') for (const [y0, z0] of [[-0.12, 0.14], [-0.03, 0.14], [0.06, 0.14], [-0.075, 0.19], [0.015, 0.19]]) m.box(-0.4, y0, z0, 0.1, y0 + 0.06, z0 + 0.05, '#adb5bd');
     return m;
   }
   if (kind === 'heli') {
