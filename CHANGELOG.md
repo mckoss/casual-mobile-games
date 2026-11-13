@@ -6,6 +6,15 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.116.0
+- Benji's Town: driving, a badge top left shows what you're in and the
+  job you're on. Tap it to pick anyone else to be -- or tap any job along
+  the top to jump into the seat of whoever does it.
+- Benji's Town: ride along in the cockpit of the helicopter and the
+  airplane -- all the way to Island City and back.
+- Benji's Town: the airplane can fly to Island City again, as often as
+  you like.
+
 ## 1.115.1
 - Benji's Town: playing fetch while walking the dog yourself, you turn to
   look where the ball's going and watch the dog run after it and bring it

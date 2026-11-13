@@ -316,10 +316,11 @@ export class Play {
     };
     const st = tr.steps[tr.k];
     if (!st) {
-      // Home: the trip done.
+      // Home: the trip done. (Flying again, just for fun: nothing to tick
+      // off -- but well done all the same.)
       m.trip = null;
       m.pause = 0;
-      this.done.add(tr.job);
+      if (tr.job !== null) this.done.add(tr.job);
       this.finished(m);
       return;
     }
@@ -413,7 +414,8 @@ export class Play {
   // (to the end of its street, out of everyone's way). (Not yours, nor one
   // busy with a job: they'll be going on in a moment.)
   budge(o, bedtime = false) {
-    if (!this.helpers.includes(o) || this.fp?.h === o || o.path.length || (o.pause > 0 && !bedtime) || o.deliver) return;
+    // (Not the airplane: it's never on the streets.)
+    if (!this.helpers.includes(o) || o.kind === 'plane' || this.fp?.h === o || o.path.length || (o.pause > 0 && !bedtime) || o.deliver) return;
     // (Home: where it parks -- the fire engine and the police car down the
     // end of the street beside the station, the rest at the door.)
     const home = o.at || this.place(o.home).door;
@@ -1093,7 +1095,7 @@ export class Play {
   // whenever nobody's busy and there are buttons waiting (now and then,
   // not on and on), each helper in turn.
   suggest(dt) {
-    const waiting = this.goButtons();
+    const waiting = this.goButtons().filter((b) => this.ready(b.h));
     const busy = this.helpers.some((h) => (h.path.length && !h.budging) || h.pause > 0 || h.deliver);
     if (this.fp || this.won || !waiting.length || busy) {
       this.idle = 0;
@@ -1156,7 +1158,7 @@ export class Play {
     this.hooks.say?.('Goodnight!');
     for (const h of this.helpers) {
       if (h.kind === 'walker') h.path = this.walk.route(h.node, this.spot.get(h.home)).slice(1);
-      else this.budge(h, true);
+      else if (h.kind !== 'plane') this.budge(h, true);
     }
   }
 
@@ -1429,11 +1431,39 @@ export class Play {
       // honk.)
       const shop = this.signAt(this.eye, sx, sy);
       if (shop) this.treat(shop);
-      else if (f.h.kind !== 'walker') this.honk('tap');
+      else if (f.h.kind !== 'walker' && !f.ride) this.honk('tap');
       else this.hooks.sfx?.('pop');
       return;
     }
     e.preventDefault();
+    // (The picker open: who to be -- a tap on one; anywhere else, shut.)
+    if (this.picker) {
+      const c = this.pickerButtons().find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 8);
+      if (c) this.takeOver(c.h);
+      else {
+        this.picker = false;
+        this.hooks.sfx?.('tap');
+      }
+      return;
+    }
+    // (Who you are, top left: tap for the picker -- everyone you could be.)
+    const me = this.badge();
+    if (Math.hypot(me.x - sx, me.y - sy) < me.r + 10) {
+      this.picker = true;
+      this.hooks.sfx?.('tap');
+      return;
+    }
+    // (A job along the top: into the seat of whoever does it.)
+    const box = (this.seatBoxes || []).find((q) => sx >= q.x - 4 && sx <= q.x + q.box + 4 && sy >= q.y - 4 && sy <= q.y + q.box + 4);
+    if (box) {
+      const h = this.helpers.find((m) => m.id === box.j.helper);
+      const live = h && !this.done.has(box.j.i) && this.targetPlace(h);
+      if (h && (live || this.canFly(h))) {
+        if (live && canDo(this.town, h, box.j, this.done)) h.chosen = box.j.i;
+        this.takeOver(h);
+      } else this.hooks.sfx?.('tap');
+      return;
+    }
     // (The big button for a fire, or a robber: into that driver's seat.)
     const sos = this.emergencies().find((q) => Math.hypot(q.x - sx, q.y - sy) < q.r + 10);
     if (sos) {
@@ -1542,14 +1572,14 @@ export class Play {
   // The headlight switch, top left of the windshield (driving, not walking
   // the dog): { x, y, r }.
   lampButton() {
-    if (!this.fp || this.fp.h.kind === 'walker') return null;
+    if (!this.fp || this.fp.h.kind === 'walker' || this.fp.ride) return null;
     return this.pedal ? this.carPads.find((q) => q.act === 'lamp') : { act: 'lamp', x: 54, y: 150, r: 36 };
   }
 
   // Driving with the pedals (the steering wheel and the gas), not the
   // simple buttons (◀ ▲ ▶, a block at a time)?
   usePedals() {
-    return !!this.pedal && !!this.fp && this.fp.h.kind !== 'walker';
+    return !!this.pedal && !!this.fp && this.fp.h.kind !== 'walker' && !this.fp.ride;
   }
 
   // Simple buttons or pedals: yours to choose (the switch in the top bar).
@@ -1569,6 +1599,7 @@ export class Play {
 
   // The buttons along the bottom, for what you're in.
   padList() {
+    if (this.fp?.ride) return [];
     return this.usePedals() ? this.carPads : this.pads;
   }
 
@@ -1577,6 +1608,7 @@ export class Play {
   // windshield.
   seatButtons() {
     const list = this.padList();
+    if (this.fp?.ride) return list;
     // (Walking the dog, at the park: the ball, big, in the middle.)
     if (this.fp?.h.kind === 'walker') return this.canFetch(this.fp.h) ? [{ act: 'ball', x: this.W / 2, y: this.seatH * 0.6, r: 48 }, ...list] : list;
     return this.usePedals() || this.fp?.h.kind === 'walker' ? list : [this.lampButton(), this.hornButton(), ...list];
@@ -1592,7 +1624,7 @@ export class Play {
   // The horn, under the headlight switch: there all the time you're
   // driving (not walking the dog), and every press honks. { x, y, r }
   hornButton() {
-    if (!this.fp || this.fp.h.kind === 'walker') return null;
+    if (!this.fp || this.fp.h.kind === 'walker' || this.fp.ride) return null;
     return this.pedal ? this.carPads.find((q) => q.act === 'horn') : { act: 'horn', x: 54, y: 252, r: 42 };
   }
 
@@ -1932,12 +1964,49 @@ export class Play {
     if (this.hint?.h === h) this.hint = null;
     this.idle = 0;
     this.prompt = 6;
-    if (this.drive && h.kind !== 'heli' && h.kind !== 'plane') this.enter(h);
+    // (The airplane, its trip done -- or none today: off again, for fun.)
+    const again = this.canFly(h) && !this.targetPlace(h);
+    if (again) this.flyAgain(h);
+    if (this.drive) this.enter(h);
     else {
-      this.send(h);
+      if (!again) this.send(h);
       this.focus = h;
       this.manual = 0;
     }
+  }
+
+  // The airplane can go off to Island City again (as often as you like):
+  // home, nothing it has to do, in the day.
+  canFly(h) {
+    return h.kind === 'plane' && !h.trip && h.pause <= 0 && !this.targetPlace(h) && !this.night && !this.won;
+  }
+
+  // All aboard -- again! The same trip, with nothing to tick off.
+  flyAgain(h) {
+    h.trip = { job: null, steps: this.planeRoute(), k: 0, t: 0 };
+    h.pause = 1;
+    this.pop('🧳', h.tile || { x: h.x - 0.5, y: h.y - 0.5 });
+    this.hooks.sfx?.('ding');
+    this.hooks.say?.('All aboard!');
+  }
+
+  // Into the seat of h, whatever you're in now -- from the picker, or a job
+  // tapped along the top. (The airplane with nothing to do: off again.)
+  takeOver(h) {
+    this.picker = false;
+    if (this.fp?.h === h) {
+      this.hooks.sfx?.('tap');
+      return;
+    }
+    if (this.canFly(h) && !this.targetPlace(h)) this.flyAgain(h);
+    if (this.fp) this.leave();
+    this.enter(h);
+  }
+
+  // Who you could be, in the picker: everyone with something to do now
+  // (and the airplane, which can always fly again).
+  choosable() {
+    return this.helpers.filter((h) => this.fp?.h === h || !!this.targetPlace(h) || this.canFly(h));
   }
 
   // The buttons over the helpers waiting to start, where they are on the
@@ -1947,10 +2016,10 @@ export class Play {
     if (this.fp) return [];
     const { view } = this;
     const r = clamp(view.k * 0.3, 20, 30);
-    return this.helpers.filter((h) => this.ready(h)).map((h) => {
+    return this.helpers.filter((h) => this.ready(h) || this.canFly(h)).map((h) => {
       const at = view.at(h.x, h.y, (h.z || 0) + (h.kind === 'walker' ? 0.55 : 0.7));
       if (!at) return null;
-      const b = { h, x: at[0], y: at[1] - r - 10, r, icon: this.nextIcon(h), edge: null };
+      const b = { h, x: at[0], y: at[1] - r - 10, r, icon: this.targetPlace(h) ? this.nextIcon(h) : '✈️', edge: null };
       const m = r + 8;
       const x = clamp(b.x, m, this.W - m);
       const y = clamp(b.y, m, this.viewH - m - 10);
@@ -2072,13 +2141,24 @@ export class Play {
   enter(h) {
     this.touches.clear();
     this.pinch = null;
-    h.path = [];
-    h.budging = false;
-    this.fp = { h, go: false, v: 0, intent: null, hint: null, head: h.head, look: 0, lookT: 0, drag: null, away: 0, out: null, wheel: 0, done: 0, wait: null, held: null, waited: 0, last: h.kind === 'walker' ? h.node : h.tile };
+    this.picker = false;
+    // (The helicopter and the airplane fly themselves: you ride along, in
+    // the cockpit, looking out.)
+    const ride = h.kind === 'heli' || h.kind === 'plane';
+    if (!ride) {
+      h.path = [];
+      h.budging = false;
+    }
+    this.fp = { h, ride, go: false, v: 0, intent: null, hint: null, head: h.head, look: 0, lookT: 0, drag: null, away: 0, out: null, wheel: 0, done: 0, wait: null, held: null, waited: 0, last: h.kind === 'walker' ? h.node : h.tile };
     this.focus = h;
     if (h.kind === 'fire' || h.kind === 'police' || h.kind === 'ambulance') this.hooks.sfx?.('siren', h.kind);
-    else this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : 'honk', h.kind);
+    else this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : ride ? 'whoosh' : 'honk', h.kind);
     this.hooks.say?.('Let’s go!');
+    if (ride) {
+      // (Off it goes, if it's not on its way already.)
+      if (!h.trip && !h.path.length && h.pause <= 0 && this.targetPlace(h)) this.send(h);
+      return;
+    }
     // Already there (the mixer parked at the yard, say): the job's done
     // here and now -- not off round the block and back to do it.
     const p = this.targetPlace(h);
@@ -2099,7 +2179,7 @@ export class Play {
       return;
     }
     if (this.fp || this.won || this.night) return;
-    const works = (h) => !!h && this.helpers.includes(h) && h.kind !== 'heli' && h.kind !== 'plane' && !!this.targetPlace(h);
+    const works = (h) => !!h && this.helpers.includes(h) && !!this.targetPlace(h);
     const h = [this.lastFp, this.hint?.h, this.focus, ...this.helpers.filter((x) => this.ready(x)), ...this.helpers].find(works);
     if (!h) return;
     if (this.hint?.h === h) this.hint = null;
@@ -2113,8 +2193,12 @@ export class Play {
     this.touches.clear();
     this.pinch = null;
     this.lastFp = h;
+    const ride = this.fp.ride;
     this.fp = null;
-    if (h.kind === 'walker') h.path = h.path.slice(0, 1);
+    this.picker = false;
+    if (ride) {
+      // (Flying: it flies on by itself.)
+    } else if (h.kind === 'walker') h.path = h.path.slice(0, 1);
     else h.path = isJunction(h.path[0]?.x, h.path[0]?.y) ? h.path.slice(0, 2) : h.path.slice(0, 1);
     Object.assign(this.cam, { x: h.x, y: h.y, k: this.kIn });
     this.calm = 0;
@@ -2129,6 +2213,33 @@ export class Play {
   }
 
   // ------------------------------------------------------ driving yourself
+
+  // Riding in the helicopter or the airplane: it flies itself (the
+  // helicopter on to its next job by itself too); the camera out of the
+  // cockpit for someone getting in or out, as on a delivery; the engine
+  // with it; back out to the town a moment after it's done.
+  rideAlong(dt) {
+    const f = this.fp;
+    const h = f.h;
+    if (h.deliver) f.out = h.deliver.cam;
+    f.away = clamp(f.away + (h.deliver ? dt : -dt) / 0.8, 0, 1);
+    const busy = h.pause > 0 || !!h.deliver || !!h.trip;
+    if (h.kind === 'heli' && !busy && !h.path.length && this.targetPlace(h)) this.send(h);
+    const flying = h.kind === 'plane' ? !!h.trip && (h.z > 0.01 || h.trip.k > 1) : !!h.flying;
+    f.engine = flying ? 0.35 + 0.35 * clamp((h.z || 0) / 2, 0, 1) : 0.12;
+    // (The yoke, leaning into a turn.)
+    const turn = Math.atan2(Math.sin(h.head - f.head), Math.cos(h.head - f.head)) / Math.max(dt, 1e-3);
+    f.head = h.head;
+    f.wheel += (clamp(turn * 0.35, -0.6, 0.6) - f.wheel) * Math.min(1, dt * 4);
+    if (!busy && !h.path.length && !this.targetPlace(h)) {
+      f.done += dt;
+      if (f.done > 2) this.leave();
+    } else f.done = 0;
+    if (!f.drag && f.look) {
+      f.lookT += dt;
+      if (f.lookT > 1) f.look = Math.abs(f.look) < 0.01 ? 0 : f.look * (1 - Math.min(1, dt * 3));
+    }
+  }
 
   fpSteer(dt) {
     const f = this.fp;
@@ -2232,6 +2343,8 @@ export class Play {
 
   // The way on ahead, as it is right now.
   plan(f) {
+    // (Riding along, flying: it knows the way.)
+    if (f.ride) return;
     if (f.h.kind === 'walker') this.planWalk(f, f.h);
     else this.planDrive(f, f.h);
   }
@@ -2515,7 +2628,10 @@ export class Play {
     }
     // (What was done, said a moment after.)
     while (this.later?.length && this.t >= this.later[0].t) this.hooks.say?.(this.later.shift().line);
-    if (this.fp) this.fpSteer(dt);
+    if (this.fp) {
+      if (this.fp.ride) this.rideAlong(dt);
+      else this.fpSteer(dt);
+    }
     // The engine, driving: ticking over, and rising as you put your foot
     // down and speed up. (Off, out of the cab.)
     const f = this.fp;
@@ -2895,7 +3011,7 @@ export class Play {
       if (lamps > 0) beam(c.x + Math.cos(c.head) * len, c.y + Math.sin(c.head) * len, c.head, { near: 0.9, spread: 0.18, width: 0.12, far: 2.6, step: () => 0.42, strength: 0.5 * lamps });
     }
     // Your headlights: the road ahead, and the buildings in the beam.
-    if (this.headlights && f && f.h.kind !== 'walker' && !(f.away > 0.25)) {
+    if (this.headlights && f && f.h.kind !== 'walker' && !f.ride && !(f.away > 0.25)) {
       const h = f.h;
       const a = f.head;
       const [fx, fy] = [Math.cos(a), Math.sin(a)];
@@ -3042,7 +3158,15 @@ export class Play {
     // for.)
     const zoom = f.zoom || 1;
     eye.F = this.baseF * zoom;
-    if (h.kind === 'walker') eye.set(h.x - Math.cos(f.head) * 0.14, h.y - Math.sin(f.head) * 0.14, 0.5, f.head + f.look, -0.34 + (zoom - 1) * 0.5);
+    if (f.ride) {
+      // (In the cockpit: up front, looking out -- and down a little more
+      // the higher it is, at the town below.)
+      const z = h.z || 0;
+      const plane = h.kind === 'plane';
+      const fwd = plane ? 0.36 : 0.16;
+      const pitch = plane ? -0.1 - 0.32 * clamp(z / 2.6, 0, 1) : -0.18 - 0.34 * clamp(z / 1.9, 0, 1);
+      eye.set(h.x + Math.cos(h.head) * fwd, h.y + Math.sin(h.head) * fwd, z + (plane ? 0.26 : 0.24), h.head + f.look, pitch);
+    } else if (h.kind === 'walker') eye.set(h.x - Math.cos(f.head) * 0.14, h.y - Math.sin(f.head) * 0.14, 0.5, f.head + f.look, -0.34 + (zoom - 1) * 0.5);
     else eye.set(h.x + Math.cos(f.head) * 0.2, h.y + Math.sin(f.head) * 0.2, 0.36, f.head + f.look, -0.16);
     // On a delivery, the camera floats out of the cab to watch from across
     // the street (and back in after).
@@ -3061,9 +3185,12 @@ export class Play {
     g.beginPath();
     g.rect(0, 0, this.W, this.seatH);
     g.clip();
-    // Fields all round the town, then the town.
+    // Fields all round the town (the sea to the west), then the town --
+    // and out past it, the island and the airport.
     I.rect(g, eye, -40, -40, SIZE + 40, SIZE + 40, '#7cc15a');
+    this.drawSea(eye);
     I.rect(g, eye, 0, 0, SIZE, SIZE, '#8fd16a');
+    this.drawAway(eye);
     this.drawGround(eye);
     // The way you'll go: little arrows along it (through the corner coming
     // up the way you chose, and on to the job).
@@ -3074,7 +3201,8 @@ export class Play {
     this.overlays(eye, d ? [] : [h]);
     // In the cab: the dashboard and the wheel, turning as you turn (going
     // as the camera floats out).
-    if (h.kind !== 'walker' && f.away < 0.3 && back < 1) {
+    if (f.ride && f.away < 0.3) this.cockpit(h, f.wheel);
+    else if (h.kind !== 'walker' && f.away < 0.3 && back < 1) {
       g.save();
       g.translate(-back * this.W * 1.2, 0);
       this.dashboard(h, f.wheel);
@@ -3090,13 +3218,168 @@ export class Play {
     const ball = this.fp?.h.kind === 'walker' && this.seatButtons().find((q) => q.act === 'ball');
     if (ball) this.drawFetch(ball);
     // (The simple buttons: the headlights and the horn up on the windshield.)
-    if (this.fp && this.fp.h.kind !== 'walker' && !this.pedal) {
+    if (this.fp && this.fp.h.kind !== 'walker' && !this.fp.ride && !this.pedal) {
       this.drawLamp(this.lampButton());
       this.drawHorn(this.hornButton());
     }
     g.restore();
     this.drawPads();
     this.drawTray(true);
+    // Who you are (top left) -- and, tapped, everyone you could be.
+    this.drawBadge();
+    if (this.picker) this.drawPicker();
+  }
+
+  // Who you are, in the driver's seat: a round badge top left with what
+  // you're in (the truck itself, in its colours) and the picture of the
+  // job you're on. Tap it to be someone else.
+  badge() {
+    return { x: 36, y: 40, r: 28 };
+  }
+
+  // A helper in a little circle: the truck (or the dog walker and the dog)
+  // as it looks in the town, in its colours, facing you.
+  drawHelperIn(h, x, y, r) {
+    const { g } = this;
+    const v = (this.mini ||= new I.View());
+    const span = { plane: 1.3, heli: 0.9, bus: 0.85, steel: 0.8, mixer: 0.75, fire: 0.78, digger: 0.75, walker: 0.55 }[h.kind] || 0.68;
+    Object.assign(v, { x: 0, y: 0, k: (r * 1.3) / span, ox: x, oy: y + r * 0.2 });
+    g.save();
+    g.beginPath();
+    g.arc(x, y, r - 2, 0, Math.PI * 2);
+    g.clip();
+    const a = Math.PI * 0.75;
+    if (h.kind === 'walker') {
+      I.paint(g, v, I.person(-0.05, -0.12, a, this.t, COLORS.walker, {}).parts);
+      I.paint(g, v, I.dog(0.12, 0.1, a, this.t, false).parts);
+    } else {
+      const cargo = h.kind === 'bus' ? h.load : h.kind === 'digger' ? 0 : h.cargo;
+      I.paint(g, v, I.vehicle(h.kind, 0, 0, a, this.t, h.color, 0, false, false, cargo).parts);
+    }
+    g.restore();
+  }
+
+  // A round button with a helper in it: white, ringed in its colour (gold,
+  // thick, for you) -- and the picture of its next job in a bubble.
+  drawHelperButton(h, x, y, r, mine) {
+    const { g } = this;
+    if (mine) {
+      g.fillStyle = 'rgba(255,209,102,0.85)';
+      g.beginPath();
+      g.arc(x, y, r + 7, 0, Math.PI * 2);
+      g.fill();
+    }
+    g.fillStyle = '#ffffff';
+    g.strokeStyle = COLORS[h.kind] || '#1d3557';
+    g.lineWidth = 4;
+    g.beginPath();
+    g.arc(x, y, r, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    this.drawHelperIn(h, x, y, r);
+    const icon = this.targetPlace(h) ? this.nextIcon(h) : h.kind === 'plane' ? '✈️' : null;
+    if (!icon) return;
+    const br = Math.max(11, r * 0.42);
+    const [bx, by] = [x + r * 0.72, y + r * 0.72];
+    g.fillStyle = '#ffffff';
+    g.strokeStyle = COLORS[h.kind] || '#1d3557';
+    g.lineWidth = 2.5;
+    g.beginPath();
+    g.arc(bx, by, br, 0, Math.PI * 2);
+    g.fill();
+    g.stroke();
+    g.font = `${Math.round(br * 1.25)}px system-ui, sans-serif`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    emoji(g, icon, bx, by + 1);
+  }
+
+  drawBadge() {
+    const b = this.badge();
+    this.drawHelperButton(this.fp.h, b.x, b.y, b.r, false);
+  }
+
+  // The picker: everyone you could be, big, over the view -- you among them
+  // (ringed in gold).
+  pickerButtons() {
+    const list = this.choosable();
+    const r = 40;
+    const gap = 22;
+    const per = Math.max(1, Math.floor((this.W - 24) / (2 * r + gap)));
+    const rows = Math.ceil(list.length / per);
+    const top = Math.max(90, (this.seatH - rows * (2 * r + gap)) / 2 + r);
+    return list.map((h, k) => {
+      const row = Math.floor(k / per);
+      const n = Math.min(per, list.length - row * per);
+      const x = this.W / 2 + ((k % per) - (n - 1) / 2) * (2 * r + gap);
+      return { h, x, y: top + row * (2 * r + gap), r };
+    });
+  }
+
+  drawPicker() {
+    const { g } = this;
+    g.fillStyle = 'rgba(13,27,42,0.55)';
+    g.fillRect(0, 0, this.W, this.H);
+    for (const q of this.pickerButtons()) this.drawHelperButton(q.h, q.x, q.y, q.r, q.h === this.fp.h);
+  }
+
+  // In the cockpit (riding in the helicopter or the airplane): the
+  // instrument panel along the bottom, its dials, and the yoke -- leaning
+  // as it turns.
+  cockpit(h, lean) {
+    const { g, W } = this;
+    const H = this.seatH;
+    const top = H - Math.min(84, H * 0.15);
+    g.fillStyle = '#2b2d42';
+    g.beginPath();
+    g.moveTo(0, H);
+    g.lineTo(0, top + 22);
+    g.quadraticCurveTo(W / 2, top - 18, W, top + 22);
+    g.lineTo(W, H);
+    g.closePath();
+    g.fill();
+    // (The dials: white faces, a needle each, gently moving.)
+    const r = Math.min(20, W * 0.05);
+    for (const [k, x] of [[0, W * 0.14], [1, W * 0.27], [2, W * 0.73], [3, W * 0.86]]) {
+      const y = top + 34;
+      g.fillStyle = '#f8f9fa';
+      g.beginPath();
+      g.arc(x, y, r, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = '#8d99ae';
+      g.lineWidth = 3;
+      g.stroke();
+      const a = -Math.PI / 2 + Math.sin(this.t * (0.7 + k * 0.3) + k) * 0.9 + (k === 1 ? (h.z || 0) * 0.8 : 0);
+      g.strokeStyle = k % 2 ? '#e63946' : '#212529';
+      g.lineWidth = 2.5;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8);
+      g.stroke();
+    }
+    // The yoke: the column, and the bar with its two handles.
+    const cx = W / 2;
+    const cy = H - 18;
+    g.fillStyle = '#1b1b1b';
+    g.fillRect(cx - 7, cy, 14, 30);
+    g.save();
+    g.translate(cx, cy);
+    g.rotate(lean);
+    const w = Math.min(W * 0.2, 80);
+    g.strokeStyle = '#1b1b1b';
+    g.lineWidth = 12;
+    g.lineCap = 'round';
+    g.beginPath();
+    g.moveTo(-w, -26);
+    g.lineTo(-w, 0);
+    g.lineTo(w, 0);
+    g.lineTo(w, -26);
+    g.stroke();
+    g.fillStyle = COLORS[h.kind] || '#1d4e89';
+    g.beginPath();
+    g.arc(0, 0, 9, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
   }
 
   // A fire engine's or a police car's lights flashing, red and blue: a glow
@@ -3650,7 +3933,7 @@ export class Play {
   // lines, crosswalks and stop lines.
   // The sea, west of town (with Island City out in it).
   drawSea(view) {
-    I.rect(this.g, view, -20, -10, -0.3, SIZE + 10, '#4ea8de', -0.15);
+    I.rect(this.g, view, -40, -40, -0.3, SIZE + 40, '#4ea8de', -0.15);
   }
 
   // Out past the edge of town: the island (its beach, its grass, its
@@ -4058,10 +4341,14 @@ export class Play {
     }
     const x0 = seat ? 70 + (this.W - 70 - cols * (box + gap)) / 2 : (this.W - cols * (box + gap) + gap) / 2;
     if (!seat) this.trayBoxes = [];
+    else this.seatBoxes = [];
     jobs.forEach((j, n) => {
       const x = x0 + (n % per) * (box + gap);
       const y = y0 + Math.floor(n / per) * (box + gap);
-      if (!seat) this.trayBoxes.push({ x, y, box, j });
+      (seat ? this.seatBoxes : this.trayBoxes).push({ x, y, box, j });
+      // (In the driver's seat: your jobs clear, everyone else's faded.)
+      const others = seat && this.fp && j.helper !== this.fp.h.id;
+      g.globalAlpha = others ? 0.55 : 1;
       const done = this.done.has(j.i);
       const mine = this.helpers.find((h) => h.id === j.helper);
       if (!done && mine && mine.chosen === j.i) {
@@ -4080,14 +4367,15 @@ export class Play {
       g.font = `${Math.round(box * 0.6)}px system-ui, sans-serif`;
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.globalAlpha = done ? 0.45 : 1;
+      g.globalAlpha = (done ? 0.45 : 1) * (others ? 0.55 : 1);
       emoji(g, j.kind === 'build' && j.stage === 3 ? '🏠' : ICONS[j.kind], x + box / 2, y + box / 2 + 1);
-      g.globalAlpha = 1;
+      g.globalAlpha = others ? 0.55 : 1;
       if (done) {
         g.font = `900 ${Math.round(box * 0.55)}px system-ui, sans-serif`;
         g.fillStyle = '#2b9348';
         g.fillText('✓', x + box - box * 0.22, y + box * 0.27);
       }
+      g.globalAlpha = 1;
     });
     if (seat) return;
     // The turn buttons: round arrows, anticlockwise and clockwise.

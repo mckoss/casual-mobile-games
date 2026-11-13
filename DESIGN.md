@@ -210,7 +210,10 @@ pictures and a sound for every touch.
   runway and "Up we go!", high over the whole town, out over the sea,
   down onto the island ("Welcome to Island City!"), a while there, round,
   and all the way back ("Home again!"), the camera following it. One tap
-  does the whole trip; it's ticked off once it's home.
+  does the whole trip; it's ticked off once it's home. And after that (or
+  on a day with no trip) it can go again, as often as you like, just for
+  fun -- its button over it at the airport, ✈️, any time in the day;
+  nothing more to tick off, but "Home again!" and well done all the same.
 - **Any day again:** tap the day, top left ("Day 7 ▾"): a button for each
   day so far -- play an easier one again (the town as it was that day),
   or come back to where you'd got to. The furthest day is kept.
@@ -268,6 +271,23 @@ pictures and a sound for every touch.
   tap it and you're straight into the fire engine's (or the police car's)
   driver's seat, siren going. No need to find the small switch up top and
   look for it in the town.
+- **Who you are, and anyone else:** driving, a round badge top left shows
+  what you're in -- the truck itself, as it looks in the town, in its
+  colours, in a ring of its colour -- with the picture of the job you're
+  on in a bubble. Tap it and everyone you could be comes up big over the
+  view (everyone with something to do now, and the airplane, which can
+  always fly again; you in a gold ring): tap one and you're in their seat
+  at once. Or tap a job along the top: into the seat of whoever does it
+  (yours clear along there, everyone else's faded). The one you left
+  stops where it is, its button over it, for later.
+- **Riding in the helicopter and the airplane:** they fly themselves, and
+  driving you ride along in the cockpit -- up front, looking out (and
+  down at the town the higher you are), the instrument panel and its
+  dials along the bottom and the yoke leaning into the turns; nothing to
+  press. The helicopter goes on to its next job by itself; out of the
+  cockpit to watch someone get in or out; back to the town a moment
+  after it's all done. The seat view now has the sea to the west, Island
+  City out in it, and the airport's runway.
 - The fire engine, once the fire's out, and the police car, once the
   robber's in jail, drive back to where they park by themselves -- not
   left standing in the road.
