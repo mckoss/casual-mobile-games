@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.114.2
+- Benji's Town: softer headlights -- the beam has no hard edges now,
+  fading gently to the sides and on down the road (and the street lamps'
+  pools of light are soft too).
+
 ## 1.114.1
 - Benji's Town: the robber looks like a robber now (not Dracula) -- a
   cartoon burglar all in black, with a black beanie, a mask and a bag of

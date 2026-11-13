@@ -265,10 +265,15 @@ pictures and a sound for every touch.
   light cut out of it only where light falls: with the headlights off,
   just the pools of light under the street lamps (soft at the edges) and
   other cars' small headlamps and the patch of road ahead of them; with
-  them on, a wedge of light on the road ahead, widening and fading with
-  distance, and the fronts of the buildings in the beam lit (their own
-  outlines, as they face the light and less the further off) -- nothing
-  glowing in the air. (It once added big glowing blobs on top: glare.)
+  them on, a beam of light on the road ahead, and the fronts of the
+  buildings in it lit (their own outlines, as they face the light) --
+  nothing glowing in the air. (It once added big glowing blobs on top:
+  glare.) The light on the ground is soft all over, no edges anywhere:
+  across the beam it falls off as a gaussian, wider the further out;
+  along it, as the light spreads (inverse square, softened near the car)
+  -- it just fades away. It's built from fuzzy round blobs laid flat on
+  the ground, drawn on a quarter-size map of how much dark is left (soft,
+  so small will do, and quick) that's stretched over the darkness.
 - Each helper that can be sent on a job has a big round button over it,
   in its colour, with a picture of its next job (a bin, a letter, the dog,
   a brick) and a little green "go" -- kept in view at the edge of the

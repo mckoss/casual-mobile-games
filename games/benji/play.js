@@ -2702,12 +2702,32 @@ export class Play {
 
   // Night from the driver's seat (or walking the dog), as it really looks:
   // dark all over -- and lit only where light falls. Your headlights: a
-  // wedge of light on the road ahead, fading with distance, and the fronts
+  // soft beam on the road ahead, fading to the sides and on ahead, and the fronts
   // of the buildings in the beam (their own outlines -- nothing glows in
   // the air); with them off, only the pools of light under the street
   // lamps. (Other cars: their headlights, small and bright, and the patch
   // of road they light.) A darkness drawn over the view with the light cut
   // out of it.
+  // A soft round blob, for light on the ground: a gaussian, white in the
+  // middle fading to nothing at the edge (made once).
+  static glow() {
+    if (Play.glowImg) return Play.glowImg;
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const x = c.getContext('2d');
+    const img = x.createImageData(64, 64);
+    for (let j = 0; j < 64; j++) {
+      for (let i = 0; i < 64; i++) {
+        const r = Math.hypot(i + 0.5 - 32, j + 0.5 - 32) / 32;
+        // (sigma 0.35 of the radius; nothing at all past the edge)
+        const a = r >= 1 ? 0 : Math.exp(-(r * r) / (2 * 0.35 * 0.35)) * (1 - r ** 8);
+        img.data.set([255, 255, 255, Math.round(a * 255)], (j * 64 + i) * 4);
+      }
+    }
+    x.putImageData(img, 0, 0);
+    return (Play.glowImg = c);
+  }
+
   nightLights(view, H) {
     const { g } = this;
     const { bright, warm } = light(this.clock);
@@ -2737,33 +2757,69 @@ export class Play {
       l.closePath();
       l.fill();
     };
-    // A patch of light on the ground: a wedge from (x, y) along heading a.
-    const wedge = (x, y, a, reach, w0, w1, strength) => {
+    // Light on the ground, soft all over: made of fuzzy round blobs (a
+    // gaussian each, laid flat on the ground -- in perspective), so there's
+    // no edge anywhere. Where they overlap the dark thins out the more.
+    // (Soft, so drawn small -- a quarter the size, much quicker -- on a map
+    // of how much of the dark is left, and stretched over the dark after.)
+    const W = this.W;
+    const Q = 0.25;
+    const map = (this.lightMap ||= document.createElement('canvas'));
+    const [mw, mh] = [Math.ceil(W * Q), Math.ceil(H * Q)];
+    if (map.width !== mw || map.height !== mh) {
+      map.width = mw;
+      map.height = mh;
+    }
+    const m = map.getContext('2d');
+    m.setTransform(1, 0, 0, 1, 0, 0);
+    m.globalAlpha = 1;
+    m.globalCompositeOperation = 'source-over';
+    m.fillStyle = '#000';
+    m.fillRect(0, 0, mw, mh);
+    m.globalCompositeOperation = 'destination-out';
+    const blob = (x, y, r, a) => {
+      if (a <= 0.004) return;
+      const c = view.at(x, y, 0.01);
+      const ex = view.at(x + r, y, 0.01);
+      const ey = view.at(x, y + r, 0.01);
+      if (!c || !ex || !ey) return;
+      const [ax, ay, bx, by] = [ex[0] - c[0], ex[1] - c[1], ey[0] - c[0], ey[1] - c[1]];
+      if (Math.abs(ax) + Math.abs(ay) + Math.abs(bx) + Math.abs(by) > W * 3) return;
+      m.setTransform(Q * ax, Q * ay, Q * bx, Q * by, Q * c[0], Q * c[1]);
+      m.globalAlpha = Math.min(1, a);
+      m.drawImage(Play.glow(), -1, -1, 2, 2);
+    };
+    // A beam from (x, y) along heading a: across it a gaussian, wider the
+    // further out; along it, fading as the light spreads (inverse square,
+    // softened close to the lamp) -- no end to it, it just fades away.
+    const beam = (x, y, a, { near, spread, width, far, step, strength }) => {
       const [fx, fy] = [Math.cos(a), Math.sin(a)];
-      const N = 12;
-      for (let k = 0; k < N; k++) {
-        const [d0, d1] = [(reach * k) / N, (reach * (k + 1)) / N];
-        const [s0, s1] = [w0 + (w1 - w0) * (d0 / reach), w0 + (w1 - w0) * (d1 / reach)];
-        const p = (d, s) => [x + fx * d - fy * s, y + fy * d + fx * s, 0.01];
-        cut(view.poly([p(d0, -s0), p(d1, -s1), p(d1, s1), p(d0, s0)]), strength * (1 - (k + 0.5) / N) ** 1.3);
+      for (let d = step(0) * 0.5; d < far; d += step(d)) {
+        const sd = width + spread * d;
+        const along = Math.min(1, d / 0.6) / (1 + (d / near) ** 2);
+        // (How much the dark is to thin out here: so that the light comes
+        // out as strength x along, in the middle of the beam.)
+        const want = -Math.log(1 - Math.min(0.97, strength * along));
+        const ds = step(d);
+        for (let s2 = 0; s2 <= sd * 2.4; s2 += ds) {
+          const a2 = (want * Math.exp(-(s2 * s2) / (2 * sd * sd))) / (2 * Math.PI);
+          for (const side of s2 ? [-s2, s2] : [0]) blob(x + fx * d - fy * side, y + fy * d + fx * side, ds / 0.35, a2);
+        }
       }
     };
     const f = this.fp;
     const lamps = Math.min(1, Math.max(0, (dark - 0.35) * 2.5));
-    // The street lamps at the corners: a pool of light under each.
-    for (const { x, y } of this.junctions) {
-      if (!this.seen(view, x + 0.5, y + 0.5)) continue;
-      // (Soft at the edge: brightest under the lamp.)
-      for (const [r, a] of [[0.75, 0.2], [0.55, 0.25], [0.32, 0.25]]) {
-        const ring = Array.from({ length: 16 }, (_, k) => [x + 0.5 + Math.cos((k / 16) * Math.PI * 2) * r, y + 0.5 + Math.sin((k / 16) * Math.PI * 2) * r, 0.01]);
-        cut(view.poly(ring), a * lamps);
+    // The street lamps at the corners: a soft pool of light under each.
+    if (lamps > 0) {
+      for (const { x, y } of this.junctions) {
+        if (this.seen(view, x + 0.5, y + 0.5)) blob(x + 0.5, y + 0.5, 0.95, 0.55 * lamps);
       }
     }
     // Other cars' headlights: the road just ahead of them.
     for (const c of this.traffic.cars) {
       if (f?.h === c || !this.seen(view, c.x, c.y)) continue;
       const len = c.len || 0.38;
-      wedge(c.x + Math.cos(c.head) * len, c.y + Math.sin(c.head) * len, c.head, 1.6, 0.14, 0.5, 0.5 * lamps);
+      if (lamps > 0) beam(c.x + Math.cos(c.head) * len, c.y + Math.sin(c.head) * len, c.head, { near: 0.9, spread: 0.18, width: 0.12, far: 2.6, step: () => 0.42, strength: 0.5 * lamps });
     }
     // Your headlights: the road ahead, and the buildings in the beam.
     if (this.headlights && f && f.h.kind !== 'walker' && !(f.away > 0.25)) {
@@ -2772,29 +2828,38 @@ export class Play {
       const [fx, fy] = [Math.cos(a), Math.sin(a)];
       const len = h.len || 0.38;
       const [x0, y0] = [h.x + fx * len, h.y + fy * len];
-      const REACH = 5.5;
-      // (Soft at the edges: a wider, fainter wedge under the beam.)
-      wedge(x0, y0, a, REACH, 0.3, 2.3, 0.45);
-      wedge(x0, y0, a, REACH * 0.92, 0.18, 1.5, 0.85);
+      const REACH = 9;
+      const NEAR = 3.6;
+      const spread = (d) => 0.16 + 0.15 * d;
+      const along = (d) => Math.min(1, d / 0.6) / (1 + (d / NEAR) ** 2);
+      beam(x0, y0, a, { near: NEAR, spread: 0.15, width: 0.16, far: REACH, step: (d) => 0.28 + 0.05 * d, strength: 0.95 });
       for (const p of this.town.places) {
         const px = p.x + (p.w || 1) / 2;
         const py = p.y + (p.h || 1) / 2;
         const ahead = (px - x0) * fx + (py - y0) * fy;
         const side = Math.abs((px - x0) * -fy + (py - y0) * fx);
-        if (ahead < -0.5 || ahead > REACH + 1 || side > 0.4 + ahead * 0.45) continue;
+        if (ahead < -0.5 || ahead > REACH + 1 || side > 0.6 + ahead * 0.6) continue;
         const m = this.placeModel(p);
         if (!m) continue;
         for (const face of m.parts) {
           const [cx, cy] = face.pts.reduce((s2, q) => [s2[0] + q[0] / face.pts.length, s2[1] + q[1] / face.pts.length], [0, 0]);
           const d = Math.hypot(cx - x0, cy - y0);
-          // (Lit as it faces the light, and less the further it is.)
+          // (Lit as it faces the light, as the beam falls on it: less out
+          // to the side, and the further it is.)
           const facing = -(face.n[0] * (cx - x0) + face.n[1] * (cy - y0)) / (d || 1);
           const reach = (cx - x0) * fx + (cy - y0) * fy;
           if (facing <= 0.05 || reach <= 0 || d > REACH) continue;
-          cut(view.poly(face.pts), 0.85 * facing * (1 - d / REACH) ** 1.2);
+          const off = (cx - x0) * -fy + (cy - y0) * fx;
+          cut(view.poly(face.pts), 0.9 * facing * along(Math.max(reach, 0.6)) * Math.exp(-(off * off) / (2 * spread(reach) ** 2)));
         }
       }
     }
+    // (The dark, as much as is left of it on the map.)
+    l.setTransform(1, 0, 0, 1, 0, 0);
+    l.globalCompositeOperation = 'destination-in';
+    l.imageSmoothingEnabled = true;
+    l.drawImage(map, 0, 0, mw, mh, 0, 0, (mw / Q) * this.dpr, (mh / Q) * this.dpr);
+    l.globalCompositeOperation = 'source-over';
     g.save();
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.drawImage(layer, 0, 0);
