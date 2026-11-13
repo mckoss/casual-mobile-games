@@ -271,6 +271,14 @@ pictures and a sound for every touch.
   tap it and you're straight into the fire engine's (or the police car's)
   driver's seat, siren going. No need to find the small switch up top and
   look for it in the town.
+- **What you're off to do, said:** starting a job -- sending a helper off
+  from above, getting into a seat, switching to someone else (the
+  picker, a job along the top, the big fire or robber button) -- it says
+  what you're doing, in words that start you off: "Let's pick up the
+  money for the bank!", "Let's get fresh food from the farm!", "Let's
+  take the kids to school!", "Let's fly to Island City!" (one for every
+  kind of job; `startLine`). Then, as each step's done, what's next
+  ("Time to take the money to the bank!").
 - **Who you are, and anyone else:** driving, a round badge top left shows
   what you're in -- the truck itself, as it looks in the town, in its
   colours, in a ring of its colour -- with the picture of the job you're
@@ -349,7 +357,7 @@ pictures and a sound for every touch.
   and you're straight into a driver's seat (the one you last got out of,
   if it's still got work; else the helper the town's suggesting, the one
   being watched, or any with a job); off, and you're back over the town,
-  that helper stopping at the next corner till you're back. As the driver, tap a helper's button ("Let's go!") and the view
+  that helper stopping at the next corner till you're back. As the driver, tap a helper's button and the view
   drops into its seat: the same little town all round at street level, in
   perspective, from the cab of the garbage truck, the mail van or the
   cement mixer (a dashboard and a steering wheel that turns as you turn) --

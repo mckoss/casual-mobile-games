@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.117.0
+- Benji's Town: starting a job -- or getting in, or switching to someone
+  else -- it says what you're off to do: "Let's pick up the money for the
+  bank!", "Let's get fresh food from the farm!" and so on.
+
 ## 1.116.0
 - Benji's Town: driving, a badge top left shows what you're in and the
   job you're on. Tap it to pick anyone else to be -- or tap any job along

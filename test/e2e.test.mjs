@@ -1131,34 +1131,46 @@ test('benji’s town: driving, who you are shows top left -- tap it to pick anyo
     const first = await page.evaluate(() => {
       const p = window.__benji;
       cancelAnimationFrame(p.raf);
-      p.hooks.say = () => {};
+      window.__said = [];
+      p.hooks.say = (w) => w && window.__said.push(w);
       p.hooks.sfx = () => {};
       p.drive = false;
+      // (Each one sent off from above: what it's off to do, said.)
+      const starts = [];
       for (let i = 0; i < 30 * 400 && p.part?.part !== 'midday'; i++) {
         p.update(1 / 30);
-        for (const h of p.helpers) if (p.ready(h) && h.kind !== 'plane') p.start(h);
+        for (const h of p.helpers) {
+          if (!p.ready(h) || h.kind === 'plane') continue;
+          starts.push(p.startLine(h));
+          p.start(h);
+        }
       }
+      const unsaid = starts.filter((w) => !w || !window.__said.includes(w));
       p.drive = true;
       p.setDrive(true);
+      const entered = p.fp && window.__said[window.__said.length - 1] === p.startLine(p.fp.h);
       p.update(1 / 30);
       p.draw();
-      return { kind: p.fp?.h.kind, badge: p.badge() };
+      return { kind: p.fp?.h.kind, badge: p.badge(), starts: starts.length, unsaid, entered };
     });
     assert.ok(first.kind, 'in a driver’s seat');
+    assert.ok(first.starts > 0 && !first.unsaid.length, `said as they start: ${first.unsaid}`);
+    assert.ok(first.entered, 'said, getting in');
     await page.mouse.click(...(await at(first.badge)));
     const pick = await page.evaluate(() => {
       const p = window.__benji;
       p.draw();
       const list = p.pickerButtons();
       const other = list.find((q) => q.h !== p.fp.h && q.h.kind !== 'plane');
-      return { open: p.picker, kinds: list.map((q) => q.h.kind), me: list.some((q) => q.h === p.fp.h), other: other && { x: other.x, y: other.y, kind: other.h.kind } };
+      return { open: p.picker, kinds: list.map((q) => q.h.kind), me: list.some((q) => q.h === p.fp.h), other: other && { x: other.x, y: other.y, kind: other.h.kind, line: p.startLine(other.h) } };
     });
     assert.equal(pick.open, true, 'the picker opens');
     assert.ok(pick.me && pick.kinds.includes('plane'), `you and the airplane among them: ${pick.kinds}`);
     assert.ok(pick.other, 'someone else to be');
     await page.mouse.click(...(await at(pick.other)));
-    const now = await page.evaluate(() => ({ kind: window.__benji.fp?.h.kind, open: window.__benji.picker }));
-    assert.deepEqual(now, { kind: pick.other.kind, open: false });
+    const now = await page.evaluate(() => ({ kind: window.__benji.fp?.h.kind, open: window.__benji.picker, said: window.__said.slice(-3) }));
+    assert.deepEqual({ ...now, said: undefined }, { kind: pick.other.kind, open: false, said: undefined });
+    assert.ok(pick.other.line && now.said.includes(pick.other.line), `what you're off to do, said: ${pick.other.line} in ${now.said}`);
     // (A job along the top -- someone else's: into their seat.)
     const box = await page.evaluate(() => {
       const p = window.__benji;

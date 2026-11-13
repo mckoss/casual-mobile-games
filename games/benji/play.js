@@ -1134,6 +1134,17 @@ export class Play {
     }
   }
 
+  // Starting off on a job (sent from above, or driving it yourself --
+  // getting in, or switching to it): what you're doing, said. (The
+  // airplane with nothing to do: off to Island City again.)
+  startLine(h) {
+    const j = this.nextOf(h);
+    if (!j) return h.kind === 'plane' ? 'Let’s fly to Island City!' : null;
+    const kind = j.kind === 'build' ? `${h.loaded ? 'build' : 'load'}${j.stage}` : j.kind;
+    if (kind === 'dig' && j.stage === 2) return 'Let’s dig some more!';
+    return ({ bin: 'Let’s pick up the garbage!', recycle: 'Let’s pick up the recycling!', dump: 'Let’s take the garbage to the dump!', letter: 'Let’s deliver the mail!', parcel: 'Let’s deliver the mail!', walk: 'Let’s take the dog for a walk!', home: 'Let’s take the dog home!', load1: 'Let’s get concrete for the foundation!', build1: 'Let’s build the foundation!', load2: 'Let’s get concrete for the walls!', build2: 'Let’s build the walls!', load3: 'Let’s get wood and tiles for the roof!', build3: 'Let’s put the roof on!', kid: 'Let’s pick up the kids for school!', school: 'Let’s take the kids to school!', cash: 'Let’s pick up the money for the bank!', bank: 'Let’s take the money to the bank!', crate: 'Let’s get fresh food from the farm!', store: 'Let’s take the food to the store!', fare: 'Let’s pick someone up in the taxi!', shop: 'Let’s go to the store!', back: 'Let’s take them home!', patient: 'Let’s help someone who is sick!', lift: 'Let’s fly to someone who is hurt!', ward: 'Let’s go to the hospital!', dig: 'Let’s dig a hole for the tower!', trip: 'Let’s fly to Island City!', girders: 'Let’s get steel for the tower!', storey: 'Let’s build the next floor!', topping: 'Let’s put the roof on the tower!', fire: 'Let’s put out the fire!', catch: 'Let’s catch the robber!', jail: 'Let’s take the robber to jail!' })[kind] || null;
+  }
+
   // What a helper's next job is, in words.
   jobLine(h) {
     const j = this.nextOf(h);
@@ -1965,14 +1976,16 @@ export class Play {
     this.idle = 0;
     this.prompt = 6;
     // (The airplane, its trip done -- or none today: off again, for fun.)
+    // (What it's off to do, said -- in the seat, as you get in.)
     const again = this.canFly(h) && !this.targetPlace(h);
-    if (again) this.flyAgain(h);
     if (this.drive) this.enter(h);
     else {
+      this.hooks.say?.(this.startLine(h));
       if (!again) this.send(h);
       this.focus = h;
       this.manual = 0;
     }
+    if (again) this.flyAgain(h);
   }
 
   // The airplane can go off to Island City again (as often as you like):
@@ -1998,9 +2011,10 @@ export class Play {
       this.hooks.sfx?.('tap');
       return;
     }
-    if (this.canFly(h) && !this.targetPlace(h)) this.flyAgain(h);
+    const again = this.canFly(h) && !this.targetPlace(h);
     if (this.fp) this.leave();
     this.enter(h);
+    if (again) this.flyAgain(h);
   }
 
   // Who you could be, in the picker: everyone with something to do now
@@ -2153,7 +2167,7 @@ export class Play {
     this.focus = h;
     if (h.kind === 'fire' || h.kind === 'police' || h.kind === 'ambulance') this.hooks.sfx?.('siren', h.kind);
     else this.hooks.sfx?.(h.kind === 'walker' ? 'pop' : ride ? 'whoosh' : 'honk', h.kind);
-    this.hooks.say?.('Let’s go!');
+    this.hooks.say?.(this.startLine(h) || 'Let’s go!');
     if (ride) {
       // (Off it goes, if it's not on its way already.)
       if (!h.trip && !h.path.length && h.pause <= 0 && this.targetPlace(h)) this.send(h);
