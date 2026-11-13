@@ -10,6 +10,10 @@ games/benji/emoji/<code points>.svg (e.g. 1f5d1.svg for the wastebasket;
 no variation selector).
 
 Run from the repo root:  python3 tools/benji-emoji.py
+
+(1f9b9.svg isn't Noto's: the 🦹 supervillain looked like Dracula, so
+Benji's robber is a picture of our own -- a cartoon burglar all in black.
+Pictures already there aren't fetched again, so it stays.)
 """
 import glob
 import os

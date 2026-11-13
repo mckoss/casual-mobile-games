@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.114.1
+- Benji's Town: the robber looks like a robber now (not Dracula) -- a
+  cartoon burglar all in black, with a black beanie, a mask and a bag of
+  loot.
+- Benji's Town: the fetch button is a tennis ball, and you can play fetch
+  while walking the dog yourself too: stop at the park and press the ball
+  (it goes out ahead of you, so you can watch the dog run for it).
+
 ## 1.114.0
 - Benji's Town: real headlights at night. From the driver's seat it's
   dark, and your headlights light the road ahead and the buildings in

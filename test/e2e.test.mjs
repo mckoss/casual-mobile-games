@@ -839,9 +839,34 @@ test('benji’s town: fetch at the park -- throw the ball, the dog runs for it a
       });
       assert.deepEqual({ ...r, far: r.far > 0.5 }, { fetching: true, ready: false, button: false, far: true, back: true, again: true, home: true });
     }
+    // And walking the dog yourself (in their shoes, at the park): the ball
+    // button there too -- thrown out ahead, the way you're looking.
+    const seat = await page.evaluate(() => {
+      const p = window.__benji;
+      const w = p.helpers.find((h) => h.kind === 'walker');
+      p.enter(w);
+      for (let i = 0; i < 3; i++) p.update(1 / 30);
+      p.draw();
+      const q = p.seatButtons().find((b) => b.act === 'ball');
+      const r = p.canvas.getBoundingClientRect();
+      return q && [r.left + q.x, r.top + q.y];
+    });
+    assert.ok(seat, 'the ball button, walking the dog yourself');
+    await page.mouse.click(...seat);
+    const fp = await page.evaluate(() => {
+      const p = window.__benji;
+      const w = p.helpers.find((h) => h.kind === 'walker');
+      const f = w.fetch;
+      const out = { fetching: !!f, ahead: !!f && Math.cos(Math.atan2(f.to.y - f.from.y, f.to.x - f.from.x) - (p.fp.head + p.fp.look)) > 0.5 };
+      for (let i = 0; i < 30 * 10 && w.fetch; i++) p.update(1 / 30);
+      for (let i = 0; i < 3; i++) p.update(1 / 30);
+      p.draw();
+      return { ...out, back: !w.fetch, again: !!p.seatButtons().find((b) => b.act === 'ball') };
+    });
+    assert.deepEqual(fp, { fetching: true, ahead: true, back: true, again: true });
     const said = await page.evaluate(() => window.__said);
-    assert.equal(said.filter((w) => w === 'Fetch!').length, 2);
-    assert.equal(said.filter((w) => w === 'Good dog!').length, 2);
+    assert.equal(said.filter((w) => w === 'Fetch!').length, 3);
+    assert.equal(said.filter((w) => w === 'Good dog!').length, 3);
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

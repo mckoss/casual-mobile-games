@@ -890,14 +890,18 @@ export function person(x, y, h, t, color, opts = {}) {
   m.box(-0.025 + sw, 0.012, 0, 0.025 + sw, 0.05, 0.16, '#3d405b');
   m.box(-0.025 - sw, -0.05, 0, 0.025 - sw, -0.012, 0.16, '#3d405b');
   if (opts.robber) {
-    // A robber: a striped shirt, a mask over the eyes, a woolly hat -- and
-    // the swag bag on their back, till they're caught.
-    for (let z = 0.16, k = 0; z < 0.33; z += 0.034, k++) m.box(-0.045, -0.065, z, 0.045, 0.065, Math.min(0.33, z + 0.034), k % 2 ? '#f8f9fa' : '#212529');
+    // A robber, as in the cartoons: all in black -- a black turtleneck (up
+    // round the neck), a black mask over the eyes, a black beanie -- and
+    // the bag of loot on their back, till they're caught.
+    m.box(-0.045, -0.065, 0.16, 0.045, 0.065, 0.33, '#1b1b1b');
+    m.box(-0.03, -0.035, 0.33, 0.03, 0.035, 0.35, '#1b1b1b');
   } else m.box(-0.045, -0.065, 0.16, 0.045, 0.065, 0.33, color);
   m.ball(0, 0, 0.39, 0.065, '#f1c27d');
   if (opts.robber) {
     m.box(-0.068, -0.068, 0.382, 0.068, 0.068, 0.41, '#111111');
-    m.box(-0.06, -0.06, 0.43, 0.06, 0.06, 0.475, '#343a40');
+    m.box(-0.067, -0.067, 0.415, 0.067, 0.067, 0.44, '#2b2b2b');
+    m.box(-0.06, -0.06, 0.44, 0.06, 0.06, 0.49, '#1b1b1b');
+    m.ball(0, 0, 0.5, 0.02, '#1b1b1b');
     if (!opts.cuffed) m.ball(-0.085, 0, 0.27, 0.06, '#c9a227');
   }
   if (opts.police) {

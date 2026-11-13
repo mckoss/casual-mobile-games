@@ -1851,6 +1851,8 @@ export class Play {
     }
     const way = this.choosing() ? { go: 'straight', left: 'left', right: 'right' }[act] : null;
     f.go = true;
+    // (Walking on from the park: no more fetch, home next.)
+    f.h.atPark = false;
     if (way) f.intent = way;
     this.plan(f);
     f.flash = { act, t: this.t };
@@ -1950,8 +1952,11 @@ export class Play {
 
   // At the park with the dog, the walk done (waiting to go home): throw the
   // ball? (As often as you like -- then home.)
+  // (Walking the dog yourself, the way on ahead is always planned: stopped
+  // there will do.)
   canFetch(h) {
-    return h.kind === 'walker' && !!h.atPark && !h.path.length && h.pause <= 0 && !h.deliver && !h.fetch && !this.won && !this.night;
+    const still = !h.path.length || (this.fp?.h === h && !this.fp.go);
+    return h.kind === 'walker' && !!h.atPark && still && h.pause <= 0 && !h.deliver && !h.fetch && !this.won && !this.night;
   }
 
   // The ball button, from above: beside the dog walker in the park.
@@ -1979,9 +1984,15 @@ export class Play {
   throwBall(h) {
     const park = this.place('park');
     const from = Play.dogSpot(h.x, h.y, h.head ?? 0);
-    // (A good long throw: the furthest of a few spots in the park.)
+    // (A good long throw: the furthest of a few spots in the park -- walking
+    // the dog yourself, one out ahead, the way you're looking, to watch the
+    // dog run after it.)
     const spot = () => ({ x: park.x + 0.3 + Math.random() * ((park.w || 1) - 0.6), y: park.y + 0.3 + Math.random() * ((park.h || 1) - 0.6) });
-    const to = Array.from({ length: 5 }, spot).reduce((p, q) => (Math.hypot(q.x - from.x, q.y - from.y) > Math.hypot(p.x - from.x, p.y - from.y) ? q : p));
+    const far = (q) => Math.hypot(q.x - from.x, q.y - from.y);
+    const spots = Array.from({ length: 12 }, spot);
+    const f = this.fp?.h === h ? this.fp : null;
+    const ahead = f ? spots.filter((q) => far(q) > 0.8 && Math.cos(Math.atan2(q.y - from.y, q.x - from.x) - (f.head + f.look)) > 0.6) : [];
+    const to = (ahead.length ? ahead : spots.slice(0, 5)).reduce((p, q) => (far(q) > far(p) ? q : p));
     const run = Math.hypot(to.x - from.x, to.y - from.y) / 2.4;
     const fly = 0.9;
     const out = Math.max(fly + 0.15, run);
@@ -2036,7 +2047,6 @@ export class Play {
     this.pinch = null;
     h.path = [];
     h.budging = false;
-    h.atPark = false;
     this.fp = { h, go: false, v: 0, intent: null, hint: null, head: h.head, look: 0, lookT: 0, drag: null, away: 0, out: null, wheel: 0, done: 0, wait: null, held: null, waited: 0, last: h.kind === 'walker' ? h.node : h.tile };
     this.focus = h;
     if (h.kind === 'fire' || h.kind === 'police' || h.kind === 'ambulance') this.hooks.sfx?.('siren', h.kind);
@@ -3048,7 +3058,7 @@ export class Play {
     g.restore();
   }
 
-  // The ball button: white, a tennis ball on it, bouncing gently.
+  // The ball button: a tennis ball, bouncing gently.
   drawFetch(q) {
     if (!q) return;
     const { g } = this;
@@ -3057,17 +3067,32 @@ export class Play {
     g.beginPath();
     g.arc(q.x, y, q.r + 7, 0, Math.PI * 2);
     g.fill();
-    g.fillStyle = '#ffffff';
+    // (Yellow-green and fuzzy, the two white curves of its seam.)
+    const r = q.r;
+    const fur = g.createRadialGradient(q.x - r * 0.35, y - r * 0.35, r * 0.1, q.x, y, r);
+    fur.addColorStop(0, '#f4ff6a');
+    fur.addColorStop(1, '#b5d82a');
+    g.fillStyle = fur;
     g.strokeStyle = COLORS.walker;
     g.lineWidth = 4;
     g.beginPath();
-    g.arc(q.x, y, q.r, 0, Math.PI * 2);
+    g.arc(q.x, y, r, 0, Math.PI * 2);
     g.fill();
     g.stroke();
-    g.font = `${Math.round(q.r * 1.15)}px system-ui, sans-serif`;
-    g.textAlign = 'center';
-    g.textBaseline = 'middle';
-    emoji(g, '🎾', q.x, y + 2);
+    g.save();
+    g.beginPath();
+    g.arc(q.x, y, r - 2, 0, Math.PI * 2);
+    g.clip();
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = Math.max(3, r * 0.11);
+    g.lineCap = 'round';
+    g.beginPath();
+    g.arc(q.x - r * 1.25, y, r * 0.95, -1.05, 1.05);
+    g.stroke();
+    g.beginPath();
+    g.arc(q.x + r * 1.25, y, r * 0.95, Math.PI - 1.05, Math.PI + 1.05);
+    g.stroke();
+    g.restore();
   }
 
   // The buttons over the helpers waiting to start: a round button in the

@@ -138,10 +138,11 @@ pictures and a sound for every touch.
   van, the back doors swing open and out comes the letter or parcel, up to
   the house with it ("Here's your letter!", "A package for you!"), and
   back to hop in again (about seven seconds); the **dog walker** takes the dog to the park to play -- and
-  there a big 🎾 button by the dog throws the ball ("Fetch!"): it flies
+  there a big tennis-ball button by the dog throws the ball ("Fetch!"): it flies
   across the park, the dog runs after it, picks it up and brings it back
   ("Good dog!"), as often as you like (walking the dog yourself, the
-  button's in the middle of the view) -- and home again; the **cement mixer** builds a house on an empty lot in three
+  button's in the middle of the view once you've stopped there, and the
+  ball goes out ahead, the way you're looking, to watch the dog run) -- and home again; the **cement mixer** builds a house on an empty lot in three
   trips (slab, walls, roof), going back to the yard to load up in between
   -- concrete for the slab and the walls; for the roof, wood and tiles,
   so the drum comes off and it's a flatbed stacked with timbers and roof
@@ -236,8 +237,9 @@ pictures and a sound for every touch.
   die down and the smoke turns to steam: "You put out the fire, great
   job!". That part of the day isn't done till the fire's out.
 - **Robbers!** Once a day too, in another part of it, a robber turns up
-  at the shop or the café -- a striped shirt, a black mask over the eyes,
-  a woolly hat and a bag of swag, the 🦹 over them -- standing outside on
+  at the shop or the café -- a cartoon burglar all in black (a black
+  turtleneck, a black mask over the eyes, a black beanie) with a bag of
+  swag, their picture over them -- standing outside on
   the side you can see: an alarm, and "Robber! Call the police!". The
   **police car** (white, a blue stripe, a light bar on its roof) waits at
   the **police station** on the east side of town (grey stone, a blue
@@ -394,7 +396,9 @@ pictures and a sound for every touch.
   shop signs, the time of day -- are emoji, but drawn from pictures that
   come with the game (Noto Emoji, the Android look; `emoji/`, fetched by
   `tools/benji-emoji.py`, precached), not the device's emoji font: some
-  browsers have none (a Tesla's), and every picture came out blank.
+  browsers have none (a Tesla's), and every picture came out blank. One
+  is our own: the robber (`emoji/1f9b9.svg`, in place of Noto's 🦹
+  supervillain, who looked like Dracula).
 - `town.js` (the town, routes along the streets, the days and their jobs),
   `clock.js` (the time of day, and the light and the sky with it),
   `streets.js` (the sidewalks and crosswalks, and the lights' timing) and
