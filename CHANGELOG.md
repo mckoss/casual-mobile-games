@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.117.2
+- Benji's Town: the steering wheel puts you in the one you're watching --
+  up in the airplane, out with the dog at the park (ready to play fetch)
+  -- not whoever you drove last.
+
 ## 1.117.1
 - iPhone: the sound works -- it plays even with the ring/silent switch on
   silent, starts with the first tap, and comes back after the phone's

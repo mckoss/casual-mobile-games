@@ -1308,6 +1308,86 @@ test('benji’s town: driving, the airplane takes you along in the cockpit, ther
   }
 });
 
+test('benji’s town: the steering wheel puts you in the one you’re watching -- the airplane in the air, the dog walker at the park -- not the last one you drove', { skip: !chromium, timeout: 120000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    const go = async (day) => {
+      await page.goto(`http://localhost:${server.address().port}/`);
+      await page.evaluate((d) => {
+        localStorage.setItem('pocket-arcade:benji:day', String(d));
+        localStorage.setItem('pocket-arcade:benji:drive', 'false');
+      }, day);
+      await page.goto(`http://localhost:${server.address().port}/#/benji`);
+      await page.reload();
+      await page.waitForFunction(() => window.__benji);
+    };
+    // (The airplane, up and away -- having driven someone else before.)
+    await go(7);
+    const plane = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      p.hooks.say = () => {};
+      p.hooks.sfx = () => {};
+      for (let i = 0; i < 30 * 400 && p.part?.part !== 'midday'; i++) {
+        p.update(1 / 30);
+        for (const h of p.helpers) if (p.ready(h) && h.kind !== 'plane') p.start(h);
+      }
+      const other = p.helpers.find((h) => h.kind !== 'plane' && h.kind !== 'heli' && p.targetPlace(h));
+      p.enter(other);
+      p.update(1 / 30);
+      p.leave();
+      const a = p.helpers.find((h) => h.kind === 'plane');
+      p.start(a);
+      for (let i = 0; i < 30 * 5; i++) p.update(1 / 30);
+      const flying = !!a.trip;
+      p.drive = true;
+      p.setDrive(true);
+      return { flying, last: p.lastFp?.kind, now: p.fp?.h.kind, ride: !!p.fp?.ride };
+    });
+    assert.equal(plane.flying, true);
+    assert.ok(plane.last && plane.last !== 'plane', 'drove someone else before');
+    assert.deepEqual({ now: plane.now, ride: plane.ride }, { now: 'plane', ride: true });
+    // (The dog walker, at the park -- having driven the garbage truck before.)
+    await go(1);
+    const dog = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      p.hooks.say = () => {};
+      p.hooks.sfx = () => {};
+      p.fireAt = null;
+      for (let i = 0; i < 30 * 300 && p.part?.part !== 'evening'; i++) {
+        p.update(1 / 30);
+        p.fireAt = null;
+        for (const h of p.helpers) if (p.ready(h) && h.kind !== 'walker') p.start(h);
+      }
+      const truck = p.helpers.find((h) => h.kind !== 'walker');
+      p.enter(truck);
+      p.update(1 / 30);
+      p.leave();
+      const w = p.helpers.find((h) => h.kind === 'walker');
+      for (let i = 0; i < 30 * 90 && !p.canFetch(w); i++) {
+        p.update(1 / 30);
+        if (p.ready(w) && !w.atPark) p.start(w);
+      }
+      const atPark = p.canFetch(w);
+      p.drive = true;
+      p.setDrive(true);
+      for (let i = 0; i < 3; i++) p.update(1 / 30);
+      p.draw();
+      return { atPark, now: p.fp?.h.kind, ball: !!p.seatButtons().find((b) => b.act === 'ball') };
+    });
+    assert.deepEqual(dog, { atPark: true, now: 'walker', ball: true });
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town: the airplane flies over the town and the sea to Island City, lands, and flies home', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

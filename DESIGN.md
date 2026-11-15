@@ -360,9 +360,11 @@ pictures and a sound for every touch.
 - The switch top right (your choice, kept) shows what a tap on it does:
   a steering wheel -- be the driver -- or the town from above -- back to
   watching them go. It's a real switch, in the middle of a job too: on,
-  and you're straight into a driver's seat (the one you last got out of,
-  if it's still got work; else the helper the town's suggesting, the one
-  being watched, or any with a job); off, and you're back over the town,
+  and you're straight into a driver's seat -- the one you're watching at
+  it (on its way, on a job, up in the airplane, at the park with the dog:
+  the airplane's cockpit, the dog walker's shoes, the ball there to
+  throw), if any; else the one you last got out of, if it's still got
+  work; else the helper the town's suggesting, or any with a job; off, and you're back over the town,
   that helper stopping at the next corner till you're back. As the driver, tap a helper's button and the view
   drops into its seat: the same little town all round at street level, in
   perspective, from the cab of the garbage truck, the mail van or the

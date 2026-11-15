@@ -2182,10 +2182,12 @@ export class Play {
     } else if (p.doors.some((d) => d.x === h.tile.x && d.y === h.tile.y)) this.arrive(h, h.tile);
   }
 
-  // The steering wheel. On: straight into a driver's seat -- the one you
-  // last got out of, if it's still got work to do; or the helper the town's
-  // suggesting (its button bouncing), the one being watched, or any with a
-  // job. Off: back out to the town (and it's remembered which).
+  // The steering wheel. On: straight into a driver's seat -- the one you're
+  // watching at it (on its way, on a job, flying, at the park with the dog),
+  // if any; else the one you last got out of, if it's still got work to do;
+  // or the helper the town's suggesting (its button bouncing), the one being
+  // watched, or any with a job. Off: back out to the town (and it's
+  // remembered which).
   setDrive(on) {
     this.drive = on;
     if (!on) {
@@ -2194,7 +2196,12 @@ export class Play {
     }
     if (this.fp || this.won || this.night) return;
     const works = (h) => !!h && this.helpers.includes(h) && !!this.targetPlace(h);
-    const h = [this.lastFp, this.hint?.h, this.focus, ...this.helpers.filter((x) => this.ready(x)), ...this.helpers].find(works);
+    // (Watching one at it -- on its way, on a job, up in the airplane, the
+    // dog at the park: into that one, first of all. The one you're
+    // watching, or any that's busy.)
+    const busy = (h) => !!h && this.helpers.includes(h) && ((h.path.length > 0 && !h.budging) || h.pause > 0 || !!h.deliver || !!h.trip || !!h.fetch || (h.kind === 'walker' && !!h.atPark));
+    const now = [this.focus, ...this.helpers].find((x) => busy(x) && (works(x) || !!x.trip));
+    const h = now || [this.lastFp, this.hint?.h, this.focus, ...this.helpers.filter((x) => this.ready(x)), ...this.helpers].find(works);
     if (!h) return;
     if (this.hint?.h === h) this.hint = null;
     this.idle = 0;
