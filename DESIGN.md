@@ -16,7 +16,13 @@ README says what the games are; this says how they're meant to play.
   Audio), which keeps the download small -- but recorded audio and images
   are fine where they make a game better (Lunar Lander's "The Eagle has
   landed" clip and its Earthrise scenery), as long as they're cached for
-  offline play.
+  offline play. The sound comes on with the first tap (as phones require:
+  on the press, the lift or the click -- an iPhone may not count the
+  press -- with a moment of silence played right then, which is what iOS
+  waits for), plays as media (the iPhone's audio session set to
+  playback, so the ring/silent switch doesn't silence it -- Web Audio is
+  otherwise "ambient"), and comes back on when the app does (iOS leaves
+  it "interrupted" after the phone's locked or the app's put away).
 - **Phone first.** Every game plays with one thumb on a phone, upright
   unless the game needs the width (Breakout plays either way); tablets get
   the extra room used well, not just stretched.

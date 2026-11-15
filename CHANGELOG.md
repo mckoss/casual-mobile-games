@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.117.1
+- iPhone: the sound works -- it plays even with the ring/silent switch on
+  silent, starts with the first tap, and comes back after the phone's
+  been locked or the app put away.
+
 ## 1.117.0
 - Benji's Town: starting a job -- or getting in, or switching to someone
   else -- it says what you're off to do: "Let's pick up the money for the

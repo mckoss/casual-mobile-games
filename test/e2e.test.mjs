@@ -139,6 +139,57 @@ test('hub loads, a level can be played to the win screen', { skip: !chromium, ti
   }
 });
 
+test('iPhone audio: a tap plays the sound as media (not muted by the silent switch) and wakes it from "interrupted"', { skip: !chromium, timeout: 30000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    // (An iPhone's audio session, and a context the phone has interrupted.)
+    await page.addInitScript(() => {
+      navigator.audioSession = { type: 'auto' };
+      window.__resumed = 0;
+      class Fake {
+        constructor() {
+          this.state = 'interrupted';
+          this.sampleRate = 44100;
+          this.currentTime = 0;
+          this.destination = {};
+          window.__ctx = this;
+        }
+        resume() {
+          window.__resumed++;
+          this.state = 'running';
+          return Promise.resolve();
+        }
+        createGain() {
+          return { gain: { value: 1 }, connect() {} };
+        }
+        createBuffer(ch, n) {
+          const d = new Float32Array(n);
+          return { getChannelData: () => d };
+        }
+        createBufferSource() {
+          return { connect() {}, start() { window.__silence = true; } };
+        }
+      }
+      window.AudioContext = Fake;
+    });
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.locator('body').click({ position: { x: 5, y: 5 } });
+    const r = await page.evaluate(() => ({ session: navigator.audioSession.type, state: window.__ctx?.state, resumed: window.__resumed > 0, silence: !!window.__silence }));
+    assert.deepEqual(r, { session: 'playback', state: 'running', resumed: true, silence: true });
+    // (Put away, interrupted again, and back: on again.)
+    await page.evaluate(() => {
+      window.__ctx.state = 'interrupted';
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    assert.equal(await page.evaluate(() => window.__ctx.state), 'running');
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('after the first visit the app works fully offline', { skip: !chromium, timeout: 60000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

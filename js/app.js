@@ -1,5 +1,5 @@
 import { GAMES, COMING_SOON } from './games.js';
-import { unlockAudio, sfx, setLoop, loopLevel, stopLoops, loadClip, playClip, startMusic, stopMusic } from './lib/audio.js';
+import { unlockAudio, wakeAudio, sfx, setLoop, loopLevel, stopLoops, loadClip, playClip, startMusic, stopMusic } from './lib/audio.js';
 import { getSetting, setSetting, haptic } from './lib/settings.js';
 import { load, save } from './lib/storage.js';
 import { canPrompt, promptInstall, isIOS, isStandalone, onInstallChange } from './lib/install.js';
@@ -439,8 +439,11 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 
 // --------------------------------------------------------------------- boot
 
-// Audio may only start after a user gesture on mobile.
-window.addEventListener('pointerdown', unlockAudio, { capture: true });
+// Audio may only start after a user gesture on mobile. (On an iPhone the
+// press itself may not count -- the lift of the finger, or the click, does:
+// so all of them, each a no-op once the sound is on.)
+for (const type of ['pointerdown', 'touchend', 'click', 'keydown']) window.addEventListener(type, unlockAudio, { capture: true });
+document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && wakeAudio());
 window.addEventListener('popstate', route);
 startAnalytics();
 // Stop iOS from rubber-band scrolling / double-tap zooming the app.

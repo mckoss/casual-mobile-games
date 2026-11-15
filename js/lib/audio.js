@@ -8,6 +8,15 @@ let master = null;
 let noise = null;
 
 export function unlockAudio() {
+  // (iPhone: Web Audio counts as "ambient" sound unless told otherwise --
+  // silenced by the ring/silent switch, so a game looked like it had no
+  // sound at all. Play it as media, as the games are meant to be heard:
+  // the spoken lines for little ones most of all.)
+  try {
+    if (navigator.audioSession && navigator.audioSession.type !== 'playback') navigator.audioSession.type = 'playback';
+  } catch {
+    // (Not allowed here: as it was.)
+  }
   if (!ac) {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
@@ -19,7 +28,27 @@ export function unlockAudio() {
     const d = noise.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   }
-  if (ac.state === 'suspended') ac.resume();
+  // Not running -- not started yet, or (iPhone) "interrupted" after the
+  // phone was locked or the app put away: on again. And a moment of silence
+  // started right here in the tap, which is what iOS waits for before it
+  // lets any sound out.
+  if (ac.state !== 'running') {
+    try {
+      ac.resume()?.catch?.(() => {});
+      const src = ac.createBufferSource();
+      src.buffer = ac.createBuffer(1, 1, ac.sampleRate);
+      src.connect(ac.destination);
+      src.start(0);
+    } catch {
+      // (Next tap, then.)
+    }
+  }
+}
+
+// Back to the app (the phone unlocked, say): the sound on again, if it's
+// allowed without a tap -- else the next tap does it.
+export function wakeAudio() {
+  if (ac && ac.state !== 'running') ac.resume()?.catch?.(() => {});
 }
 
 function tone(type, f0, f1, dur, vol, at = 0, filter = 0) {
