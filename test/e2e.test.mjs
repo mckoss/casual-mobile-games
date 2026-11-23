@@ -1512,6 +1512,94 @@ test('benji’s town: up in the airplane, hold ◀ or ▶ to steer it about -- l
   }
 });
 
+test('benji’s town: the boat takes people fishing -- from the marina across the sea to Island City, a fish, and home; steer it, and let go, and it finds its way (never onto land)', { skip: !chromium, timeout: 150000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    const go = async (drive) => {
+      await page.goto(`http://localhost:${server.address().port}/`);
+      await page.evaluate((d) => {
+        localStorage.setItem('pocket-arcade:benji:day', '8');
+        localStorage.setItem('pocket-arcade:benji:drive', String(d));
+      }, drive);
+      await page.goto(`http://localhost:${server.address().port}/#/benji`);
+      await page.reload();
+      await page.waitForFunction(() => window.__benji);
+      return page.evaluate(() => {
+        const p = window.__benji;
+        cancelAnimationFrame(p.raf);
+        window.__said = [];
+        p.hooks.say = (w) => w && window.__said.push(w);
+        p.hooks.sfx = () => {};
+        const drive = p.drive;
+        p.drive = false;
+        for (let i = 0; i < 30 * 900 && p.part?.part !== 'evening'; i++) {
+          p.update(1 / 30);
+          p.fireAt = null;
+          p.robAt = null;
+          for (const h of p.helpers) if (p.ready(h) && h.kind !== 'boat') p.start(h);
+        }
+        p.drive = drive;
+        const b = p.helpers.find((h) => h.kind === 'boat');
+        return { part: p.part?.part, boat: !!b, job: p.town.jobs.some((j) => j.helper === 'boat'), at: b && [b.x, b.y] };
+      });
+    };
+    // (Watching from above: there, fishing, and home.)
+    const first = await go(false);
+    assert.deepEqual({ ...first, at: undefined }, { part: 'evening', boat: true, job: true, at: undefined });
+    const watch = await page.evaluate(() => {
+      const p = window.__benji;
+      const b = p.helpers.find((h) => h.kind === 'boat');
+      const job = p.town.jobs.find((j) => j.helper === 'boat');
+      const home = [b.x, b.y];
+      p.start(b);
+      let island = false;
+      let dry = 0;
+      for (let i = 0; i < 30 * 60 && b.trip; i++) {
+        p.update(1 / 30);
+        if (Math.hypot(b.x + 6.2, b.y - 11.3) < 0.2) island = true;
+        if (!p.constructor.wet(b.x, b.y)) dry++;
+      }
+      return { island, dry, back: !b.trip && Math.hypot(b.x - home[0], b.y - home[1]) < 0.05, done: p.done.has(job.i), again: p.canFly(b) };
+    });
+    assert.deepEqual(watch, { island: true, dry: 0, back: true, done: true, again: true });
+    for (const w of ['Let’s take them fishing!', 'All aboard!', 'Welcome to Island City!', 'We caught a fish!', 'Home again!']) assert.ok((await page.evaluate(() => window.__said)).includes(w), w);
+    // (At the wheel: steered about with ◀ -- let go, and it goes on to the
+    // island and home by itself, round the island if it must.)
+    await go(true);
+    const ride = await page.evaluate(() => {
+      const p = window.__benji;
+      const b = p.helpers.find((h) => h.kind === 'boat');
+      p.start(b);
+      const seat = !!p.fp?.ride && p.fp.h === b;
+      for (let i = 0; i < 30 * 20 && !p.steerable(b); i++) p.update(1 / 30);
+      const pads = p.padList().map((q) => q.act).join();
+      b.trip.turn = -1;
+      let dry = 0;
+      for (let i = 0; i < 30 * 6; i++) {
+        p.update(1 / 30);
+        if (!p.constructor.wet(b.x, b.y)) dry++;
+      }
+      b.trip.turn = null;
+      let island = false;
+      for (let i = 0; i < 30 * 90 && b.trip; i++) {
+        p.update(1 / 30);
+        if (Math.hypot(b.x + 6.2, b.y - 11.3) < 0.2) island = true;
+        if (!p.constructor.wet(b.x, b.y)) dry++;
+      }
+      return { seat, pads, island, dry, home: !b.trip };
+    });
+    assert.deepEqual(ride, { seat: true, pads: 'left,right', island: true, dry: 0, home: true });
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town: the airplane flies over the town and the sea to Island City, lands, and flies home', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

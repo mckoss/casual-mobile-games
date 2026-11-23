@@ -220,6 +220,19 @@ pictures and a sound for every touch.
   on a day with no trip) it can go again, as often as you like, just for
   fun -- its button over it at the airport, ✈️, any time in the day;
   nothing more to tick off, but "Home again!" and well done all the same.
+- **The marina and the boat:** at the west end of a street, on the
+  shore, the **marina** -- a little blue boathouse, its pier out into the
+  sea, and the **boat** moored alongside (white, a blue stripe, a little
+  cabin, two fishing rods at the back). Some evenings people want to go
+  fishing (🎣): "All aboard!" (three of them, sitting at the back), out
+  across the sea to Island City's own pier ("Welcome to Island City!"),
+  a while there fishing -- "We caught a fish!" 🐟 -- round, and home
+  again ("Home again!"). Like the airplane: one tap from above does it
+  all; driving, you ride at the boat's wheel (a white deck, a ship's
+  wheel turning with the boat), with ◀ and ▶ to steer it about on the
+  way there and back -- let go and it heads on by itself, round the
+  island if it's in the way; it never goes onto land (at the shore, it
+  slides along it). And it can go again, as often as you like.
 - **Any day again:** tap the day, top left ("Day 7 ▾"): a button for each
   day so far -- play an easier one again (the town as it was that day),
   or come back to where you'd got to. The furthest day is kept.

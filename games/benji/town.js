@@ -44,6 +44,9 @@ const PLACES = [
   { id: 'hospital', kind: 'hospital', x: 8, y: 15, w: 2, h: 2, stub: true },
   { id: 'tower', kind: 'tower', x: 11, y: 11, w: 2, h: 2 },
   { id: 'airport', kind: 'airport', x: 16, y: 5 },
+  // (The marina: a boathouse at the west end of a street, its pier out into
+  // the sea -- the boat moored alongside.)
+  { id: 'marina', kind: 'marina', x: 0, y: 7, stub: true },
   { id: 'h1', kind: 'home', x: 1, y: 1, color: '#ff6b6b' },
   { id: 'h2', kind: 'home', x: 7, y: 1, color: '#ffd166' },
   { id: 'h3', kind: 'home', x: 11, y: 3, color: '#4cc9f0' },
@@ -190,6 +193,9 @@ export function nearestRoad(px, py) {
 //   plane:   a trip to Island City: the airplane takes off from the airport
 //            (its runway out past the east edge of town), flies over the
 //            town and the sea to the island, lands, and flies home again
+//   boat:    people to take fishing: the boat, from the marina on the
+//            west shore, across the sea to Island City's marina, a while
+//            fishing there, and home again
 // The night has jobs too (the food truck, with its headlights on).
 // And once a day, a little while into one part of it, a fire breaks out at
 // a house: the fire engine to the rescue (play.js lights it, and adds the
@@ -212,7 +218,7 @@ export function dayPlan(day) {
   return {
     morning: { garbage: 2 + (k % 2), bus: 2 + ((k >> 1) % 2), ...(k % 3 === 2 ? { heli: 1 } : {}) },
     midday: { ...(k % 3 === 0 ? { build: 1, money: 2 } : { mail: 2 + ((k >> 1) % 2), money: 2 + (k % 2) }), ...(k % 2 ? { plane: 1 } : { ambulance: 1 }) },
-    evening: { ...(k % 2 ? { dog: 1, taxi: 1 } : { dog: 1, ...(k % 3 === 1 ? { heli: 1 } : {}) }), tower: 1 },
+    evening: { ...(k % 2 ? { dog: 1, taxi: 1 } : { dog: 1, boat: 1, ...(k % 3 === 1 ? { heli: 1 } : {}) }), tower: 1 },
     night: { food: 1 },
   };
 }
@@ -319,6 +325,11 @@ export function makeTown(n) {
     if (p.plane) {
       helper({ id: 'plane', kind: 'plane', at: by('airport').door, home: 'airport' });
       jobs.push({ helper: 'plane', kind: 'trip', place: 'airport' });
+    }
+    if (p.boat) {
+      // (It waits at the marina's pier.)
+      helper({ id: 'boat', kind: 'boat', at: by('marina').door, home: 'marina' });
+      jobs.push({ helper: 'boat', kind: 'fish', place: 'marina' });
     }
     if (p.tower && tower < TOWER) {
       if (tower === 0) {

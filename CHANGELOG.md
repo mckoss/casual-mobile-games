@@ -6,6 +6,12 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.119.0
+- Benji's Town: a marina, with a boat! Some evenings there are people to
+  take fishing: across the sea to Island City's pier, a fish, and home.
+  Ride at the wheel and steer it with ◀ and ▶ -- let go and it finds its
+  own way. It can go again whenever you like.
+
 ## 1.118.0
 - Benji's Town: steer the airplane! Riding in it, up in the air, hold ◀
   or ▶ to fly it about over the town and the sea -- let go and the

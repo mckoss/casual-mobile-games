@@ -391,6 +391,29 @@ export function building(x, y, h, wall, roof) {
   return m;
 }
 
+// The marina's boathouse: weathered blue boards, a white roof, a wide
+// door to the water -- and a life ring on the wall.
+export function boathouse(x, y, h) {
+  const m = new Model(x, y, h);
+  const b = m.box(-0.32, -0.34, 0, 0.32, 0.34, 0.4, '#48cae4');
+  m.decal(b.e, onX(0.322, -0.09, 0.09, 0, 0.26), '#6b4226');
+  m.decal(b.w, onX(-0.322, -0.22, 0.22, 0, 0.3), '#264653');
+  m.decal(b.s, onY(0.342, -0.08, 0.08, 0.18, 0.3), '#e63946');
+  m.decal(b.n, onY(-0.342, -0.08, 0.08, 0.18, 0.3), '#e63946');
+  m.roof(-0.38, -0.4, 0.38, 0.4, 0.4, 0.62, '#f8f9fa', '#48cae4');
+  return m;
+}
+
+// A pier: wooden boards on posts, from (x0, y) to (x1, y), out over the
+// water.
+export function pier(x0, x1, y) {
+  const m = new Model((x0 + x1) / 2, y);
+  const half = Math.abs(x1 - x0) / 2;
+  for (let px = -half + 0.08; px <= half; px += 0.45) for (const py of [-0.13, 0.13]) m.box(px - 0.025, py - 0.025, -0.15, px + 0.025, py + 0.025, 0.1, '#6f4e37');
+  m.box(-half, -0.15, 0.06, half, 0.15, 0.1, '#b08968');
+  return m;
+}
+
 export function tree(x, y, size = 1) {
   const m = new Model(x, y);
   m.box(-0.035 * size, -0.035 * size, 0, 0.035 * size, 0.035 * size, 0.24 * size, '#8d5524');
@@ -666,6 +689,28 @@ export function vehicle(kind, x, y, h, t = 0, color = '#ef476f', z = 0, open = f
     const red = Math.floor(t * 6) % 2 === 0;
     m.box(-0.04, -0.1, 0.29, 0.04, -0.005, 0.325, lights ? (red ? '#ff1f1f' : '#5c0a0a') : '#8a1c1c');
     m.box(-0.04, 0.005, 0.29, 0.04, 0.1, 0.325, lights ? (red ? '#0b1f4d' : '#3d8bff') : '#1d3557');
+    return m;
+  }
+  if (kind === 'boat') {
+    // The boat: a white hull with a blue stripe and a pointed bow, a little
+    // cabin with a blue roof and a windshield, two fishing rods at the
+    // back -- and its fishing party (cargo: how many) sitting at the stern.
+    const hull = m.box(-0.34, -0.13, 0, 0.22, 0.13, 0.12, '#f8f9fa');
+    for (const [f, at] of [[hull.s, 0.132], [hull.n, -0.132]]) m.decal(f, onY(at, -0.33, 0.21, 0.055, 0.085), '#0077b6');
+    m.face([[0.22, -0.13, 0.12], [0.22, 0.13, 0.12], [0.42, 0, 0.12]], [0, 0, 1], '#e9ecef');
+    m.face([[0.22, 0.13, 0], [0.42, 0, 0], [0.42, 0, 0.12], [0.22, 0.13, 0.12]], [0.55, 0.83, 0], '#f1f3f5');
+    m.face([[0.42, 0, 0], [0.22, -0.13, 0], [0.22, -0.13, 0.12], [0.42, 0, 0.12]], [0.55, -0.83, 0], '#f1f3f5');
+    const cab = m.box(-0.12, -0.09, 0.12, 0.08, 0.09, 0.26, '#f8f9fa');
+    m.decal(cab.e, onX(0.082, -0.07, 0.07, 0.17, 0.24), GLASS);
+    for (const [f, at] of [[cab.s, 0.092], [cab.n, -0.092]]) m.decal(f, onY(at, -0.08, 0.04, 0.18, 0.23), GLASS);
+    m.box(-0.14, -0.11, 0.26, 0.1, 0.11, 0.29, '#0077b6');
+    for (const ry of [-0.1, 0.1]) m.box(-0.34, ry - 0.008, 0.12, -0.32, ry + 0.008, 0.46, '#7f5539');
+    const people = ['#ef476f', '#ffd166', '#06d6a0'];
+    for (let k = 0; k < Math.min(3, cargo || 0); k++) {
+      const py = -0.07 + k * 0.07;
+      m.box(-0.29, py - 0.025, 0.12, -0.24, py + 0.025, 0.2, people[k]);
+      m.ball(-0.265, py, 0.235, 0.032, '#f1c27d');
+    }
     return m;
   }
   if (kind === 'plane') {

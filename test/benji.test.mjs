@@ -536,6 +536,24 @@ test('the airport: a trip to Island City some middays, the airplane waiting at t
   assert.ok(trips >= 10, `${trips} trips`);
 });
 
+test('the marina: a boathouse at the west end of a street, and some evenings people to take fishing in the boat', () => {
+  let trips = 0;
+  for (let n = 1; n <= 30; n++) {
+    const town = makeTown(n);
+    const marina = town.places.find((p) => p.id === 'marina');
+    assert.ok(marina && marina.x === 0 && marina.doors.length, 'the marina, by a street');
+    for (const { part, jobs } of town.phases) {
+      const t = jobs.filter((j) => j.helper === 'boat');
+      if (!t.length) continue;
+      trips++;
+      assert.equal(part, 'evening');
+      assert.deepEqual(t.map((j) => `${j.kind}@${j.place}`), ['fish@marina']);
+      assert.ok(town.helpers.some((h) => h.kind === 'boat' && h.home === 'marina'));
+    }
+  }
+  assert.ok(trips >= 10, `${trips} trips`);
+});
+
 test('stuck behind a helper with nowhere to go (pulled over for the horn, or not): it counts as parked, so it is asked to move', () => {
   const tr = new Traffic(walkways());
   const me = { wait: 'car' };
