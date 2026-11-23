@@ -294,6 +294,14 @@ pictures and a sound for every touch.
   at once. Or tap a job along the top: into the seat of whoever does it
   (yours clear along there, everyone else's faded). The one you left
   stops where it is, its button over it, for later.
+- **Steering the airplane:** riding in it, once it's up in the air on its
+  way (to the island, or home), ◀ and ▶ come up along the bottom ("Steer
+  left or right!", once a trip): hold one and it banks round that way,
+  at a steady speed and height, anywhere over the town and the sea (not
+  off the edge of the world: it turns back). Let go and the autopilot
+  takes it back: round to a point out on the line the runway it's
+  heading for runs along, in along that line to the fix, and down to
+  land as ever (`flyFree`). The yoke leans with the turn.
 - **Riding in the helicopter and the airplane:** they fly themselves, and
   driving you ride along in the cockpit -- up front, looking out (and
   down at the town the higher you are), the instrument panel and its

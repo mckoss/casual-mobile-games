@@ -296,12 +296,16 @@ export class Play {
   planeRoute() {
     const [R, S] = [RUNWAY, ISLAND];
     const P = (x, y, z, v) => ({ to: { x, y, z }, v });
+    const A = (st, fix = false) => ({ ...st, steer: true, fix });
     return [
       { wait: 1.6 },
       P(R.x0 + 0.6, R.y, 0, 3.2), { event: 'up' },
-      P(14, R.y, 1.0, 5), P(3, 6.6, 2.6, 5.5), P(S.x + 4.4, S.y, 1.0, 5), P(S.x + 2.2, S.y, 0, 3.5), P(S.x - 1.2, S.y, 0, 1.6),
+      // (Up in the air, on the way: yours to steer -- steer: the way it's
+      // heading -- till the last leg in, to the fix lined up with the
+      // runway; from there it lands.)
+      A(P(14, R.y, 1.0, 5)), A(P(3, 6.6, 2.6, 5.5)), A(P(S.x + 4.4, S.y, 1.0, 5), true), P(S.x + 2.2, S.y, 0, 3.5), P(S.x - 1.2, S.y, 0, 1.6),
       { event: 'island' }, { wait: 3 }, { turn: 0 },
-      P(S.x + 2.4, S.y, 0, 3.2), { event: 'up' }, P(S.x + 5, S.y, 1.0, 5), P(5, 9.6, 2.6, 5.5), P(14.4, R.y, 1.0, 5), P(R.x0 + 0.6, R.y, 0, 3.5), P(R.x1 - 0.8, R.y, 0, 1.6),
+      P(S.x + 2.4, S.y, 0, 3.2), { event: 'up' }, A(P(S.x + 5, S.y, 1.0, 5)), A(P(5, 9.6, 2.6, 5.5)), A(P(14.4, R.y, 1.0, 5), true), P(R.x0 + 0.6, R.y, 0, 3.5), P(R.x1 - 0.8, R.y, 0, 1.6),
       { turn: Math.PI }, { event: 'home' },
     ];
   }
@@ -310,6 +314,11 @@ export class Play {
     const tr = m.trip;
     if (!tr) return;
     m.pause = 1;
+    // (Steered -- or on autopilot back to the runway after: flying free.)
+    if (tr.free || (tr.turn && this.steerable(m))) {
+      this.flyFree(m, dt);
+      return;
+    }
     const next = () => {
       tr.k++;
       tr.t = 0;
@@ -361,6 +370,65 @@ export class Play {
     m.x += (dx / d) * step;
     m.y += (dy / d) * step;
     m.z += (st.to.z - m.z) * (step / d);
+  }
+
+  // Up in the air on the way, where you can steer it?
+  steerable(m) {
+    const tr = m.trip;
+    return !!tr && (!!tr.free || (!!tr.steps[tr.k]?.steer && (m.z || 0) > 0.5));
+  }
+
+  // Flying free: steered (tr.turn, -1 left or 1 right, held), along at a
+  // steady speed and height; let go, the autopilot takes it back -- round
+  // to a point out on the line the runway it's heading for runs along
+  // (the island's on the way there, home on the way back), then in to the
+  // fix on that line, and from there it lands as ever.
+  flyFree(m, dt) {
+    const tr = m.trip;
+    const f = (tr.free ||= { auto: null });
+    const k = tr.steps.findIndex((st, i) => i >= tr.k && st.fix);
+    const F = tr.steps[k].to;
+    const T = tr.steps[k + 1].to;
+    const n = Math.hypot(T.x - F.x, T.y - F.y) || 1;
+    const L = { x: (T.x - F.x) / n, y: (T.y - F.y) / n };
+    const V = 4.2;
+    const CRUISE = 2.2;
+    let turn = 0;
+    let z = CRUISE;
+    if (tr.turn) {
+      turn = tr.turn;
+      f.auto = null;
+    } else {
+      // (Behind the fix already, coming in along the line: straight to it.
+      // Anywhere else: first round to a point well out along the line.)
+      if (!f.auto) f.auto = (m.x - F.x) * L.x + (m.y - F.y) * L.y < -2.5 && Math.abs((m.x - F.x) * L.y - (m.y - F.y) * L.x) < 1 ? 'fix' : 'entry';
+      const to = f.auto === 'entry' ? { x: F.x - L.x * 3.5, y: F.y - L.y * 3.5 } : F;
+      const d = Math.hypot(to.x - m.x, to.y - m.y);
+      const off = Math.atan2(Math.sin(Math.atan2(to.y - m.y, to.x - m.x) - m.head), Math.cos(Math.atan2(to.y - m.y, to.x - m.x) - m.head));
+      // (Close, and it's behind: straight on a little first, to come round
+      // wide rather than circle it.)
+      turn = Math.abs(off) > Math.PI / 2 && d < 2.2 ? 0 : clamp(off * 2, -1, 1);
+      if (f.auto === 'entry' && d < 1) f.auto = 'fix';
+      if (f.auto === 'fix') {
+        z = F.z + (CRUISE - F.z) * clamp((d - 0.5) / 3.5, 0, 1);
+        if (d < 0.6) {
+          // (On the line, at the fix: in to land.)
+          tr.k = k + 1;
+          tr.t = 0;
+          tr.free = null;
+          return;
+        }
+      }
+    }
+    // (Not off the edge of the world: round, back toward the town.)
+    if (m.x < -17 || m.x > SIZE + 9 || m.y < -8 || m.y > SIZE + 8) {
+      const home = Math.atan2(SIZE / 2 - m.y, SIZE / 2 - m.x);
+      turn = Math.sign(Math.atan2(Math.sin(home - m.head), Math.cos(home - m.head))) || 1;
+    }
+    m.head += turn * 1.5 * dt;
+    m.x += Math.cos(m.head) * V * dt;
+    m.y += Math.sin(m.head) * V * dt;
+    m.z += clamp(z - m.z, -0.9 * dt, 0.9 * dt);
   }
 
   // The helipad on the hospital roof: { x, y }.
@@ -1454,6 +1522,11 @@ export class Play {
       // back to the middle -- the way you chose stays chosen.)
       if (f.gas === e.pointerId) f.gas = null;
       if (f.steer?.id === e.pointerId) f.steer = null;
+      // (Flying: let go of ◀ or ▶, and the autopilot takes it back.)
+      if (f.hold?.id === e.pointerId) {
+        f.hold = null;
+        if (f.h.trip) f.h.trip.turn = null;
+      }
       if (!drag || e.pointerId !== drag.id) return;
       f.drag = null;
       f.lookT = 0;
@@ -1520,6 +1593,14 @@ export class Play {
       this.capture(e.pointerId);
       f.flash = { act: 'gas', t: this.t };
       this.hooks.haptic?.(8);
+    } else if (b && f.ride) {
+      // (Flying: ◀ or ▶ held, turning that way for as long as it's held.)
+      if (!this.can(b.act)) return;
+      f.hold = { id: e.pointerId, act: b.act };
+      f.h.trip.turn = b.act === 'left' ? -1 : 1;
+      f.flash = { act: b.act, t: this.t };
+      this.capture(e.pointerId);
+      this.hooks.sfx?.('tap');
     } else if (b) this.choose(b.act);
     else {
       this.capture(e.pointerId);
@@ -1551,6 +1632,7 @@ export class Play {
   can(act) {
     const f = this.fp;
     const h = f.h;
+    if (f.ride) return (act === 'left' || act === 'right') && h.kind === 'plane' && this.steerable(h);
     // Driving: the lights and the horn, always; the gas, unless you're busy
     // with a job (out of the cab, say); ◀ or ▶, the way to turn at the
     // corner coming up -- if it's a different way from straight on (or to
@@ -1630,7 +1712,8 @@ export class Play {
 
   // The buttons along the bottom, for what you're in.
   padList() {
-    if (this.fp?.ride) return [];
+    // (Riding: nothing to press -- but up in the airplane, ◀ and ▶ to steer.)
+    if (this.fp?.ride) return this.fp.h.kind === 'plane' && this.steerable(this.fp.h) ? this.pads.filter((q) => q.act !== 'go') : [];
     return this.usePedals() ? this.carPads : this.pads;
   }
 
@@ -2235,6 +2318,7 @@ export class Play {
     this.pinch = null;
     this.lastFp = h;
     const ride = this.fp.ride;
+    if (h.trip) h.trip.turn = null;
     this.fp = null;
     this.picker = false;
     if (ride) {
@@ -2267,6 +2351,11 @@ export class Play {
     const busy = h.pause > 0 || !!h.deliver || !!h.trip;
     if (h.kind === 'heli' && !busy && !h.path.length && this.targetPlace(h)) this.send(h);
     const flying = h.kind === 'plane' ? !!h.trip && (h.z > 0.01 || h.trip.k > 1) : !!h.flying;
+    // (Up in the airplane, and yours to steer: say so -- once a trip.)
+    if (h.kind === 'plane' && h.trip && !h.trip.told && this.steerable(h)) {
+      h.trip.told = true;
+      this.tell('Steer left or right!');
+    }
     f.engine = flying ? 0.35 + 0.35 * clamp((h.z || 0) / 2, 0, 1) : 0.12;
     // (The yoke, leaning into a turn.)
     const turn = Math.atan2(Math.sin(h.head - f.head), Math.cos(h.head - f.head)) / Math.max(dt, 1e-3);
@@ -3826,7 +3915,7 @@ export class Play {
         // you're turning at the next corner -- and glowing gently, the way
         // to the job, if that's a turn. Just pressed: a flash.
         const way = b.act === 'go' ? 'straight' : b.act;
-        const chosen = car && f.intent === b.act;
+        const chosen = (car && f.intent === b.act) || (f.ride && f.hold?.act === b.act);
         const lit = live && !chosen && way === (car ? f.hint : this.choosing() ? f.hint || 'straight' : 'straight');
         const flash = f.flash?.act === b.act ? Math.max(0, 1 - (this.t - f.flash.t) / 0.4) : 0;
         if (lit || flash) {
