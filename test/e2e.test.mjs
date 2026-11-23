@@ -1388,6 +1388,62 @@ test('benji’s town: the steering wheel puts you in the one you’re watching -
   }
 });
 
+test('benji’s town: a treat tapped right by the shop -- stopped there in the driver’s seat, or busy there a moment -- is had at once', { skip: !chromium, timeout: 90000 }, async () => {
+  const server = await serve();
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(`http://localhost:${server.address().port}/`);
+    await page.evaluate(() => {
+      localStorage.setItem('pocket-arcade:benji:day', '2');
+      localStorage.setItem('pocket-arcade:benji:drive', 'false');
+    });
+    await page.goto(`http://localhost:${server.address().port}/#/benji`);
+    await page.waitForFunction(() => window.__benji);
+    const r = await page.evaluate(() => {
+      const p = window.__benji;
+      cancelAnimationFrame(p.raf);
+      const said = [];
+      p.hooks.say = (w) => w && said.push(w);
+      p.hooks.sfx = () => {};
+      p.fireAt = null;
+      p.robAt = null;
+      for (let i = 0; i < 900 && !p.part; i++) p.update(1 / 30);
+      const cafe = p.town.places.find((q) => q.kind === 'cafe');
+      const door = cafe.doors[0];
+      const park = (h) => Object.assign(h, { tile: { ...door }, x: door.x + 0.5, y: door.y + 0.5, path: [] });
+      // (In the driver's seat, stopped right outside: in for it at once.)
+      // (The cement mixer: nothing of its own to do at the café.)
+      const h = p.helpers.find((m) => m.kind === 'mixer');
+      p.enter(h);
+      park(h);
+      p.update(1 / 30);
+      p.treat(cafe);
+      const seat = { kind: h.deliver?.kind, stopped: !p.fp.go };
+      for (let i = 0; i < 30 * 12 && h.deliver; i++) p.update(1 / 30);
+      p.leave();
+      // (From above: busy a moment right there -- then in for it.)
+      const o = h;
+      park(o);
+      o.pause = 1;
+      p.treat(cafe);
+      const waiting = { treat: o.treat?.place, deliver: !!o.deliver };
+      for (let i = 0; i < 30 * 1.5; i++) p.update(1 / 30);
+      return { seat, waiting, after: o.deliver?.kind, yum: said.filter((w) => w === 'Yum! Ice cream!').length };
+    });
+    assert.deepEqual(r.seat, { kind: 'cone', stopped: true }, 'in the seat, stopped there: at once');
+    assert.deepEqual(r.waiting, { treat: 'cafe', deliver: false }, 'busy a moment: it waits');
+    assert.equal(r.after, 'cone', 'then in for it');
+    assert.ok(r.yum >= 1);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+    server.close();
+  }
+});
+
 test('benji’s town: the airplane flies over the town and the sea to Island City, lands, and flies home', { skip: !chromium, timeout: 90000 }, async () => {
   const server = await serve();
   const browser = await chromium.launch();

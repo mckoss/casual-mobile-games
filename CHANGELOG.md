@@ -6,6 +6,11 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.117.3
+- Benji's Town: tap the ice cream or the apple when you're right by the
+  shop -- stopped outside, or driving past -- and you stop and go in for
+  it straight away (not the next time you drive up).
+
 ## 1.117.2
 - Benji's Town: the steering wheel puts you in the one you're watching --
   up in the airplane, out with the dog at the park (ready to play fetch)

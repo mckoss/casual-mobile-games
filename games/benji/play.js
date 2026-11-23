@@ -910,7 +910,9 @@ export class Play {
   // you're watching, or the nearest one out on a trip, or else the
   // nearest -- and the arrow and dots show the way there at once.)
   treat(p) {
-    const free = (h) => !h.deliver && h.pause <= 0 && !h.treat;
+    // (Free: not in the middle of a delivery, nor a trip. Stopped a moment
+    // on a job is fine -- the treat's next, as soon as it's done.)
+    const free = (h) => !h.deliver && !h.trip && !h.spray && !h.treat;
     let h = this.fp ? this.fp.h : null;
     if (!h) {
       const dist = (m) => Math.hypot(m.x - p.x - 0.5, m.y - p.y - 0.5);
@@ -926,12 +928,30 @@ export class Play {
     // (Where it was going, to go on there after.)
     h.treat = { place: p.id, resume: h.path.length && !h.budging ? h.path[h.path.length - 1] : null };
     h.budging = false;
+    // (Right by it -- stopped there, or going past: in for it, now.)
+    if (h.pause <= 0 && this.byTreat(h)) {
+      this.visit(h);
+      return;
+    }
     if (this.fp?.h === h) return; // (you drive it there)
     this.focus = h;
     this.manual = 0;
     if (h.kind === 'walker') h.path = this.walk.route(h.node, this.spot.get(p.id)).slice(1);
     else h.path = this.way(h, this.near(h, p)).slice(1);
-    if (!h.path.length) this.visit(h);
+    // (There already: in for it -- once it's done what it's doing.)
+    if (!h.path.length && h.pause <= 0) this.visit(h);
+  }
+
+  // Is a helper on its way to a treat right by the shop -- stopped beside
+  // it, or driving (or walking) past its door?
+  byTreat(h) {
+    const p = h.treat && this.place(h.treat.place);
+    if (!p) return false;
+    if (h.kind === 'walker') {
+      const at = this.walk.nodes[this.spot.get(p.id)];
+      return !!at && Math.hypot(h.x - at.x, h.y - at.y) < 0.7;
+    }
+    return p.doors.some((d) => Math.hypot(h.x - d.x - 0.5, h.y - d.y - 0.5) < 1.15);
   }
 
   // There: out of the cab (or, the dog walker, leaving the dog by the
@@ -2704,6 +2724,9 @@ export class Play {
     };
     for (const h of this.helpers) {
       move(h);
+      // (On its way to a treat, and there -- or going right past it, or
+      // just done with what it was doing beside it: stop, and in for it.)
+      if (h.treat && !h.deliver && h.pause <= 0 && !h.trip && this.byTreat(h)) this.visit(h);
       // (The hose off, the fire out.)
       if (h.spray && h.pause <= 0) {
         h.spray = null;
