@@ -30,14 +30,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pages: write
-      id-token: write
-    concurrency:
-      group: pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      deploy: ${{ steps.newest.outputs.deploy }}
     steps:
       - uses: actions/checkout@v4
       # A run that started late (GitHub sometimes delays them) must not put
@@ -60,11 +54,29 @@ jobs:
           cp -r index.html manifest.webmanifest sw.js sw-manifest.js css js games icons _site/
           touch _site/.nojekyll
       - if: steps.newest.outputs.deploy == 'true'
-        uses: actions/configure-pages@v5
-      - if: steps.newest.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
+  # Publishing, in a job of its own (as GitHub's own Pages workflow does):
+  # deploy-pages looks the uploaded site up among the run's artifacts, which
+  # right after the upload, in the same job, it could fail to find ("No
+  # artifacts named github-pages"). And it needs to be allowed to list them.
+  publish:
+    needs: deploy
+    if: needs.deploy.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
       - id: deployment
-        if: steps.newest.outputs.deploy == 'true'
         uses: actions/deploy-pages@v4
