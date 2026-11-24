@@ -1472,7 +1472,7 @@ test('benji’s town: up in the airplane, hold ◀ or ▶ to steer it about -- l
       p.drive = true;
       const a = p.helpers.find((h) => h.kind === 'plane');
       p.start(a);
-      const before = p.padList().length;
+      const before = `${p.padList().map((q) => q.act).join()}:${p.can('left')}`;
       for (let i = 0; i < 30 * 30 && !p.steerable(a); i++) p.update(1 / 30);
       p.draw();
       const left = p.padList().find((q) => q.act === 'left');
@@ -1480,7 +1480,7 @@ test('benji’s town: up in the airplane, hold ◀ or ▶ to steer it about -- l
       window.__head = a.head;
       return { before, acts: p.padList().map((q) => q.act).join(), at: left && [r.left + left.x, r.top + left.y] };
     });
-    assert.equal(pad.before, 0, 'nothing to press on the runway');
+    assert.equal(pad.before, 'left,right:false', '◀ and ▶ on the runway, faded -- not yet');
     assert.equal(pad.acts, 'left,right', '◀ and ▶, up in the air');
     await page.mouse.move(...pad.at);
     await page.mouse.down();
@@ -1577,12 +1577,19 @@ test('benji’s town: the boat takes people fishing -- from the marina across th
       const seat = !!p.fp?.ride && p.fp.h === b;
       for (let i = 0; i < 30 * 20 && !p.steerable(b); i++) p.update(1 / 30);
       const pads = p.padList().map((q) => q.act).join();
-      b.trip.turn = -1;
+      // (Steered on, round to the north of the town and along it -- then
+      // let go.)
       let dry = 0;
-      for (let i = 0; i < 30 * 6; i++) {
-        p.update(1 / 30);
-        if (!p.constructor.wet(b.x, b.y)) dry++;
+      let north = false;
+      for (const [wx, wy] of [[-1.5, -2], [9, -2.5]]) {
+        for (let i = 0; i < 30 * 30 && Math.hypot(wx - b.x, wy - b.y) > 1; i++) {
+          const off = Math.atan2(Math.sin(Math.atan2(wy - b.y, wx - b.x) - b.head), Math.cos(Math.atan2(wy - b.y, wx - b.x) - b.head));
+          b.trip.turn = Math.max(-1, Math.min(1, off * 2));
+          p.update(1 / 30);
+          if (!p.constructor.wet(b.x, b.y)) dry++;
+        }
       }
+      north = b.y < -1 && b.x > 7;
       b.trip.turn = null;
       let island = false;
       for (let i = 0; i < 30 * 90 && b.trip; i++) {
@@ -1590,9 +1597,37 @@ test('benji’s town: the boat takes people fishing -- from the marina across th
         if (Math.hypot(b.x + 6.2, b.y - 11.3) < 0.2) island = true;
         if (!p.constructor.wet(b.x, b.y)) dry++;
       }
-      return { seat, pads, island, dry, home: !b.trip };
+      return { seat, pads, north, island, dry, home: !b.trip };
     });
-    assert.deepEqual(ride, { seat: true, pads: 'left,right', island: true, dry: 0, home: true });
+    assert.deepEqual(ride, { seat: true, pads: 'left,right', north: true, island: true, dry: 0, home: true });
+    // (The wheel: a finger on the view, dragged right -- the boat turns
+    // right, and the wheel with it; let go, and the autopilot has it.)
+    await go(true);
+    const grip = await page.evaluate(() => {
+      const p = window.__benji;
+      const b = p.helpers.find((h) => h.kind === 'boat');
+      p.start(b);
+      for (let i = 0; i < 30 * 20 && !p.steerable(b); i++) p.update(1 / 30);
+      p.draw();
+      const r = p.canvas.getBoundingClientRect();
+      window.__head = b.head;
+      return [r.left + p.W / 2, r.top + p.seatH * 0.6];
+    });
+    await page.mouse.move(...grip);
+    await page.mouse.down();
+    await page.mouse.move(grip[0] + 90, grip[1], { steps: 4 });
+    const turning = await page.evaluate(() => {
+      const p = window.__benji;
+      const b = p.fp.h;
+      const turn = b.trip.turn;
+      for (let i = 0; i < 30; i++) p.update(1 / 30);
+      return { turn, turned: Math.atan2(Math.sin(b.head - window.__head), Math.cos(b.head - window.__head)), wheel: p.fp.wheel, look: p.fp.look };
+    });
+    await page.mouse.up();
+    assert.equal(turning.turn, 1, 'the wheel, turned right');
+    assert.ok(turning.turned > 0.6 && turning.wheel > 0.3, `turned right: ${JSON.stringify(turning)}`);
+    assert.equal(turning.look, 0, 'steering, not looking round');
+    assert.equal(await page.evaluate(() => window.__benji.fp.h.trip.turn), null, 'let go');
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

@@ -6,6 +6,14 @@ The version shows at the bottom of the home screen. Entries describe what
 players can see: new games and features, changes to how things play, and
 anything taken away (not internal fixes or renames along the way).
 
+## 1.120.0
+- Benji's Town: the boat's wheel steers -- drag your finger left or right
+  on the view (or hold ◀ ▶), the whole way out and back. The sea goes all
+  round Benji's Town now: sail right round it, or round Island City --
+  let go and it finds its own way.
+- Benji's Town: steer the airplane the same way, any time it's in the
+  air -- ◀ ▶ are always there (faded on the runway).
+
 ## 1.119.0
 - Benji's Town: a marina, with a boat! Some evenings there are people to
   take fishing: across the sea to Island City's pier, a fish, and home.

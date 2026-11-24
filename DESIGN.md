@@ -229,10 +229,15 @@ pictures and a sound for every touch.
   a while there fishing -- "We caught a fish!" 🐟 -- round, and home
   again ("Home again!"). Like the airplane: one tap from above does it
   all; driving, you ride at the boat's wheel (a white deck, a ship's
-  wheel turning with the boat), with ◀ and ▶ to steer it about on the
-  way there and back -- let go and it heads on by itself, round the
-  island if it's in the way; it never goes onto land (at the shore, it
-  slides along it). And it can go again, as often as you like.
+  wheel turning just as you turn it), steering whenever it's under way,
+  out or back: ◀ and ▶, or a finger on the view dragged left or right --
+  the wheel. The sea goes all the way round Benji's Town (and the
+  airport, out past it), so you can sail right round it, round the back
+  of Island City, anywhere -- let go and it finds its way on by itself,
+  by the shortest way by water (round the town's corners, the
+  airport's, the island: `seaWay`, over points round the coasts); it
+  never goes onto land (at the shore, it slides along it). And it can
+  go again, as often as you like.
 - **Any day again:** tap the day, top left ("Day 7 ▾"): a button for each
   day so far -- play an easier one again (the town as it was that day),
   or come back to where you'd got to. The furthest day is kept.
@@ -307,9 +312,12 @@ pictures and a sound for every touch.
   at once. Or tap a job along the top: into the seat of whoever does it
   (yours clear along there, everyone else's faded). The one you left
   stops where it is, its button over it, for later.
-- **Steering the airplane:** riding in it, once it's up in the air on its
-  way (to the island, or home), ◀ and ▶ come up along the bottom ("Steer
-  left or right!", once a trip): hold one and it banks round that way,
+- **Steering the airplane:** riding in it, ◀ and ▶ are along the bottom
+  (faded till it's off the ground); whenever it's up in the air -- on its
+  way out, back, coming in to land -- they steer ("Steer left or right!",
+  once a trip), and so does a finger on the view: drag it left or right
+  and the yoke turns that way, the further the harder (held still, on as
+  it's going). Hold one and it banks round that way,
   at a steady speed and height, anywhere over the town and the sea (not
   off the edge of the world: it turns back). Let go and the autopilot
   takes it back: round to a point out on the line the runway it's

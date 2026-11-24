@@ -35,6 +35,17 @@ const ISLAND = { x: -9.5, y: 8.5, r: 3.4 };
 const DOCK = { x: -1.1, y: 7.86 };
 const ISLE_DOCK = { x: -6.2, y: 11.3 };
 const PIERS = [{ x0: -0.05, x1: -1.75, y: 7.5 }, { x0: -7.3, x1: -5.75, y: 10.95 }];
+// The sea, all round the town: as far as the boat can go; the land in it
+// (the town, and the airport out past its east side, with a little
+// margin) besides the island; and points round the coasts for the boat to
+// find its way by.
+const WORLD = { x0: -20, x1: SIZE + 14, y0: -12, y1: SIZE + 12 };
+const LAND = [{ x0: -0.5, y0: -0.5, x1: SIZE + 0.5, y1: SIZE + 0.5 }, { x0: SIZE - 0.5, y0: 2.9, x1: RUNWAY.x1 + 1.3, y1: 8.1 }];
+const SEA_NODES = [
+  { x: -1.4, y: -1.4 }, { x: SIZE + 1.4, y: -1.4 }, { x: SIZE + 1.4, y: SIZE + 1.4 }, { x: -1.4, y: SIZE + 1.4 },
+  { x: SIZE + 1.4, y: 2.1 }, { x: SIZE + 1.4, y: 8.9 }, { x: RUNWAY.x1 + 2.1, y: 2.1 }, { x: RUNWAY.x1 + 2.1, y: 8.9 },
+  ...Array.from({ length: 8 }, (_, k) => ({ x: ISLAND.x + Math.cos((k / 8) * Math.PI * 2) * (ISLAND.r + 1.2), y: ISLAND.y + Math.sin((k / 8) * Math.PI * 2) * (ISLAND.r + 1.2) })),
+];
 // How far the camera can go: the town, the airport and the island.
 const VIEW = { x0: -13, x1: SIZE + 7, y0: -2, y1: SIZE + 2 };
 const BOX = 40; // the tray's pictures (and the gap between them: 5)
@@ -304,7 +315,7 @@ export class Play {
     const [R, S] = [RUNWAY, ISLAND];
     const P = (x, y, z, v) => ({ to: { x, y, z }, v });
     const A = (st, fix = false) => ({ ...st, steer: true, fix });
-    return [
+    return Play.legs([
       { wait: 1.6 },
       P(R.x0 + 0.6, R.y, 0, 3.2), { event: 'up' },
       // (Up in the air, on the way: yours to steer -- steer: the way it's
@@ -314,7 +325,17 @@ export class Play {
       { event: 'island' }, { wait: 3 }, { turn: 0 },
       P(S.x + 2.4, S.y, 0, 3.2), { event: 'up' }, A(P(S.x + 5, S.y, 1.0, 5)), A(P(5, 9.6, 2.6, 5.5)), A(P(14.4, R.y, 1.0, 5), true), P(R.x0 + 0.6, R.y, 0, 3.5), P(R.x1 - 0.8, R.y, 0, 1.6),
       { turn: Math.PI }, { event: 'home' },
-    ];
+    ]);
+  }
+
+  // Each step of a trip, marked with its leg: 'out' (till it's there) or
+  // 'back' (from there on) -- which fix the autopilot heads for.
+  static legs(steps) {
+    let leg = 'out';
+    return steps.map((st) => {
+      if (st.event === 'island') leg = 'back';
+      return { ...st, leg };
+    });
   }
 
   // The boat's trip, the same way: cast off from the marina's pier, out
@@ -325,13 +346,13 @@ export class Play {
     const [D, E] = [DOCK, ISLE_DOCK];
     const P = (x, y, v) => ({ to: { x, y, z: 0 }, v });
     const A = (st, fix = false) => ({ ...st, steer: true, fix });
-    return [
+    return Play.legs([
       { wait: 1.4 },
       A(P(D.x - 2.2, D.y + 1, 1.6)), A(P(E.x + 2.6, E.y, 1.6), true), P(E.x, E.y, 0.9),
       { event: 'island' }, { wait: 1.4 }, { event: 'fish' }, { wait: 2.6 }, { turn: 0 },
       A(P(E.x + 2.4, E.y - 1.2, 1.6)), A(P(D.x - 2.6, D.y, 1.6), true), P(D.x, D.y, 0.9),
       { turn: Math.PI }, { event: 'home' },
-    ];
+    ]);
   }
 
   // The airplane's trip, or the boat's: a step at a time.
@@ -340,7 +361,7 @@ export class Play {
     if (!tr) return;
     m.pause = 1;
     // (Steered -- or on autopilot back to the runway after: flying free.)
-    if (tr.free || (tr.turn && this.steerable(m))) {
+    if (tr.free || (tr.turn != null && this.steerable(m))) {
       this.flyFree(m, dt);
       return;
     }
@@ -402,10 +423,15 @@ export class Play {
     m.z += (st.to.z - m.z) * (step / d);
   }
 
-  // Up in the air on the way, where you can steer it?
+  // Up in the air on the way, where you can steer it? (The boat: whenever
+  // it's under way, out or back.)
   steerable(m) {
     const tr = m.trip;
-    return !!tr && (!!tr.free || (!!tr.steps[tr.k]?.steer && (m.kind === 'boat' || (m.z || 0) > 0.5)));
+    if (!tr) return false;
+    if (tr.free) return true;
+    const st = tr.steps[tr.k];
+    // (The airplane: whenever it's up in the air -- coming in to land too.)
+    return m.kind === 'boat' ? !!st?.to : !!st?.to && (m.z || 0) > 0.4;
   }
 
   // Flying free: steered (tr.turn, -1 left or 1 right, held), along at a
@@ -416,7 +442,10 @@ export class Play {
   flyFree(m, dt) {
     const tr = m.trip;
     const f = (tr.free ||= { auto: null });
-    const k = tr.steps.findIndex((st, i) => i >= tr.k && st.fix);
+    // (The fix for this leg: the island's on the way out, home's on the way
+    // back.)
+    const leg = tr.steps[tr.k].leg;
+    const k = tr.steps.findIndex((st) => st.fix && st.leg === leg);
     const F = tr.steps[k].to;
     const T = tr.steps[k + 1].to;
     const n = Math.hypot(T.x - F.x, T.y - F.y) || 1;
@@ -424,12 +453,12 @@ export class Play {
     // (The boat: slower, turning tighter, on the water -- and round the
     // island, never onto land.)
     const boat = m.kind === 'boat';
-    const V = boat ? 1.6 : 4.2;
+    const V = boat ? 2 : 4.2;
     const CRUISE = boat ? 0 : 2.2;
     const OUT = boat ? 1.6 : 3.5;
     let turn = 0;
     let z = CRUISE;
-    if (tr.turn) {
+    if (tr.turn != null) {
       turn = tr.turn;
       f.auto = null;
     } else {
@@ -437,7 +466,7 @@ export class Play {
       // Anywhere else: first round to a point well out along the line.)
       if (!f.auto) f.auto = (m.x - F.x) * L.x + (m.y - F.y) * L.y < -OUT * 0.7 && Math.abs((m.x - F.x) * L.y - (m.y - F.y) * L.x) < (boat ? 0.4 : 1) ? 'fix' : 'entry';
       const aim = f.auto === 'entry' ? { x: F.x - L.x * OUT, y: F.y - L.y * OUT } : F;
-      const to = boat ? this.roundIsland(m, aim) : aim;
+      const to = boat ? this.seaWay(m, aim) : aim;
       const d = Math.hypot(to.x - m.x, to.y - m.y);
       const off = Math.atan2(Math.sin(Math.atan2(to.y - m.y, to.x - m.x) - m.head), Math.cos(Math.atan2(to.y - m.y, to.x - m.x) - m.head));
       // (Close, and it's behind: straight on a little first, to come round
@@ -457,7 +486,7 @@ export class Play {
       }
     }
     // (Not off the edge of the world: round, back toward the town.)
-    if (m.x < -17 || m.x > SIZE + 9 || m.y < -8 || m.y > SIZE + 8) {
+    if (m.x < WORLD.x0 + 2 || m.x > WORLD.x1 - 2 || m.y < WORLD.y0 + 2 || m.y > WORLD.y1 - 2) {
       const home = Math.atan2(SIZE / 2 - m.y, SIZE / 2 - m.x);
       turn = Math.sign(Math.atan2(Math.sin(home - m.head), Math.cos(home - m.head))) || 1;
     }
@@ -481,24 +510,66 @@ export class Play {
     }
   }
 
-  // Is (x, y) out on the sea -- not the town, not the island?
-  static wet(x, y) {
-    return x < -0.5 && Math.hypot(x - ISLAND.x, y - ISLAND.y) > ISLAND.r + 0.35;
+  // Is (x, y) out on the sea -- not the town (nor the airport, out past
+  // its east side), not the island, not off the edge of the world?
+  static wet(x, y, pad = 0) {
+    if (x < WORLD.x0 || x > WORLD.x1 || y < WORLD.y0 || y > WORLD.y1) return false;
+    if (LAND.some((q) => x > q.x0 - pad && x < q.x1 + pad && y > q.y0 - pad && y < q.y1 + pad)) return false;
+    return Math.hypot(x - ISLAND.x, y - ISLAND.y) > ISLAND.r + 0.35 + pad;
   }
 
-  // Where the boat should head for, to get to (to.x, to.y) without running
-  // onto the island: there -- or, if the island's in the way, a point off
-  // its shore on the side it's passing.
-  roundIsland(m, to) {
+  // Is the straight way from a to b all water (pad: and that far from the
+  // shore)?
+  static clear(a, b, pad = 0.3) {
+    for (const q of LAND) {
+      // (Liang-Barsky: does the segment cross the box?)
+      let [t0, t1] = [0, 1];
+      const [dx, dy] = [b.x - a.x, b.y - a.y];
+      const ok = [[-dx, a.x - (q.x0 - pad)], [dx, q.x1 + pad - a.x], [-dy, a.y - (q.y0 - pad)], [dy, q.y1 + pad - a.y]].every(([p, r]) => {
+        if (p === 0) return r >= 0;
+        const t = r / p;
+        if (p < 0) t0 = Math.max(t0, t);
+        else t1 = Math.min(t1, t);
+        return t0 <= t1;
+      });
+      if (ok) return false;
+    }
     const C = ISLAND;
-    const R = C.r + 0.6;
-    const [dx, dy] = [to.x - m.x, to.y - m.y];
-    const u = clamp(((C.x - m.x) * dx + (C.y - m.y) * dy) / (dx * dx + dy * dy || 1), 0, 1);
-    let [nx, ny] = [m.x + dx * u - C.x, m.y + dy * u - C.y];
-    if (Math.hypot(nx, ny) >= R) return to;
-    if (Math.hypot(nx, ny) < 1e-3) [nx, ny] = [-dy, dx];
-    const k = Math.hypot(nx, ny);
-    return { x: C.x + (nx / k) * (R + 0.7), y: C.y + (ny / k) * (R + 0.7) };
+    const [dx, dy] = [b.x - a.x, b.y - a.y];
+    const u = clamp(((C.x - a.x) * dx + (C.y - a.y) * dy) / (dx * dx + dy * dy || 1), 0, 1);
+    return Math.hypot(a.x + dx * u - C.x, a.y + dy * u - C.y) > C.r + 0.35 + pad;
+  }
+
+  // Where the boat should head for, to get to (to.x, to.y) by water: there,
+  // if it's a straight run; else the first of the points round the coasts
+  // (the town's corners, the airport's, round the island) on the shortest
+  // way there.
+  seaWay(m, to) {
+    if (Play.clear(m, to, 0)) return to;
+    const nodes = SEA_NODES;
+    if (!Play.seaLinks) Play.seaLinks = nodes.map((a) => nodes.map((b) => a !== b && Play.clear(a, b)));
+    const n = nodes.length;
+    // (Dijkstra: from the boat, n the target.)
+    const dist = new Array(n + 1).fill(Infinity);
+    const prev = new Array(n + 1).fill(-1);
+    const done = new Array(n + 1).fill(false);
+    const at = (i) => (i === n ? to : nodes[i]);
+    for (let i = 0; i < n; i++) if (Play.clear(m, nodes[i], 0)) dist[i] = Math.hypot(nodes[i].x - m.x, nodes[i].y - m.y);
+    for (;;) {
+      let i = -1;
+      for (let j = 0; j <= n; j++) if (!done[j] && dist[j] < Infinity && (i < 0 || dist[j] < dist[i])) i = j;
+      if (i < 0 || i === n) break;
+      done[i] = true;
+      for (let j = 0; j <= n; j++) {
+        if (done[j] || !(j === n ? Play.clear(nodes[i], to) : Play.seaLinks[i][j])) continue;
+        const d = dist[i] + Math.hypot(at(j).x - nodes[i].x, at(j).y - nodes[i].y);
+        if (d < dist[j]) [dist[j], prev[j]] = [d, i];
+      }
+    }
+    if (dist[n] === Infinity) return to;
+    let i = prev[n];
+    while (prev[i] >= 0) i = prev[i];
+    return nodes[i];
   }
 
   // The helipad on the hospital roof: { x, y }.
@@ -1587,6 +1658,12 @@ export class Play {
     const f = this.fp;
     const drag = f.drag;
     if (type === 'move') {
+      // (Riding the airplane or the boat: a finger dragged left or right is
+      // the wheel turned that way -- the further, the harder.)
+      if (f.helm && e.pointerId === f.helm.id) {
+        if (f.h.trip) f.h.trip.turn = clamp((sx - f.helm.sx) / 60, -1, 1);
+        return;
+      }
       // (The steering wheel, turned by the thumb on it: slid left, or right.)
       if (f.steer && e.pointerId === f.steer.id) {
         this.steerTo(clamp((sx - f.steer.sx) / 46, -1.3, 1.3));
@@ -1602,7 +1679,13 @@ export class Play {
       // back to the middle -- the way you chose stays chosen.)
       if (f.gas === e.pointerId) f.gas = null;
       if (f.steer?.id === e.pointerId) f.steer = null;
-      // (Flying: let go of ◀ or ▶, and the autopilot takes it back.)
+      // (Flying: let go of ◀ or ▶ -- or the wheel -- and the autopilot takes
+      // it back.)
+      if (f.helm?.id === e.pointerId) {
+        f.helm = null;
+        if (f.h.trip) f.h.trip.turn = null;
+        return;
+      }
       if (f.hold?.id === e.pointerId) {
         f.hold = null;
         if (f.h.trip) f.h.trip.turn = null;
@@ -1682,7 +1765,13 @@ export class Play {
       this.capture(e.pointerId);
       this.hooks.sfx?.('tap');
     } else if (b) this.choose(b.act);
-    else {
+    else if (f.ride && this.can('left')) {
+      // (Riding, and it can be steered: a finger on the view takes the
+      // wheel -- held still, on as it's going.)
+      this.capture(e.pointerId);
+      f.helm = { id: e.pointerId, sx };
+      f.h.trip.turn = 0;
+    } else {
       this.capture(e.pointerId);
       f.drag = { id: e.pointerId, sx, look: f.look, moved: false };
     }
@@ -1792,8 +1881,9 @@ export class Play {
 
   // The buttons along the bottom, for what you're in.
   padList() {
-    // (Riding: nothing to press -- but up in the airplane, ◀ and ▶ to steer.)
-    if (this.fp?.ride) return (this.fp.h.kind === 'plane' || this.fp.h.kind === 'boat') && this.steerable(this.fp.h) ? this.pads.filter((q) => q.act !== 'go') : [];
+    // (Riding: nothing to press in the helicopter -- in the airplane and the
+    // boat, ◀ and ▶ to steer: always there, faded till it can be steered.)
+    if (this.fp?.ride) return this.fp.h.kind === 'plane' || this.fp.h.kind === 'boat' ? this.pads.filter((q) => q.act !== 'go') : [];
     return this.usePedals() ? this.carPads : this.pads;
   }
 
@@ -2399,6 +2489,7 @@ export class Play {
     this.lastFp = h;
     const ride = this.fp.ride;
     if (h.trip) h.trip.turn = null;
+    this.fp.helm = null;
     this.fp = null;
     this.picker = false;
     if (ride) {
@@ -2441,7 +2532,9 @@ export class Play {
     // (The yoke, leaning into a turn.)
     const turn = Math.atan2(Math.sin(h.head - f.head), Math.cos(h.head - f.head)) / Math.max(dt, 1e-3);
     f.head = h.head;
-    f.wheel += (clamp(turn * 0.35, -0.6, 0.6) - f.wheel) * Math.min(1, dt * 4);
+    // (Held -- ◀ ▶ or a finger: the wheel turned just as far as that.)
+    const held = h.trip?.turn;
+    f.wheel += ((held != null ? held * 0.6 : clamp(turn * 0.35, -0.6, 0.6)) - f.wheel) * Math.min(1, dt * (held != null ? 10 : 4));
     if (!busy && !h.path.length && !this.targetPlace(h)) {
       f.done += dt;
       if (f.done > 2) this.leave();
@@ -4199,7 +4292,7 @@ export class Play {
   // lines, crosswalks and stop lines.
   // The sea, west of town (with Island City out in it).
   drawSea(view) {
-    I.rect(this.g, view, -40, -40, -0.3, SIZE + 40, '#4ea8de', -0.15);
+    I.rect(this.g, view, -40, -40, SIZE + 40, SIZE + 40, '#4ea8de', -0.15);
   }
 
   // Out past the edge of town: the island (its beach, its grass, its
